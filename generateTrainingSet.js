@@ -326,7 +326,7 @@ configuration.DROPBOX.DROPBOX_GTS_STATS_FILE = process.env.DROPBOX_GTS_STATS_FIL
 
 configuration.normalization = null;
 configuration.verbose = false;
-configuration.testMode = true; // per tweet test mode
+configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
 configuration.maxTestCount = 500;
 
