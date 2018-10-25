@@ -2209,11 +2209,11 @@ function generateGlobalTrainingTestSet(params){
       await initCategorizedUserHashmap();
       await updateCategorizedUsers();
 
-      const tempArchiveFile = configuration.defaultUserArchivePath + ".tmp_" + process.pid;
+      // const tempArchiveFile = configuration.defaultUserArchivePath + ".tmp_" + process.pid;
 
-      console.log(chalkAlert("GTS | USERS ARCHIVE TEMP FILE: " + tempArchiveFile));
+      console.log(chalkAlert("GTS | USERS ARCHIVE TEMP FILE: " + configuration.defaultUserArchivePath));
 
-      await initArchiver({outputFile: tempArchiveFile});
+      await initArchiver({outputFile: configuration.defaultUserArchivePath});
       await archiveUsers();
 
       let mihmObj = {};
