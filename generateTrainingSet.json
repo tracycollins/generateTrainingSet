@@ -1,0 +1,20 @@
+{
+  "apps": [
+  {
+    "name": "gts",
+    "script": "generateTrainingSet.js",
+    "cwd": "/home/tc/generateTrainingSet",
+    "node_args": "--max-old-space-size=8192",
+    "autorestart": true,
+    "restart_delay": 600,
+    "env": {
+      "FORCE_COLOR": 1,
+      "NODE_ENV": "production",
+      "GCLOUD_PROJECT": "graphic-tangent-627",
+      "GOOGLE_PROJECT": "graphic-tangent-627",
+      "DROPBOX_WORD_ASSO_ACCESS_TOKEN": "nknEWsIkD5UAAAAAAAQouTDFRBKfwsFzuS8PPi2Q_JVYnpotNuaHiddNtmG4mUTi",
+      "DROPBOX_WORD_ASSO_APP_KEY": "qlb9k4dp01t9iqk",
+      "DROPBOX_WORD_ASSO_APP_SECRET": "wqslhe2t95zfn19"
+    }
+  }]
+}

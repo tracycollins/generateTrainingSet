@@ -1,0 +1,46 @@
+{
+  "name": "@threeceelabs/generate-training-set",
+  "version": "1.0.0",
+  "description": "generate twitter nn training set",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "threecee",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tracycollins/generateTrainingSet.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tracycollins/generateTrainingSet/issues"
+  },
+  "homepage": "https://github.com/tracycollins/generateTrainingSet#readme",
+  "dependencies": {
+    "@threeceelabs/mongoose-twitter": "^1.0.147",
+    "@threeceelabs/twitter-image-parser": "^1.0.54",
+    "@threeceelabs/twitter-text-parser": "^1.0.49",
+    "@threeceelabs/user-server-controller": "^1.0.353",
+    "archiver": "^3.0.0",
+    "array-normalize": "^1.1.3",
+    "array-slice": "^1.1.0",
+    "deep-copy": "^1.4.2",
+    "deepmerge": "^2.2.1",
+    "dropbox": "^4.0.12",
+    "eventemitter3": "^3.1.0",
+    "isomorphic-fetch": "^2.2.1",
+    "json-parse-safe": "^1.0.5",
+    "lockfile": "^1.0.4",
+    "mongoose": "^5.3.6",
+    "object-sizeof": "^1.2.0",
+    "object.omit": "^3.0.0",
+    "object.pick": "^1.3.0",
+    "retry": "^0.12.0",
+    "slack-node": "^0.1.8",
+    "treeify": "^1.1.0",
+    "unzip": "^0.1.11",
+    "watch": "^1.0.2",
+    "write-json-file": "^3.0.2",
+    "yauzl": "^2.10.0"
+  }
+}
