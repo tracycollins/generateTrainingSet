@@ -28,6 +28,7 @@
     "deepmerge": "^2.2.1",
     "dropbox": "^4.0.12",
     "eventemitter3": "^3.1.0",
+    "hashmap": "^2.3.0",
     "isomorphic-fetch": "^2.2.1",
     "json-parse-safe": "^1.0.5",
     "lockfile": "^1.0.4",
