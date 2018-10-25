@@ -42,5 +42,6 @@
     "watch": "^1.0.2",
     "write-json-file": "^3.0.2",
     "yauzl": "^2.10.0"
-  }
+  },
+  "devDependencies": {}
 }
