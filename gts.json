@@ -6,7 +6,7 @@
     "cwd": "/Volumes/RAID1/projects/generateTrainingSet",
     "node_args": "--max-old-space-size=8192",
     "autorestart": true,
-    "restart_delay": 60,
+    "restart_delay": 3600000,
     "env": {
       "FORCE_COLOR": 1,
       "NODE_ENV": "production",

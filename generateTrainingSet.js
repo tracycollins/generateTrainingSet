@@ -2211,7 +2211,7 @@ function generateGlobalTrainingTestSet(params){
 
       // const tempArchiveFile = configuration.defaultUserArchivePath + ".tmp_" + process.pid;
 
-      console.log(chalkAlert("GTS | USERS ARCHIVE TEMP FILE: " + configuration.defaultUserArchivePath));
+      console.log(chalkAlert("GTS | USERS ARCHIVE FILE: " + configuration.defaultUserArchivePath));
 
       await initArchiver({outputFile: configuration.defaultUserArchivePath});
       await archiveUsers();
