@@ -380,11 +380,14 @@ else {
 }
 
 let globalhistograms = {};
-globalhistograms.words = {};
-globalhistograms.urls = {};
-globalhistograms.hashtags = {};
-globalhistograms.mentions = {};
 globalhistograms.emoji = {};
+globalhistograms.hashtags = {};
+globalhistograms.images = {};
+globalhistograms.media = {};
+globalhistograms.mentions = {};
+globalhistograms.urls = {};
+globalhistograms.userMentions = {};
+globalhistograms.words = {};
 
 let categorizedUserHashmap = new HashMap();
 
