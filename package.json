@@ -18,7 +18,7 @@
   "homepage": "https://github.com/tracycollins/generateTrainingSet#readme",
   "dependencies": {
     "@threeceelabs/mongoose-twitter": "^1.0.147",
-    "@threeceelabs/twitter-image-parser": "^1.0.55",
+    "@threeceelabs/twitter-image-parser": "^1.0.56",
     "@threeceelabs/twitter-text-parser": "^1.0.50",
     "@threeceelabs/user-server-controller": "^1.0.362",
     "archiver": "^3.0.0",
