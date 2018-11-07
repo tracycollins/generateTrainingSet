@@ -398,6 +398,18 @@ categorizedUserHistogram.neutral = 0;
 categorizedUserHistogram.positive = 0;
 categorizedUserHistogram.negative = 0;
 categorizedUserHistogram.none = 0;
+categorizedUserHistogram.total = 0;
+
+const categorizedUserHistogramTotal = function(){
+  categorizedUserHistogram.total = categorizedUserHistogram.left;
+  categorizedUserHistogram.total += categorizedUserHistogram.right;
+  categorizedUserHistogram.total += categorizedUserHistogram.neutral;
+  categorizedUserHistogram.total += categorizedUserHistogram.positive;
+  categorizedUserHistogram.total += categorizedUserHistogram.negative;
+  categorizedUserHistogram.total += categorizedUserHistogram.none;
+
+  return categorizedUserHistogram.total;
+}
 
 
 const configEvents = new EventEmitter3({
@@ -661,7 +673,10 @@ function showStats(options){
       + "\nGTS | ============================================================"
     ));
 
+    categorizedUserHistogramTotal();
+
     console.log(chalkLog("GTS | CL U HIST"
+      + " | TOTAL: " + categorizedUserHistogram.total
       + " | L: " + categorizedUserHistogram.left
       + " | R: " + categorizedUserHistogram.right
       + " | N: " + categorizedUserHistogram.neutral
@@ -1638,7 +1653,10 @@ function updateCategorizedUsers(){
               + " USERS CATEGORIZED"
             ));
 
+            categorizedUserHistogramTotal();
+
             console.log(chalkLog("GTS | CL U HIST"
+              + " | TOTAL: " + categorizedUserHistogram.total
               + " | L: " + categorizedUserHistogram.left 
               + " | R: " + categorizedUserHistogram.right
               + " | N: " + categorizedUserHistogram.neutral
@@ -1923,8 +1941,11 @@ function updateCategorizedUsers(){
               + " USERS CATEGORIZED"
             ));
 
+            categorizedUserHistogramTotal();
+
             console.log(chalkLog("GTS | CL U HIST"
-              + " | L: " + categorizedUserHistogram.left
+              + " | TOTAL: " + categorizedUserHistogram.total
+              + " | L: " + categorizedUserHistogram.left 
               + " | R: " + categorizedUserHistogram.right
               + " | N: " + categorizedUserHistogram.neutral
               + " | +: " + categorizedUserHistogram.positive
@@ -1979,8 +2000,11 @@ function updateCategorizedUsers(){
         + " (" + categorizedUsersPercent.toFixed(1) + "%)" + " USERS CATEGORIZED"
       ));
 
-      console.log(chalkBlueBold("GTS | CL U HIST"
-        + " | L: " + categorizedUserHistogram.left
+      categorizedUserHistogramTotal();
+
+      console.log(chalkLog("GTS | CL U HIST"
+        + " | TOTAL: " + categorizedUserHistogram.total
+        + " | L: " + categorizedUserHistogram.left 
         + " | R: " + categorizedUserHistogram.right
         + " | N: " + categorizedUserHistogram.neutral
         + " | +: " + categorizedUserHistogram.positive
