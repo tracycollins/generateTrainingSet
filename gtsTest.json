@@ -3,11 +3,12 @@
   {
     "name": "gts",
     "script": "generateTrainingSet.js",
-    "cwd": "/home/tc/generateTrainingSet",
+    "cwd": "/Volumes/RAID1/projects/generateTrainingSet",
     "node_args": "--max-old-space-size=8192",
     "autorestart": false,
     "restart_delay": 3600000,
     "env": {
+      "GTS_TEST_MODE": true,
       "FORCE_COLOR": 1,
       "NODE_ENV": "production",
       "GCLOUD_PROJECT": "graphic-tangent-627",

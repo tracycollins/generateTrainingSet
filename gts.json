@@ -5,7 +5,7 @@
     "script": "generateTrainingSet.js",
     "cwd": "/Volumes/RAID1/projects/generateTrainingSet",
     "node_args": "--max-old-space-size=8192",
-    "autorestart": true,
+    "autorestart": false,
     "restart_delay": 3600000,
     "env": {
       "FORCE_COLOR": 1,

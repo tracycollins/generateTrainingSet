@@ -243,6 +243,11 @@ let saveFileQueueInterval;
 let saveFileBusy = false;
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
+configuration.normalization = null;
+configuration.verbose = false;
+configuration.testMode = false; // per tweet test mode
+configuration.testSetRatio = DEFAULT_TEST_RATIO;
+configuration.maxTestCount = 500;
 
 
 let defaultConfiguration = {}; // general configuration for GTS
@@ -294,7 +299,7 @@ configuration.defaultTrainingSetsFolder = "/config/utility/default/trainingSets"
 configuration.hostTrainingSetsFolder = "/config/utility/" + hostname + "/trainingSets";
 
 configuration.defaultUserArchiveFolder = (hostname === "google") ? "/home/tc/Dropbox/Apps/wordAssociation" + configuration.defaultTrainingSetsFolder + "/users" 
-  : "/Users/tc/Dropbox/Apps/wordAssociation" + configuration.defaultTrainingSetsFolder + "/users";
+  : "/Users/tc/Dropbox/Apps/wordAssociation" + configuration.hostTrainingSetsFolder + "/users";
 
 configuration.defaultUserArchiveFile = "users.zip";
 configuration.defaultUserArchivePath = configuration.defaultUserArchiveFolder + "/" + configuration.defaultUserArchiveFile;
@@ -324,11 +329,6 @@ configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_SECRET = process.env.DROPBOX_WORD_AS
 configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE = process.env.DROPBOX_GTS_CONFIG_FILE || "generateTrainingSetConfig.json";
 configuration.DROPBOX.DROPBOX_GTS_STATS_FILE = process.env.DROPBOX_GTS_STATS_FILE || "generateTrainingSetStats.json";
 
-configuration.normalization = null;
-configuration.verbose = false;
-configuration.testMode = false; // per tweet test mode
-configuration.testSetRatio = DEFAULT_TEST_RATIO;
-configuration.maxTestCount = 500;
 
 const slackOAuthAccessToken = "xoxp-3708084981-3708084993-206468961315-ec62db5792cd55071a51c544acf0da55";
 
@@ -1347,6 +1347,23 @@ function loadConfigFile(params) {
         let newConfiguration = {};
         newConfiguration.evolve = {};
 
+        if (loadedConfigObj.GTS_TEST_MODE  !== undefined){
+          console.log("GTS | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE);
+
+          if ((loadedConfigObj.GTS_TEST_MODE === true) || (loadedConfigObj.GTS_TEST_MODE === "true")) {
+            newConfiguration.testMode = true;
+          }
+          else if ((loadedConfigObj.GTS_TEST_MODE === false) || (loadedConfigObj.GTS_TEST_MODE === "false")) {
+            newConfiguration.testMode = false;
+          }
+          else {
+            newConfiguration.testMode = false;
+          }
+
+          console.log("GTS | LOADED newConfiguration.testMode: " + newConfiguration.testMode);
+        }
+
+
         if (loadedConfigObj.GTS_OFFLINE_MODE  !== undefined){
           console.log("GTS | LOADED GTS_OFFLINE_MODE: " + loadedConfigObj.GTS_OFFLINE_MODE);
 
@@ -1374,11 +1391,6 @@ function loadConfigFile(params) {
         if (loadedConfigObj.GTS_VERBOSE_MODE  !== undefined){
           console.log("GTS | LOADED GTS_VERBOSE_MODE: " + loadedConfigObj.GTS_VERBOSE_MODE);
           newConfiguration.verbose = loadedConfigObj.GTS_VERBOSE_MODE;
-        }
-
-        if (loadedConfigObj.GTS_TEST_MODE  !== undefined){
-          console.log("GTS | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE);
-          newConfiguration.testMode = loadedConfigObj.GTS_TEST_MODE;
         }
 
         if (loadedConfigObj.GTS_ENABLE_STDIN  !== undefined){
@@ -1429,7 +1441,9 @@ function loadAllConfigFiles(callback){
       }
    
       let defaultAndHostConfig = merge(defaultConfiguration, hostConfiguration); // host settings override defaults
+      console.log("defaultAndHostConfig.testMode: " + defaultAndHostConfig.testMode);
       let tempConfig = merge(configuration, defaultAndHostConfig); // any new settings override existing config
+      console.log("tempConfig.testMode: " + tempConfig.testMode);
 
       resolve(tempConfig);
     }
@@ -2454,7 +2468,8 @@ function initialize(cnf){
       debug(chalkWarn("dropboxConfigDefaultFile  : " + dropboxConfigDefaultFile));
 
       await initStdIn();
-      let tempConfig = await loadAllConfigFiles();
+      
+      configuration = await loadAllConfigFiles();
 
       let tempCommandLineArgs = await loadCommandLineArgs();
       
