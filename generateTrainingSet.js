@@ -2,6 +2,20 @@
 /*jshint sub:true*/
 "use strict";
 
+const inputTypes = [
+  "emoji", 
+  "hashtags",  
+  "images", 
+  "locations", 
+  "media", 
+  "mentions", 
+  "places", 
+  "sentiment", 
+  "urls", 
+  "userMentions", 
+  "words"
+];
+
 global.dbConnection = false;
 let dbConnectionReady = false;
 
@@ -380,14 +394,11 @@ else {
 }
 
 let globalhistograms = {};
-globalhistograms.emoji = {};
-globalhistograms.hashtags = {};
-globalhistograms.images = {};
-globalhistograms.media = {};
-globalhistograms.mentions = {};
-globalhistograms.urls = {};
-globalhistograms.userMentions = {};
-globalhistograms.words = {};
+
+
+inputTypes.forEach(function(type){
+  globalhistograms[type] = {};
+});
 
 let categorizedUserHashmap = new HashMap();
 
@@ -1879,6 +1890,9 @@ function updateCategorizedUsers(){
                     "category", 
                     "categoryAuto", 
                     "histograms", 
+                    "location", 
+                    "ignored", 
+                    "following", 
                     "threeceeFollowing"
                   ]);
 
