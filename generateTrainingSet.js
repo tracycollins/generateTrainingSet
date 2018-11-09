@@ -2120,8 +2120,10 @@ function initCategorizedUserHashmap(){
     p.limit = DEFAULT_FIND_CAT_USER_CURSOR_LIMIT;
     p.batchSize = DEFAULT_CURSOR_BATCH_SIZE;
     p.query = { 
-      "category": { "$nin": [ false, null ] } 
+      "$and": [ { "ignored": { "$nin": [ true ] } }, { "category": { "$nin": [ false, null ] } } ]
     };
+
+// db.users.find( { $and: [ { followersCount: { $lt: 25000 } }, { 'category': false } , { 'following': false } ] } )
 
     let more = true;
     let totalCount = 0;
