@@ -2123,8 +2123,6 @@ function initCategorizedUserHashmap(){
       "$and": [ { "ignored": { "$nin": [ true ] } }, { "category": { "$nin": [ false, null ] } } ]
     };
 
-// db.users.find( { $and: [ { followersCount: { $lt: 25000 } }, { 'category': false } , { 'following': false } ] } )
-
     let more = true;
     let totalCount = 0;
     let totalManual = 0;
