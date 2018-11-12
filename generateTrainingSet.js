@@ -2430,7 +2430,7 @@ function initArchiver(params){
 
   return new Promise(async function(resolve, reject){
 
-    const archiveFilePath = (hostname === "google") ? "/home/tc/" + params.outputFile : "/Users/tc/Dropbox/Apps/wordAssociation" + params.outputFile;
+    const archiveFilePath = (hostname === "google") ? "/home/tc/Dropbox/Apps/wordAssociation" + params.outputFile : "/Users/tc/Dropbox/Apps/wordAssociation" + params.outputFile;
 
     console.log(chalkBlue("GTS | INIT ARCHIVER | " + archiveFilePath));
 
