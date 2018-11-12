@@ -83,7 +83,7 @@ const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 const SMALL_SET_SIZE = 100;
 const SMALL_TEST_SET_SIZE = 20;
 
-const TEST_MODE_LENGTH = 500;
+const TEST_MODE_LENGTH = 100;
 const TEST_DROPBOX_NN_LOAD = 10;
 
 const DEFAULT_LOAD_ALL_INPUTS = false;
@@ -312,10 +312,18 @@ configuration.histogramsFolder = "/config/utility/default/histograms";
 configuration.defaultTrainingSetsFolder = "/config/utility/default/trainingSets";
 configuration.hostTrainingSetsFolder = "/config/utility/" + hostname + "/trainingSets";
 
-configuration.defaultUserArchiveFolder = (hostname === "google") ? "/home/tc/Dropbox/Apps/wordAssociation" + configuration.defaultTrainingSetsFolder + "/users" 
-  : "/Users/tc/Dropbox/Apps/wordAssociation" + configuration.hostTrainingSetsFolder + "/users";
+configuration.defaultUserArchiveFolder = (hostname === "google") 
+  ? configuration.defaultTrainingSetsFolder + "/users" 
+  : configuration.hostTrainingSetsFolder + "/users";
 
-configuration.defaultUserArchiveFile = "users.zip";
+configuration.defaultUserArchiveFile = hostname + "_" + getTimeStamp() + "_users.zip";
+
+configuration.archiveFileUploadCompleteFlagFolder = (hostname === "google") 
+  ? configuration.defaultTrainingSetsFolder + "/users"
+  : configuration.hostTrainingSetsFolder + "/users";
+
+configuration.archiveFileUploadCompleteFlagFile = "usersZipUploadComplete.json";
+
 configuration.defaultUserArchivePath = configuration.defaultUserArchiveFolder + "/" + configuration.defaultUserArchiveFile;
 
 configuration.trainingSetFile = "trainingSet.json";
@@ -701,7 +709,7 @@ function showStats(options){
 
 function quit(options){
 
-  console.log(chalkAlert("GTS | ... QUITTING ..." ));
+  console.log(chalkAlert("GTS | QUITTING ..." ));
 
   clearInterval(initMainInterval);
   clearInterval(saveFileQueueInterval);
@@ -754,21 +762,21 @@ function connectDb(){
 
     wordAssoDb.connect("GTS_" + process.pid, function(err, db){
       if (err) {
-        console.log(chalkError("*** GTS | MONGO DB CONNECTION ERROR: " + err));
+        console.log(chalkError("GTS | *** MONGO DB CONNECTION ERROR: " + err));
         dbConnectionReady = false;
         return reject(err);
       }
 
       db.on("error", function(){
-        console.error.bind(console, "*** GTS | MONGO DB CONNECTION ERROR ***\n");
-        console.log(chalkError("*** GTS | MONGO DB CONNECTION ERROR ***\n"));
+        console.error.bind(console, "GTS | *** MONGO DB CONNECTION ERROR ***\n");
+        console.log(chalkError("GTS | *** MONGO DB CONNECTION ERROR ***\n"));
         db.close();
         dbConnectionReady = false;
       });
 
       db.on("disconnected", function(){
-        console.error.bind(console, "*** GTS | MONGO DB DISCONNECTED ***\n");
-        console.log(chalkAlert("*** GTS | MONGO DB DISCONNECTED ***\n"));
+        console.error.bind(console, "GTS | *** MONGO DB DISCONNECTED ***\n");
+        console.log(chalkAlert("GTS | *** MONGO DB DISCONNECTED ***\n"));
         dbConnectionReady = false;
       });
 
@@ -785,229 +793,235 @@ function connectDb(){
   });
 }
 
-function saveFile (params, callback){
+function saveFile(params){
 
-  const fullPath = params.folder + "/" + params.file;
+  return new Promise(function(resolve, reject){
 
-  debug(chalkInfo("LOAD FOLDER " + params.folder));
-  debug(chalkInfo("LOAD FILE " + params.file));
-  debug(chalkInfo("FULL PATH " + fullPath));
+    const fullPath = params.folder + "/" + params.file;
 
-  let options = {};
+    debug(chalkInfo("LOAD FOLDER " + params.folder));
+    debug(chalkInfo("LOAD FILE " + params.file));
+    debug(chalkInfo("FULL PATH " + fullPath));
 
-  if (params.localFlag) {
+    let options = {};
 
-    // const jsonfileOptions = {};
+    if (params.localFlag) {
 
-    options.access_token = configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN;
-    options.file_size = sizeof(params.obj);
-    options.destination = params.folder + "/" + params.file;
-    options.autorename = true;
-    options.mode = params.mode || "overwrite";
-    options.mode = "overwrite";
+      // const jsonfileOptions = {};
 
-    const objSizeMBytes = options.file_size/ONE_MEGABYTE;
+      options.access_token = configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN;
+      options.file_size = sizeof(params.obj);
+      options.destination = params.folder + "/" + params.file;
+      options.autorename = true;
+      options.mode = params.mode || "overwrite";
+      options.mode = "overwrite";
 
-    showStats();
-    console.log(chalkInfo("GTS | ... SAVING LOCALLY | " + objSizeMBytes.toFixed(2) + " MB | " + fullPath));
+      const objSizeMBytes = options.file_size/ONE_MEGABYTE;
 
-    writeJsonFile(fullPath, params.obj)
-    .then(function() {
+      showStats();
+      console.log(chalkInfo("GTS | ... SAVING LOCALLY | " + objSizeMBytes.toFixed(2) + " MB | " + fullPath));
 
-      console.log(chalkInfo("GTS | SAVED LOCALLY | " + objSizeMBytes.toFixed(2) + " MB | " + fullPath));
+      writeJsonFile(fullPath, params.obj)
+      .then(function() {
 
-      const waitSaveTimeout = (objSizeMBytes < 10) ? 100 : 5*ONE_SECOND;
+        console.log(chalkInfo("GTS | SAVED LOCALLY | " + objSizeMBytes.toFixed(2) + " MB | " + fullPath));
 
-      // console.log(chalkInfo("GTS | ... PAUSE 5 SEC TO FINISH FILE SAVE | " + objSizeMBytes.toFixed(2) + " MB | " + fullPath));
+        const waitSaveTimeout = (objSizeMBytes < 10) ? 100 : 5*ONE_SECOND;
 
-      setTimeout(function(){
+        // console.log(chalkInfo("GTS | ... PAUSE 5 SEC TO FINISH FILE SAVE | " + objSizeMBytes.toFixed(2) + " MB | " + fullPath));
 
-        console.log(chalkInfo("GTS | ... DROPBOX UPLOADING | " + objSizeMBytes.toFixed(2) + " MB | " + fullPath + " > " + options.destination));
+        setTimeout(function(){
 
-        const stats = fs.statSync(fullPath);
-        const fileSizeInBytes = stats.size;
-        const savedSize = fileSizeInBytes/ONE_MEGABYTE;
+          console.log(chalkInfo("GTS | ... DROPBOX UPLOADING | " + objSizeMBytes.toFixed(2) + " MB | " + fullPath + " > " + options.destination));
 
-        console.log(chalkLog("GTS | ... SAVING DROPBOX JSON"
-          + " | " + getTimeStamp()
-          + " | " + savedSize.toFixed(2) + " MBYTES"
-          + "\n SRC: " + fullPath
-          + "\n DST: " + options.destination
-        ));
+          const stats = fs.statSync(fullPath);
+          const fileSizeInBytes = stats.size;
+          const savedSize = fileSizeInBytes/ONE_MEGABYTE;
 
-        const drbx = require("@davvo/drbx")({
-          token: configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN
-        });
+          console.log(chalkLog("GTS | ... SAVING DROPBOX JSON"
+            + " | " + getTimeStamp()
+            + " | " + savedSize.toFixed(2) + " MBYTES"
+            + "\n SRC: " + fullPath
+            + "\n DST: " + options.destination
+          ));
 
-        let localReadStream = fs.createReadStream(fullPath);
-        let remoteWriteStream = drbx.file(options.destination).createWriteStream();
+          const drbx = require("@davvo/drbx")({
+            token: configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN
+          });
+
+          let localReadStream = fs.createReadStream(fullPath);
+          let remoteWriteStream = drbx.file(options.destination).createWriteStream();
 
 
-        let bytesRead = 0;
-        let chunksRead = 0;
-        let mbytesRead = 0;
-        let percentRead = 0;
+          let bytesRead = 0;
+          let chunksRead = 0;
+          let mbytesRead = 0;
+          let percentRead = 0;
 
-        localReadStream.pipe(remoteWriteStream);
+          localReadStream.pipe(remoteWriteStream);
 
-        localReadStream.on("data", function(chunk){
-          bytesRead += chunk.length;
-          mbytesRead = bytesRead/ONE_MEGABYTE;
-          percentRead = 100 * bytesRead/fileSizeInBytes;
-          chunksRead += 1;
-          if (chunksRead % 100 === 0){
-            console.log(chalkInfo("GTS | LOCAL READ"
+          localReadStream.on("data", function(chunk){
+            bytesRead += chunk.length;
+            mbytesRead = bytesRead/ONE_MEGABYTE;
+            percentRead = 100 * bytesRead/fileSizeInBytes;
+            chunksRead += 1;
+            if (chunksRead % 100 === 0){
+              console.log(chalkInfo("GTS | LOCAL READ"
+                + " | " + mbytesRead.toFixed(2) + " / " + savedSize.toFixed(2) + " MB"
+                + " (" + percentRead.toFixed(2) + "%)"
+              ));
+            }
+          });
+
+          localReadStream.on("close", function(){
+            console.log(chalkInfo("GTS | LOCAL STREAM READ CLOSED | SOURCE: " + fullPath));
+          });
+
+          remoteWriteStream.on("close", function(){
+            console.log(chalkInfo("GTS | REMOTE STREAM WRITE CLOSED | DEST: " + options.destination));
+          });
+
+          localReadStream.on("end", function(){
+            console.log(chalkInfo("GTS | LOCAL READ COMPLETE"
+              + " | SOURCE: " + fullPath
               + " | " + mbytesRead.toFixed(2) + " / " + savedSize.toFixed(2) + " MB"
               + " (" + percentRead.toFixed(2) + "%)"
             ));
-          }
-        });
+            localReadStream.close();
+          });
 
-        localReadStream.on("close", function(){
-          console.log(chalkInfo("GTS | LOCAL STREAM READ CLOSED | SOURCE: " + fullPath));
-        });
+          localReadStream.on("error", function(err){
+            console.error("GTS | *** LOCAL STREAM READ ERROR | " + err);
+            return reject(err);
+          });
 
-        remoteWriteStream.on("close", function(){
-          console.log(chalkInfo("GTS | REMOTE STREAM WRITE CLOSED | DEST: " + options.destination));
-        });
+          remoteWriteStream.on("end", function(){
+            console.log(chalkInfo("GTS | REMOTE STREAM WRITE END | DEST: " + options.destination));
+            return resolve();
+          });
 
-        localReadStream.on("end", function(){
-          console.log(chalkInfo("GTS | LOCAL READ COMPLETE"
-            + " | SOURCE: " + fullPath
-            + " | " + mbytesRead.toFixed(2) + " / " + savedSize.toFixed(2) + " MB"
-            + " (" + percentRead.toFixed(2) + "%)"
-          ));
-          localReadStream.close();
-        });
+          remoteWriteStream.on("error", function(err){
+            console.error("GTS | *** REMOTE STREAM WRITE ERROR | DEST: " + options.destination + "\n" + err);
+            return reject(err);
+          });
 
-        localReadStream.on("error", function(err){
-          console.error("GTS | *** LOCAL STREAM READ ERROR | " + err);
-          if (callback !== undefined) { return callback(err); }
-        });
-
-        remoteWriteStream.on("end", function(){
-          console.log(chalkInfo("GTS | REMOTE STREAM WRITE END | DEST: " + options.destination));
-          if (callback !== undefined) { return callback(null); }
-        });
-
-        remoteWriteStream.on("error", function(err){
-          console.error("GTS | *** REMOTE STREAM WRITE ERROR | DEST: " + options.destination + "\n" + err);
-          if (callback !== undefined) { return callback(err); }
-        });
-
-      }, waitInterval);
-
-    })
-    .catch(function(error){
-      console.trace(chalkError("GTS | " + moment().format(compactDateTimeFormat) 
-        + " | !!! ERROR DROBOX JSON WRITE | FILE: " + fullPath 
-        + " | ERROR: " + error
-        + " | ERROR\n" + jsonPrint(error)
-      ));
-      if (callback !== undefined) { return callback(error); }
-    });
-  }
-  else {
-
-    options.contents = JSON.stringify(params.obj, null, 2);
-    options.autorename = params.autorename || false;
-    options.mode = params.mode || "overwrite";
-    options.path = fullPath;
-
-    const dbFileUpload = function () {
-
-      dropboxClient.filesUpload(options)
-      .then(function(){
-        debug(chalkLog("SAVED DROPBOX JSON | " + options.path));
-        if (callback !== undefined) { return callback(null); }
-      })
-      .catch(function(error){
-        if (error.status === 413){
-          console.log(chalkError("GTS | " + moment().format(compactDateTimeFormat) 
-            + " | !!! ERROR DROBOX JSON WRITE | FILE: " + fullPath 
-            + " | ERROR: 413"
-          ));
-          if (callback !== undefined) { return callback(error.error_summary); }
-        }
-        else if (error.status === 429){
-          console.log(chalkError("GTS | " + moment().format(compactDateTimeFormat) 
-            + " | !!! ERROR DROBOX JSON WRITE | FILE: " + fullPath 
-            + " | ERROR: TOO MANY WRITES"
-          ));
-          if (callback !== undefined) { return callback(error.error_summary); }
-        }
-        else if (error.status === 500){
-          console.log(chalkError("GTS | " + moment().format(compactDateTimeFormat) 
-            + " | !!! ERROR DROBOX JSON WRITE | FILE: " + fullPath 
-            + " | ERROR: DROPBOX SERVER ERROR"
-          ));
-          if (callback !== undefined) { return callback(error.error_summary); }
-        }
-        else {
-          console.log(chalkError("GTS | " + moment().format(compactDateTimeFormat) 
-            + " | !!! ERROR DROBOX JSON WRITE | FILE: " + fullPath 
-            + " | ERROR: " + error
-          ));
-          if (callback !== undefined) { return callback(error); }
-        }
-      });
-    };
-
-    if (options.mode === "add") {
-
-      dropboxClient.filesListFolder({path: params.folder, limit: DROPBOX_LIST_FOLDER_LIMIT})
-      .then(function(response){
-
-        debug(chalkLog("DROPBOX LIST FOLDER"
-          + " | ENTRIES: " + response.entries.length
-          + " | MORE: " + response.has_more
-          + " | PATH:" + options.path
-        ));
-
-        let fileExits = false;
-
-        async.each(response.entries, function(entry, cb){
-
-          console.log(chalkInfo("GTS | DROPBOX FILE"
-            + " | " + params.folder
-            + " | LAST MOD: " + moment(new Date(entry.client_modified)).format(compactDateTimeFormat)
-            + " | " + entry.name
-          ));
-
-          if (entry.name === params.file) {
-            fileExits = true;
-          }
-
-          async.setImmediate(function() { cb(); });
-
-        }, function(err){
-          if (err) {
-            console.log(chalkError("GTS | *** ERROR DROPBOX SAVE FILE: " + err));
-            if (callback !== undefined) { 
-              return callback(err, null);
-            }
-            return;
-          }
-          if (fileExits) {
-            console.log(chalkInfo("GTS | ... DROPBOX FILE EXISTS ... SKIP SAVE | " + fullPath));
-            if (callback !== undefined) { callback(err, null); }
-          }
-          else {
-            console.log(chalkInfo("GTS | ... DROPBOX DOES NOT FILE EXIST ... SAVING | " + fullPath));
-            dbFileUpload();
-          }
-        });
+        }, waitInterval);
 
       })
       .catch(function(err){
-        console.log(chalkError("GTS | *** DROPBOX SAVE FILE ERROR: " + err));
-        if (callback !== undefined) { callback(err, null); }
+        console.trace(chalkError("GTS | " + moment().format(compactDateTimeFormat) 
+          + " | !!! ERROR DROBOX JSON WRITE | FILE: " + fullPath 
+          + " | ERROR: " + err
+          + " | ERROR\n" + jsonPrint(err)
+        ));
+        return reject(err);
       });
     }
     else {
-      dbFileUpload();
+
+      if (params.text) {
+        options.contents = params.text;
+      }
+      else {
+        options.contents = JSON.stringify(params.obj, null, 2);
+      }
+      options.autorename = params.autorename || false;
+      options.mode = params.mode || "overwrite";
+      options.path = fullPath;
+
+      const dbFileUpload = function () {
+
+        dropboxClient.filesUpload(options)
+        .then(function(){
+          console.log(chalkLog("GTS | SAVED DROPBOX JSON | " + options.path));
+          resolve();
+        })
+        .catch(function(err){
+          if (err.status === 413){
+            console.log(chalkError("GTS | " + moment().format(compactDateTimeFormat) 
+              + " | !!! ERROR DROBOX JSON WRITE | FILE: " + fullPath 
+              + " | ERROR: 413"
+            ));
+            reject(err);
+          }
+          else if (err.status === 429){
+            console.log(chalkError("GTS | " + moment().format(compactDateTimeFormat) 
+              + " | !!! ERROR DROBOX JSON WRITE | FILE: " + fullPath 
+              + " | ERROR: TOO MANY WRITES"
+            ));
+            resolve(err.error_summary);
+          }
+          else if (err.status === 500){
+            console.log(chalkError("GTS | " + moment().format(compactDateTimeFormat) 
+              + " | !!! ERROR DROBOX JSON WRITE | FILE: " + fullPath 
+              + " | ERROR: DROPBOX SERVER ERROR"
+            ));
+            resolve(err.error_summary);
+          }
+          else {
+            console.log(chalkError("GTS | " + moment().format(compactDateTimeFormat) 
+              + " | !!! ERROR DROBOX JSON WRITE | FILE: " + fullPath 
+              + " | ERROR: " + err
+            ));
+            reject(err);
+          }
+        });
+      };
+
+      if (options.mode === "add") {
+
+        dropboxClient.filesListFolder({path: params.folder, limit: DROPBOX_LIST_FOLDER_LIMIT})
+        .then(function(response){
+
+          debug(chalkLog("DROPBOX LIST FOLDER"
+            + " | ENTRIES: " + response.entries.length
+            + " | MORE: " + response.has_more
+            + " | PATH:" + options.path
+          ));
+
+          let fileExits = false;
+
+          async.each(response.entries, function(entry, cb){
+
+            console.log(chalkInfo("GTS | DROPBOX FILE"
+              + " | " + params.folder
+              + " | LAST MOD: " + moment(new Date(entry.client_modified)).format(compactDateTimeFormat)
+              + " | " + entry.name
+            ));
+
+            if (entry.name === params.file) {
+              fileExits = true;
+            }
+
+            async.setImmediate(function() { cb(); });
+
+          }, function(err){
+            if (err) {
+              console.log(chalkError("GTS | *** ERROR DROPBOX SAVE FILE: " + err));
+              return reject(err);
+            }
+            if (fileExits) {
+              console.log(chalkInfo("GTS | ... DROPBOX FILE EXISTS ... SKIP SAVE | " + fullPath));
+              resolve(err);
+            }
+            else {
+              console.log(chalkInfo("GTS | ... DROPBOX DOES NOT FILE EXIST ... SAVING | " + fullPath));
+              dbFileUpload();
+            }
+          });
+
+        })
+        .catch(function(err){
+          console.log(chalkError("GTS | *** DROPBOX SAVE FILE ERROR: " + err));
+          return reject(err);
+        });
+      }
+      else {
+        dbFileUpload();
+      }
     }
-  }
+
+  });
 }
 
 function loadFileRetry(params){
@@ -1883,6 +1897,7 @@ function updateCategorizedUsers(){
                     "screenName", 
                     "nodeId", 
                     "name",
+                    "lang",
                     "statusesCount",
                     "followersCount",
                     "friendsCount",
@@ -2266,7 +2281,7 @@ function generateGlobalTrainingTestSet(params){
 
       // const tempArchiveFile = configuration.defaultUserArchivePath + ".tmp_" + process.pid;
 
-      console.log(chalkAlert("GTS | USERS ARCHIVE FILE: " + configuration.defaultUserArchivePath));
+      // console.log(chalkAlert("GTS | USERS ARCHIVE FILE: " + configuration.defaultUserArchivePath));
 
       await initArchiver({outputFile: configuration.defaultUserArchivePath});
       await archiveUsers();
@@ -2284,6 +2299,10 @@ function generateGlobalTrainingTestSet(params){
       archive.append(buf, { name: "maxInputHashMap.json" });
 
       archive.finalize();
+
+      // const stats = fs.statSync(configuration.defaultUserArchivePath);
+      // const fileSizeInBytes = stats.size;
+      // const savedSize = fileSizeInBytes/ONE_MEGABYTE;
 
       resolve();
 
@@ -2308,7 +2327,7 @@ function getFileLock(params){
 
     try {
 
-      // const fileUnlocked = await waitUnlocked(params);
+      console.log(chalkBlue("GTS | GET LOCK FILE | " + params.file));
 
       lockFile.lock(params.file, params.options, function(err){
 
@@ -2372,23 +2391,59 @@ function releaseFileLock(params){
   });
 }
 
-configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(lockFileName){
-  await releaseFileLock({file: lockFileName});
-  await delay({message: "GTS | WAIT FOR DROPBOX FILE SYNC", period: 5*ONE_SECOND});
-  quit("DONE");
+configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(archiveFilePath){
+
+  try{
+
+    await delay({message: "GTS | WAIT FOR DROPBOX FILE SYNC | " + archiveFilePath, period: 15*ONE_SECOND});
+
+    await releaseFileLock({file: archiveFilePath + ".lock"});
+
+    const stats = fs.statSync(archiveFilePath);
+    const fileSizeInBytes = stats.size;
+    const savedSize = fileSizeInBytes/ONE_MEGABYTE;
+
+    console.log(chalkLog("GTS | SAVING FLAG FILE" 
+      + " | " + configuration.defaultUserArchiveFolder + "/" + configuration.archiveFileUploadCompleteFlagFile 
+      + " | " + fileSizeInBytes + " B | " + savedSize.toFixed(3) + " MB"
+    ));
+
+    const fileSizeObj = { 
+      path: configuration.defaultUserArchiveFolder + "/" + configuration.defaultUserArchiveFile,
+      size: fileSizeInBytes
+    };
+
+    await saveFile({folder: configuration.defaultUserArchiveFolder, file: configuration.archiveFileUploadCompleteFlagFile, obj: fileSizeObj });
+
+    await delay({message: "GTS | WAIT FOR DROPBOX FLAG FILE SYNC", period: 15*ONE_SECOND});
+
+    quit("DONE");
+  }
+  catch(err){
+    console.log(chalkError("GTS | *** ARCHIVE_OUTPUT_CLOSED ERROR", err));
+    quit();
+  }
+
 });
 
 function initArchiver(params){
 
   return new Promise(async function(resolve, reject){
 
+    const archiveFilePath = (hostname === "google") ? "/home/tc/" + params.outputFile : "/Users/tc/Dropbox/Apps/wordAssociation" + params.outputFile;
+
+    console.log(chalkBlue("GTS | INIT ARCHIVER | " + archiveFilePath));
+
     if (archive && archive.isOpen) {
+      console.log(chalkAlert("GTS | ARCHIVE ALREADY OPEN | " + archiveFilePath));
       return resolve();
     }
 
     try {
 
-      const lockFileName = params.outputFile + ".lock";
+      const lockFileName = archiveFilePath + ".lock";
+
+      // console.log(chalkAlert("GTS | ARCHIVE LOCK FILE: " + lockFileName));
 
       let archiveFileLocked = await getFileLock({file: lockFileName, options: fileLockOptions});
 
@@ -2400,9 +2455,8 @@ function initArchiver(params){
         return resolve();
       }
 
-      console.log(chalkGreen("GTS | INIT ARCHIVE\n" + jsonPrint(params)));
       // create a file to stream archive data to.
-      const output = fs.createWriteStream(params.outputFile);
+      const output = fs.createWriteStream(archiveFilePath);
 
       archive = archiver("zip", {
         zlib: { level: 9 } // Sets the compression level.
@@ -2411,12 +2465,12 @@ function initArchiver(params){
       output.on("close", function() {
         const archiveSize = toMegabytes(archive.pointer());
         console.log(chalkGreen("GTS | ARCHIVE OUTPUT | CLOSED | " + archiveSize.toFixed(2) + " MB"));
-        configEvents.emit("ARCHIVE_OUTPUT_CLOSED", lockFileName);
+        configEvents.emit("ARCHIVE_OUTPUT_CLOSED", archiveFilePath);
       });
        
       output.on("end", function() {
         const archiveSize = toMegabytes(archive.pointer());
-        console.log(chalkGreen("GTS | ARCHIVE OUTPUT | END | " + archiveSize.toFixed(2) + " MB"));
+        console.log(chalkBlueBold("GTS | ARCHIVE OUTPUT | END | " + archiveSize.toFixed(2) + " MB"));
       });
        
       archive.on("warning", function(err) {
@@ -2442,11 +2496,11 @@ function initArchiver(params){
       });
        
       archive.on("close", function() {
-        console.log(chalkInfo("GTS | ARCHIVE | CLOSED"));
+        console.log(chalkBlueBold("GTS | ARCHIVE | CLOSED | " + archiveFilePath));
       });
        
       archive.on("finish", function() {
-        console.log(chalkInfo("GTS | ARCHIVE | FINISHED"));
+        console.log(chalkBlueBold("GTS | +++ ARCHIVE | FINISHED | " + archiveFilePath));
       });
        
       archive.on("error", function(err) {
@@ -2460,7 +2514,7 @@ function initArchiver(params){
       resolve();
     }
     catch(err){
-      console.log(chalkError("GTS | *** INIT ARCHIVE ERROR: " + err));
+      console.log(chalkError("GTS | *** INIT ARCHIVE ERROR | " + archiveFilePath + " | ERROR: " + err));
       reject(err);
     }
 
@@ -2549,8 +2603,13 @@ function initialize(cnf){
 }
 
 initialize(configuration)
-  .then(function(cnf){
-    generateGlobalTrainingTestSet({usersHashMap: trainingSetUsersHashMap, maxInputHashMap: userMaxInputHashMap});
+  .then(async function(cnf){
+    try {
+      await generateGlobalTrainingTestSet({usersHashMap: trainingSetUsersHashMap, maxInputHashMap: userMaxInputHashMap});
+    }
+    catch(err){
+
+    }
   })
   .catch(function(err){
 
