@@ -18,7 +18,7 @@
   "homepage": "https://github.com/tracycollins/generateTrainingSet#readme",
   "dependencies": {
     "@google-cloud/vision": "^0.23.0",
-    "@threeceelabs/mongoose-twitter": "^1.0.155",
+    "@threeceelabs/mongoose-twitter": "^1.0.157",
     "@threeceelabs/twitter-image-parser": "^1.0.56",
     "@threeceelabs/twitter-text-parser": "^1.0.53",
     "@threeceelabs/user-server-controller": "^1.0.374",
@@ -31,7 +31,7 @@
     "dropbox": "^4.0.13",
     "eventemitter3": "^3.1.0",
     "google-auth-library": "^2.0.1",
-    "google-gax": "^0.20.0",
+    "google-gax": "^0.22.1",
     "hashmap": "^2.3.0",
     "isomorphic-fetch": "^2.2.1",
     "json-parse-safe": "^1.0.5",
