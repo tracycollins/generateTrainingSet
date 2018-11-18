@@ -1719,6 +1719,24 @@ function updateCategorizedUsers(){
                 }
               }
             },
+            function userLocation(text, cb) {
+              if (user.location !== undefined) {
+                if (text) {
+                  cb(null, text + " | " + user.location);
+                }
+                else {
+                  cb(null, user.location);
+                }
+              }
+              else {
+                if (text) {
+                  cb(null, text);
+                }
+                else {
+                  cb(null, null);
+                }
+              }
+            },
             function userStatusText(text, cb) {
               if ((user.status !== undefined) && user.status && user.status.text) {
 
@@ -1880,7 +1898,7 @@ function updateCategorizedUsers(){
                 user: user, 
                 histograms: hist, 
                 computeMaxInputsFlag: true,
-                accumulateFlag: true
+                accumulateFlag: false
               };
 
               userServerController.updateHistograms(updateHistogramsParams, function(err, updatedUser){
