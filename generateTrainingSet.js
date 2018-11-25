@@ -1880,7 +1880,7 @@ function updateCategorizedUsers(){
 
             // parse the user's text for hashtags, urls, emoji, screenNames, and words; create histogram
 
-            twitterTextParser.parseText(text, {updateGlobalHistograms: true}, function(err, hist){
+            twitterTextParser.parseText({text: text, updateGlobalHistograms: true}, function(err, hist){
 
               if (err) {
                 console.error("*** PARSE TEXT ERROR\n" + err);
