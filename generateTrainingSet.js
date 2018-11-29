@@ -2333,7 +2333,8 @@ function generateGlobalTrainingTestSet(params){
       let mihmObj = {};
 
       mihmObj.maxInputHashMap = {};
-      mihmObj.maxInputHashMap = params.maxInputHashMap;
+      // mihmObj.maxInputHashMap = params.maxInputHashMap;
+      mihmObj.maxInputHashMap = userServerController.getMaxInputsHashMap();
 
       mihmObj.normalization = {};
       mihmObj.normalization = statsObj.normalization;
