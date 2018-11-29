@@ -1689,265 +1689,291 @@ function updateCategorizedUsers(){
               + " | -: " + categorizedUserHistogram.negative
               + " | 0: " + categorizedUserHistogram.none
             ));
-
           }
 
-          async.waterfall([
-            function userScreenName(cb) {
-              if (user.screenName !== undefined) {
-                cb(null, "@" + user.screenName);
-              }
-              else {
-                cb(null, null);
-              }
-            },
-            function userName(text, cb) {
-              if (user.name !== undefined) {
-                if (text) {
-                  cb(null, text + " | " + user.name);
-                }
-                else {
-                  cb(null, user.name);
-                }
-              }
-              else {
-                if (text) {
-                  cb(null, text);
-                }
-                else {
-                  cb(null, null);
-                }
-              }
-            },
-            function userLocation(text, cb) {
-              if (user.location !== undefined) {
-                if (text) {
-                  cb(null, text + " | " + user.location);
-                }
-                else {
-                  cb(null, user.location);
-                }
-              }
-              else {
-                if (text) {
-                  cb(null, text);
-                }
-                else {
-                  cb(null, null);
-                }
-              }
-            },
-            function userStatusText(text, cb) {
-              if ((user.status !== undefined) && user.status && user.status.text) {
+          const subUser = pick(
+            user,
+            [
+              "userId", 
+              "screenName", 
+              "nodeId", 
+              "name",
+              "lang",
+              "statusesCount",
+              "followersCount",
+              "friendsCount",
+              "languageAnalysis", 
+              "category", 
+              "categoryAuto", 
+              "histograms", 
+              "profileHistograms", 
+              "tweetHistograms", 
+              "location", 
+              "ignored", 
+              "following", 
+              "threeceeFollowing"
+            ]);
 
-                debug(chalkBlue("T"
-                  + " | " + user.nodeId
-                  + " | " + jsonPrint(user.status.text)
-                ));
+          trainingSetUsersHashMap.set(subUser.nodeId, subUser);
 
-                if (text) {
-                  cb(null, text + "\n" + user.status.text);
-                }
-                else {
-                  cb(null, user.status.text);
-                }
-              }
-              else {
-                if (text) {
-                  cb(null, text);
-                }
-                else {
-                  cb(null, null);
-                }
-              }
-            },
-            function userRetweetText(text, cb) {
-              if ((user.status !== undefined) && user.status) {
-                if ((user.status.retweeted_status !== undefined) && user.status.retweeted_status) {
+          cb0();
 
-                  debug(chalkBlue("R"
-                    + " | " + user.nodeId
-                    + " | " + jsonPrint(user.status.retweeted_status.text)
-                  ));
+          // async.waterfall([
+          //   function userScreenName(cb) {
+          //     if (user.screenName !== undefined) {
+          //       cb(null, "@" + user.screenName);
+          //     }
+          //     else {
+          //       cb(null, null);
+          //     }
+          //   },
+          //   function userName(text, cb) {
+          //     if (user.name !== undefined) {
+          //       if (text) {
+          //         cb(null, text + " | " + user.name);
+          //       }
+          //       else {
+          //         cb(null, user.name);
+          //       }
+          //     }
+          //     else {
+          //       if (text) {
+          //         cb(null, text);
+          //       }
+          //       else {
+          //         cb(null, null);
+          //       }
+          //     }
+          //   },
+          //   function userLocation(text, cb) {
+          //     if (user.location !== undefined) {
+          //       if (text) {
+          //         cb(null, text + " | " + user.location);
+          //       }
+          //       else {
+          //         cb(null, user.location);
+          //       }
+          //     }
+          //     else {
+          //       if (text) {
+          //         cb(null, text);
+          //       }
+          //       else {
+          //         cb(null, null);
+          //       }
+          //     }
+          //   },
+          //   function userStatusText(text, cb) {
+          //     if ((user.status !== undefined) && user.status && user.status.text) {
 
-                  if (text) {
-                    cb(null, text + "\n" + user.status.retweeted_status.text);
-                  }
-                  else {
-                    cb(null, user.status.retweeted_status.text);
-                  }
-                }
-                else {
-                  if (text) {
-                    cb(null, text);
-                  }
-                  else {
-                    cb(null, null);
-                  }
-                }
-              }
-              else {
-                if (text) {
-                  cb(null, text);
-                }
-                else {
-                  cb(null, null);
-                }
-              }
-            },
-            function userDescriptionText(text, cb) {
-              if ((user.description !== undefined) && user.description) {
-                if (text) {
-                  cb(null, text + "\n" + user.description);
-                }
-                else {
-                  cb(null, user.description);
-                }
-              }
-              else {
-                if (text) {
-                  cb(null, text);
-                }
-                else {
-                  cb(null, null);
-                }
-              }
-            },
-            function userBannerImage(text, cb) {
-              if (user.bannerImageUrl 
-                && (!user.bannerImageAnalyzed 
-                  || (user.bannerImageAnalyzed !== user.bannerImageUrl)
-                  || configuration.forceBannerImageAnalysis
-                )) 
-              {
+          //       debug(chalkBlue("T"
+          //         + " | " + user.nodeId
+          //         + " | " + jsonPrint(user.status.text)
+          //       ));
 
-                twitterImageParser.parseImage(user.bannerImageUrl, { screenName: user.screenName, category: user.category, updateGlobalHistograms: true}, function(err, results){
-                  if (err) {
-                    console.log(chalkError("*** PARSE BANNER IMAGE ERROR"
-                      + " | REQ: " + results.text
-                      + " | ERR: " + err.code + " | " + err.note
-                    ));
+          //       if (text) {
+          //         cb(null, text + "\n" + user.status.text);
+          //       }
+          //       else {
+          //         cb(null, user.status.text);
+          //       }
+          //     }
+          //     else {
+          //       if (text) {
+          //         cb(null, text);
+          //       }
+          //       else {
+          //         cb(null, null);
+          //       }
+          //     }
+          //   },
+          //   function userRetweetText(text, cb) {
+          //     if ((user.status !== undefined) && user.status) {
+          //       if ((user.status.retweeted_status !== undefined) && user.status.retweeted_status) {
 
-                    if (statsObj.errors.imageParse[err.code] === undefined) {
-                      statsObj.errors.imageParse[err.code] = 1;
-                    }
-                    else {
-                      statsObj.errors.imageParse[err.code] += 1;
-                    }
-                    cb(null, text, null);
-                  }
-                  else {
-                    statsObj.users.imageParse.parsed += 1;
-                    user.bannerImageAnalyzed = user.bannerImageUrl;
-                    debug(chalkInfo("GTS | PARSE BANNER IMAGE"
-                      + " | RESULTS\n" + jsonPrint(results)
-                    ));
-                    if (results.text !== undefined) {
-                      console.log(chalkInfo("GTS | +++ BANNER ANALYZED: @" + user.screenName + " | " + classText + " | " + results.text));
-                      text = text + "\n" + results.text;
-                    }
+          //         debug(chalkBlue("R"
+          //           + " | " + user.nodeId
+          //           + " | " + jsonPrint(user.status.retweeted_status.text)
+          //         ));
 
-                    cb(null, text, results);
-                  }
-                });
-              }
-              else if (user.bannerImageUrl && user.bannerImageAnalyzed && (user.bannerImageUrl === user.bannerImageAnalyzed)) {
+          //         if (text) {
+          //           cb(null, text + "\n" + user.status.retweeted_status.text);
+          //         }
+          //         else {
+          //           cb(null, user.status.retweeted_status.text);
+          //         }
+          //       }
+          //       else {
+          //         if (text) {
+          //           cb(null, text);
+          //         }
+          //         else {
+          //           cb(null, null);
+          //         }
+          //       }
+          //     }
+          //     else {
+          //       if (text) {
+          //         cb(null, text);
+          //       }
+          //       else {
+          //         cb(null, null);
+          //       }
+          //     }
+          //   },
+          //   function userDescriptionText(text, cb) {
+          //     if ((user.description !== undefined) && user.description) {
+          //       if (text) {
+          //         cb(null, text + "\n" + user.description);
+          //       }
+          //       else {
+          //         cb(null, user.description);
+          //       }
+          //     }
+          //     else {
+          //       if (text) {
+          //         cb(null, text);
+          //       }
+          //       else {
+          //         cb(null, null);
+          //       }
+          //     }
+          //   },
+          //   function userBannerImage(text, cb) {
+          //     if (user.bannerImageUrl 
+          //       && (!user.bannerImageAnalyzed 
+          //         || (user.bannerImageAnalyzed !== user.bannerImageUrl)
+          //         || configuration.forceBannerImageAnalysis
+          //       )) 
+          //     {
 
-                statsObj.users.imageParse.skipped += 1;
+          //       twitterImageParser.parseImage(user.bannerImageUrl, { screenName: user.screenName, category: user.category, updateGlobalHistograms: true}, function(err, results){
+          //         if (err) {
+          //           console.log(chalkError("*** PARSE BANNER IMAGE ERROR"
+          //             + " | REQ: " + results.text
+          //             + " | ERR: " + err.code + " | " + err.note
+          //           ));
 
-                const imageHits = (user.histograms.images === undefined) ? 0 : Object.keys(user.histograms.images);
-                debug(chalkLog("--- BANNER HIST HIT: @" + user.screenName + " | HITS: " + imageHits));
+          //           if (statsObj.errors.imageParse[err.code] === undefined) {
+          //             statsObj.errors.imageParse[err.code] = 1;
+          //           }
+          //           else {
+          //             statsObj.errors.imageParse[err.code] += 1;
+          //           }
+          //           cb(null, text, null);
+          //         }
+          //         else {
+          //           statsObj.users.imageParse.parsed += 1;
+          //           user.bannerImageAnalyzed = user.bannerImageUrl;
+          //           debug(chalkInfo("GTS | PARSE BANNER IMAGE"
+          //             + " | RESULTS\n" + jsonPrint(results)
+          //           ));
+          //           if (results.text !== undefined) {
+          //             console.log(chalkInfo("GTS | +++ BANNER ANALYZED: @" + user.screenName + " | " + classText + " | " + results.text));
+          //             text = text + "\n" + results.text;
+          //           }
 
-                async.setImmediate(function() {
-                  cb(null, text, null);
-                });
+          //           cb(null, text, results);
+          //         }
+          //       });
+          //     }
+          //     else if (user.bannerImageUrl && user.bannerImageAnalyzed && (user.bannerImageUrl === user.bannerImageAnalyzed)) {
 
-              }
-              else {
-                async.setImmediate(function() {
-                  cb(null, text, null);
-                });
-              }
-            }
-          ], function (err, text, bannerResults) {
+          //       statsObj.users.imageParse.skipped += 1;
 
-            if (err) {
-              console.error(chalkError("*** ERROR " + err));
-              return cb0(err) ;
-            }
+          //       const imageHits = (user.histograms.images === undefined) ? 0 : Object.keys(user.histograms.images);
+          //       debug(chalkLog("--- BANNER HIST HIT: @" + user.screenName + " | HITS: " + imageHits));
 
-            if (!text || (text === undefined)) { text = " "; }
+          //       async.setImmediate(function() {
+          //         cb(null, text, null);
+          //       });
 
-            // parse the user's text for hashtags, urls, emoji, screenNames, and words; create histogram
+          //     }
+          //     else {
+          //       async.setImmediate(function() {
+          //         cb(null, text, null);
+          //       });
+          //     }
+          //   }
+          // ], function (err, text, bannerResults) {
 
-            twitterTextParser.parseText({text: text, updateGlobalHistograms: true}, function(err, hist){
+          //   if (err) {
+          //     console.error(chalkError("*** ERROR " + err));
+          //     return cb0(err) ;
+          //   }
 
-              if (err) {
-                console.error("*** PARSE TEXT ERROR\n" + err);
-                return cb0(err);
-              }
+          //   if (!text || (text === undefined)) { text = " "; }
 
-              if (bannerResults && bannerResults.label && bannerResults.label.images) {
-                hist.images = bannerResults.label.images;
-              }
+          //   // parse the user's text for hashtags, urls, emoji, screenNames, and words; create histogram
 
-              // console.log(chalkInfo("hist keys: " + Object.keys(hist)));
-              // update user histogram in db
+          //   twitterTextParser.parseText({text: text, updateGlobalHistograms: true}, function(err, hist){
 
-              const updateHistogramsParams = { 
-                user: user, 
-                histograms: hist, 
-                computeMaxInputsFlag: true,
-                accumulateFlag: false
-              };
+          //     if (err) {
+          //       console.error("*** PARSE TEXT ERROR\n" + err);
+          //       return cb0(err);
+          //     }
 
-              userServerController.updateHistograms(updateHistogramsParams, function(err, updatedUser){
+          //     if (bannerResults && bannerResults.label && bannerResults.label.images) {
+          //       hist.images = bannerResults.label.images;
+          //     }
 
-                if (err) {
-                  console.error("*** UPDATE USER HISTOGRAMS ERROR\n" + err);
-                  return cb0(err);
-                }
+          //     // console.log(chalkInfo("hist keys: " + Object.keys(hist)));
+          //     // update user histogram in db
 
-                const subUser = pick(
-                  updatedUser,
-                  [
-                    "userId", 
-                    "screenName", 
-                    "nodeId", 
-                    "name",
-                    "lang",
-                    "statusesCount",
-                    "followersCount",
-                    "friendsCount",
-                    "languageAnalysis", 
-                    "category", 
-                    "categoryAuto", 
-                    "histograms", 
-                    "location", 
-                    "ignored", 
-                    "following", 
-                    "threeceeFollowing"
-                  ]);
+          //     const updateHistogramsParams = { 
+          //       user: user, 
+          //       histograms: hist, 
+          //       computeMaxInputsFlag: true,
+          //       accumulateFlag: false
+          //     };
 
-                trainingSetUsersHashMap.set(subUser.nodeId, subUser);
+          //     userServerController.updateHistograms(updateHistogramsParams, function(err, updatedUser){
 
-                // if (userIndex % 100 === 0) {
+          //       if (err) {
+          //         console.error("*** UPDATE USER HISTOGRAMS ERROR\n" + err);
+          //         return cb0(err);
+          //       }
 
-                //   console.log("CL USR >DB"
-                //     + " [" + userIndex + "/" + categorizedNodeIds.length + "]"
-                //     + " | " + subUser.nodeId
-                //     + " | @" + subUser.screenName
-                //     + " | C: " + subUser.category
-                //   );
-                // }
+          //       const subUser = pick(
+          //         updatedUser,
+          //         [
+          //           "userId", 
+          //           "screenName", 
+          //           "nodeId", 
+          //           "name",
+          //           "lang",
+          //           "statusesCount",
+          //           "followersCount",
+          //           "friendsCount",
+          //           "languageAnalysis", 
+          //           "category", 
+          //           "categoryAuto", 
+          //           "histograms", 
+          //           "location", 
+          //           "ignored", 
+          //           "following", 
+          //           "threeceeFollowing"
+          //         ]);
 
-                cb0();
+          //       trainingSetUsersHashMap.set(subUser.nodeId, subUser);
 
-              });
+          //       // if (userIndex % 100 === 0) {
 
-            });
+          //       //   console.log("CL USR >DB"
+          //       //     + " [" + userIndex + "/" + categorizedNodeIds.length + "]"
+          //       //     + " | " + subUser.nodeId
+          //       //     + " | @" + subUser.screenName
+          //       //     + " | C: " + subUser.category
+          //       //   );
+          //       // }
 
-          });   
+          //       cb0();
+
+          //     });
+
+          //   });
+
+          // });   
         }
         else {
 
