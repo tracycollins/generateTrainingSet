@@ -19,7 +19,7 @@
   "dependencies": {
     "@google-cloud/vision": "^0.23.0",
     "@threeceelabs/mongoose-twitter": "^1.0.175",
-    "@threeceelabs/twitter-image-parser": "^1.0.56",
+    "@threeceelabs/twitter-image-parser": "^1.0.65",
     "@threeceelabs/twitter-text-parser": "^1.0.71",
     "@threeceelabs/user-server-controller": "^1.0.381",
     "archiver": "^3.0.0",
