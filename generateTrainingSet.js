@@ -16,9 +16,6 @@ const inputTypes = [
   "words"
 ];
 
-global.dbConnection = false;
-let dbConnectionReady = false;
-
 const ONE_SECOND = 1000;
 const ONE_MINUTE = 60 * ONE_SECOND;
 const ONE_HOUR = 60 * ONE_MINUTE;
@@ -76,6 +73,11 @@ hostname = hostname.replace(/.fios-router/g, "");
 hostname = hostname.replace(/.fios-router.home/g, "");
 hostname = hostname.replace(/word0-instance-1/g, "google");
 hostname = hostname.replace(/word/g, "google");
+
+const MODULE_NAME = "generateTrainingSet";
+const MODULE_ID_PREFIX = "GTS";
+const MODULE_ID = MODULE_ID_PREFIX + "_node_" + hostname;
+
 
 
 const DEFAULT_DELETE_NOT_IN_INPUTS_ID_ARRAY = false;
@@ -243,19 +245,19 @@ let slackText = "";
 
 let initMainInterval;
 
-const mongoose = require("mongoose");
-mongoose.Promise = global.Promise;
+// const mongoose = require("mongoose");
+// mongoose.Promise = global.Promise;
 
-const userModel = require("@threeceelabs/mongoose-twitter/models/user.server.model");
+// const userModel = require("@threeceelabs/mongoose-twitter/models/user.server.model");
 
-let User;
+// let User;
 
-const wordAssoDb = require("@threeceelabs/mongoose-twitter");
+// const wordAssoDb = require("@threeceelabs/mongoose-twitter");
 
-let UserServerController;
-let userServerController;
+// let UserServerController;
+// let userServerController;
 
-let userServerControllerReady = false;
+// let userServerControllerReady = false;
 
 let saveFileQueueInterval;
 let saveFileBusy = false;
@@ -758,44 +760,166 @@ process.on("exit", function() {
   quit("SIGINT");
 });
 
+global.dbConnection = false;
+const mongoose = require("mongoose");
+mongoose.set("useFindAndModify", false);
+
+global.wordAssoDb = require("@threeceelabs/mongoose-twitter");
+
+global.Emoji;
+global.Hashtag;
+global.Location;
+global.Media;
+global.NetworkInputs;
+global.NeuralNetwork;
+global.Place;
+global.Tweet;
+global.Url;
+global.User;
+global.Word;
+
+let dbConnectionReady = false;
+let dbConnectionReadyInterval;
+
+let UserServerController;
+let userServerController;
+let userServerControllerReady = false;
+
+let userDbUpdateQueueInterval;
+let userDbUpdateQueueReadyFlag = true;
+let userDbUpdateQueue = [];
+
+// function connectDb(){
+
+//   return new Promise(function(resolve, reject){
+
+//     statsObj.status = "CONNECT DB";
+
+//     wordAssoDb.connect("GTS_" + process.pid, function(err, db){
+//       if (err) {
+//         console.log(chalkError("GTS | *** MONGO DB CONNECTION ERROR: " + err));
+//         dbConnectionReady = false;
+//         return reject(err);
+//       }
+
+//       db.on("error", function(){
+//         console.error.bind(console, "GTS | *** MONGO DB CONNECTION ERROR ***\n");
+//         console.log(chalkError("GTS | *** MONGO DB CONNECTION ERROR ***\n"));
+//         db.close();
+//         dbConnectionReady = false;
+//       });
+
+//       db.on("disconnected", function(){
+//         console.error.bind(console, "GTS | *** MONGO DB DISCONNECTED ***\n");
+//         console.log(chalkAlert("GTS | *** MONGO DB DISCONNECTED ***\n"));
+//         dbConnectionReady = false;
+//       });
+
+//       console.log(chalkGreen("GTS | MONGOOSE DEFAULT CONNECTION OPEN"));
+
+//       dbConnectionReady = true;
+
+//       User = mongoose.model("User", userModel.UserSchema);
+
+//       resolve(db);
+
+//     });
+
+//   });
+// }
+
 function connectDb(){
 
-  return new Promise(function(resolve, reject){
+  return new Promise(async function(resolve, reject){
 
-    statsObj.status = "CONNECT DB";
+    try {
 
-    wordAssoDb.connect("GTS_" + process.pid, function(err, db){
-      if (err) {
-        console.log(chalkError("GTS | *** MONGO DB CONNECTION ERROR: " + err));
-        dbConnectionReady = false;
-        return reject(err);
-      }
+      statsObj.status = "CONNECTING MONGO DB";
 
-      db.on("error", function(){
-        console.error.bind(console, "GTS | *** MONGO DB CONNECTION ERROR ***\n");
-        console.log(chalkError("GTS | *** MONGO DB CONNECTION ERROR ***\n"));
-        db.close();
-        dbConnectionReady = false;
+      wordAssoDb.connect(MODULE_ID + "_" + process.pid, async function(err, db){
+
+        if (err) {
+          console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION ERROR: " + err));
+          statsObj.status = "MONGO CONNECTION ERROR";
+          // slackSendMessage(hostname + " | TNN | " + statsObj.status);
+          dbConnectionReady = false;
+          quit({cause: "MONGO DB ERROR: " + err});
+          return reject(err);
+        }
+
+        db.on("error", async function(){
+          statsObj.status = "MONGO ERROR";
+          console.error.bind(console, MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION ERROR");
+          console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION ERROR"));
+          // slackSendMessage(hostname + " | TNN | " + statsObj.status);
+          db.close();
+          dbConnectionReady = false;
+          quit({cause: "MONGO DB ERROR: " + err});
+        });
+
+        db.on("disconnected", async function(){
+          statsObj.status = "MONGO DISCONNECTED";
+          console.error.bind(console, MODULE_ID_PREFIX + " | *** MONGO DB DISCONNECTED");
+          // slackSendMessage(hostname + " | TNN | " + statsObj.status);
+          console.log(chalkAlert(MODULE_ID_PREFIX + " | *** MONGO DB DISCONNECTED"));
+          dbConnectionReady = false;
+          quit({cause: "MONGO DB DISCONNECTED"});
+        });
+
+
+        global.dbConnection = db;
+
+        console.log(chalk.green(MODULE_ID_PREFIX + " | MONGOOSE DEFAULT CONNECTION OPEN"));
+
+
+        const emojiModel = require("@threeceelabs/mongoose-twitter/models/emoji.server.model");
+        const hashtagModel = require("@threeceelabs/mongoose-twitter/models/hashtag.server.model");
+        const locationModel = require("@threeceelabs/mongoose-twitter/models/location.server.model");
+        const mediaModel = require("@threeceelabs/mongoose-twitter/models/media.server.model");
+        const neuralNetworkModel = require("@threeceelabs/mongoose-twitter/models/neuralNetwork.server.model");
+        const placeModel = require("@threeceelabs/mongoose-twitter/models/place.server.model");
+        const tweetModel = require("@threeceelabs/mongoose-twitter/models/tweet.server.model");
+        const urlModel = require("@threeceelabs/mongoose-twitter/models/url.server.model");
+        const userModel = require("@threeceelabs/mongoose-twitter/models/user.server.model");
+        const wordModel = require("@threeceelabs/mongoose-twitter/models/word.server.model");
+
+        global.Emoji = global.dbConnection.model("Emoji", emojiModel.EmojiSchema);
+        global.Hashtag = global.dbConnection.model("Hashtag", hashtagModel.HashtagSchema);
+        global.Location = global.dbConnection.model("Location", locationModel.LocationSchema);
+        global.Media = global.dbConnection.model("Media", mediaModel.MediaSchema);
+        global.NeuralNetwork = global.dbConnection.model("NeuralNetwork", neuralNetworkModel.NeuralNetworkSchema);
+        global.Place = global.dbConnection.model("Place", placeModel.PlaceSchema);
+        global.Tweet = global.dbConnection.model("Tweet", tweetModel.TweetSchema);
+        global.Url = global.dbConnection.model("Url", urlModel.UrlSchema);
+        global.User = global.dbConnection.model("User", userModel.UserSchema);
+        global.Word = global.dbConnection.model("Word", wordModel.WordSchema);
+
+        const uscChildName = MODULE_ID_PREFIX + "_USC";
+        UserServerController = require("@threeceelabs/user-server-controller");
+        userServerController = new UserServerController(uscChildName);
+
+        userServerControllerReady = false;
+        userServerController.on("ready", function(appname){
+
+          statsObj.status = "MONGO DB CONNECTED";
+          // slackSendMessage(hostname + " | TNN | " + statsObj.status);
+
+          userServerControllerReady = true;
+          console.log(chalkLog(MODULE_ID_PREFIX + " | " + uscChildName + " READY | " + appname));
+          dbConnectionReady = true;
+
+          resolve(db);
+
+        });
       });
-
-      db.on("disconnected", function(){
-        console.error.bind(console, "GTS | *** MONGO DB DISCONNECTED ***\n");
-        console.log(chalkAlert("GTS | *** MONGO DB DISCONNECTED ***\n"));
-        dbConnectionReady = false;
-      });
-
-      console.log(chalkGreen("GTS | MONGOOSE DEFAULT CONNECTION OPEN"));
-
-      dbConnectionReady = true;
-
-      User = mongoose.model("User", userModel.UserSchema);
-
-      resolve(db);
-
-    });
-
+    }
+    catch(err){
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECT ERROR: " + err));
+      reject(err);
+    }
   });
 }
+
 
 function saveFile(params){
 
@@ -1512,7 +1636,7 @@ function encodeHistogramUrls(params){
 
     let user = params.user;
 
-    async.eachSeries(["histograms, profileHistograms", "tweetHistograms"], function(histogram, cb){
+    async.eachSeries(["histograms", "profileHistograms", "tweetHistograms"], function(histogram, cb){
 
       let urls = objectPath.get(user, [histogram, "urls"]);
 
@@ -1541,7 +1665,19 @@ function encodeHistogramUrls(params){
             return;
           }
 
+
+          const httpsUrl = "https://" + url;
+
+          if (validUrl.isUri(httpsUrl)){
+            const urlB64 = btoa(httpsUrl);
+            console.log(chalkAlert("HISTOGRAM " + histogram + ".urls | " + httpsUrl + " -> " + urlB64));
+            urls[urlB64] = urls[url];
+            delete urls[url];
+            return;
+          }
+
           console.log(chalkAlert("HISTOGRAM " + histogram + ".urls |  XXX NOT URL NOR B64: " + url));
+
           delete urls[url];
           return;
 
@@ -1550,7 +1686,7 @@ function encodeHistogramUrls(params){
             return cb(err);
           }
           if (Object.keys(urls).length > 0){
-            console.log("CONVERTED URLS\n" + jsonPrint(urls));
+            console.log("CONVERTED URLS | @" + user.screenName + "\n" + jsonPrint(urls));
           }
           user[histogram].urls = urls;
           cb();
@@ -1862,7 +1998,7 @@ function updateCategorizedUsers(){
           encodeHistogramUrls({user: user})
           .then(function(updatedUser){
 
-            userServerController.findOneUser(user, {noInc: true}, function(err, dbUser){
+            userServerController.findOneUser(updatedUser, {noInc: true}, function(err, dbUser){
               if (err) {
                 return cb0(err);
               }
@@ -2462,6 +2598,28 @@ function initialize(cnf){
 
       global.dbConnection = await connectDb();
 
+      const emojiModel = require("@threeceelabs/mongoose-twitter/models/emoji.server.model");
+      const hashtagModel = require("@threeceelabs/mongoose-twitter/models/hashtag.server.model");
+      const locationModel = require("@threeceelabs/mongoose-twitter/models/location.server.model");
+      const mediaModel = require("@threeceelabs/mongoose-twitter/models/media.server.model");
+      const neuralNetworkModel = require("@threeceelabs/mongoose-twitter/models/neuralNetwork.server.model");
+      const placeModel = require("@threeceelabs/mongoose-twitter/models/place.server.model");
+      const tweetModel = require("@threeceelabs/mongoose-twitter/models/tweet.server.model");
+      const urlModel = require("@threeceelabs/mongoose-twitter/models/url.server.model");
+      const userModel = require("@threeceelabs/mongoose-twitter/models/user.server.model");
+      const wordModel = require("@threeceelabs/mongoose-twitter/models/word.server.model");
+
+      global.Emoji = global.dbConnection.model("Emoji", emojiModel.EmojiSchema);
+      global.Hashtag = global.dbConnection.model("Hashtag", hashtagModel.HashtagSchema);
+      global.Location = global.dbConnection.model("Location", locationModel.LocationSchema);
+      global.Media = global.dbConnection.model("Media", mediaModel.MediaSchema);
+      global.NeuralNetwork = global.dbConnection.model("NeuralNetwork", neuralNetworkModel.NeuralNetworkSchema);
+      global.Place = global.dbConnection.model("Place", placeModel.PlaceSchema);
+      global.Tweet = global.dbConnection.model("Tweet", tweetModel.TweetSchema);
+      global.Url = global.dbConnection.model("Url", urlModel.UrlSchema);
+      global.User = global.dbConnection.model("User", userModel.UserSchema);
+      global.Word = global.dbConnection.model("Word", wordModel.WordSchema);
+
       UserServerController = require("@threeceelabs/user-server-controller");
       userServerController = new UserServerController("GTS_USC");
 
@@ -2484,15 +2642,27 @@ function initialize(cnf){
   });
 }
 
-initialize(configuration)
-  .then(async function(cnf){
-    try {
-      await generateGlobalTrainingTestSet({usersHashMap: trainingSetUsersHashMap, maxInputHashMap: userMaxInputHashMap});
-    }
-    catch(err){
+setTimeout(async function(){
 
-    }
-  })
-  .catch(function(err){
+  try{
+    configuration = await initialize(configuration);
+    await generateGlobalTrainingTestSet({usersHashMap: trainingSetUsersHashMap, maxInputHashMap: userMaxInputHashMap});
+  }
+  catch(err){
+    console.log(chalkError("GTS | *** INITIALIZE ERROR: " + err));
+  }
 
-  });
+}, 1000);
+
+// initialize(configuration)
+//   .then(async function(cnf){
+//     try {
+//       await generateGlobalTrainingTestSet({usersHashMap: trainingSetUsersHashMap, maxInputHashMap: userMaxInputHashMap});
+//     }
+//     catch(err){
+
+//     }
+//   })
+//   .catch(function(err){
+
+//   });
