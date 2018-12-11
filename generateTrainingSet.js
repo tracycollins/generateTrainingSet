@@ -2,6 +2,9 @@
 /*jshint sub:true*/
 "use strict";
 
+const HOST = "default";
+const PRIMARY_HOST = "mbp3";
+
 const inputTypes = [
   "emoji", 
   "hashtags",  
@@ -77,8 +80,6 @@ hostname = hostname.replace(/word/g, "google");
 const MODULE_NAME = "generateTrainingSet";
 const MODULE_ID_PREFIX = "GTS";
 const MODULE_ID = MODULE_ID_PREFIX + "_node_" + hostname;
-
-
 
 const DEFAULT_DELETE_NOT_IN_INPUTS_ID_ARRAY = false;
 
@@ -245,20 +246,6 @@ let slackText = "";
 
 let initMainInterval;
 
-// const mongoose = require("mongoose");
-// mongoose.Promise = global.Promise;
-
-// const userModel = require("@threeceelabs/mongoose-twitter/models/user.server.model");
-
-// let User;
-
-// const wordAssoDb = require("@threeceelabs/mongoose-twitter");
-
-// let UserServerController;
-// let userServerController;
-
-// let userServerControllerReady = false;
-
 let saveFileQueueInterval;
 let saveFileBusy = false;
 
@@ -269,86 +256,49 @@ configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
 configuration.maxTestCount = 500;
 
-
 let defaultConfiguration = {}; // general configuration for GTS
 let hostConfiguration = {}; // host-specific configuration for GTS
 
-
-if (DEFAULT_OFFLINE_MODE) {
-  configuration.offlineMode = true;
-  console.log(chalkAlert("GTS | DEFAULT_OFFLINE_MODE: " + configuration.offlineMode));
-}
-else if (
-  (process.env.GTS_OFFLINE_MODE !== undefined)
-  && (process.env.GTS_OFFLINE_MODE === "true") || (process.env.GTS_OFFLINE_MODE === true)
-  )
-{
-  configuration.offlineMode = true;
-}
-else {
-  configuration.offlineMode = false;
-}
-
-if ( (process.env.GTS_SERVER_MODE !== undefined) 
-  && (process.env.GTS_SERVER_MODE === "true" || process.env.GTS_SERVER_MODE === true))
-{
-  configuration.serverMode = true;
-}
-else {
-  configuration.serverMode = DEFAULT_SERVER_MODE;
-  console.log(chalkLog("GTS | DEFAULT_SERVER_MODE: " + configuration.serverMode));
-}
+configuration.serverMode = DEFAULT_SERVER_MODE;
 
 console.log(chalkLog("GTS | SERVER MODE: " + configuration.serverMode));
 
-configuration.globalTrainingSetId = GLOBAL_TRAINING_SET_ID;
-
 configuration.processName = process.env.GTS_PROCESS_NAME || "node_gts";
-
-configuration.saveFileQueueInterval = 1000;
 
 configuration.forceBannerImageAnalysis = false;
 configuration.interruptFlag = false;
-
-
 configuration.enableRequiredTrainingSet = false;
+configuration.quitOnComplete = DEFAULT_QUIT_ON_COMPLETE;
+configuration.globalTrainingSetId = GLOBAL_TRAINING_SET_ID;
 
-configuration.histogramsFolder = "/config/utility/default/histograms";
-
-configuration.defaultTrainingSetsFolder = "/config/utility/default/trainingSets";
-configuration.hostTrainingSetsFolder = "/config/utility/" + hostname + "/trainingSets";
-
-configuration.defaultUserArchiveFolder = (hostname === "google") 
-  ? configuration.defaultTrainingSetsFolder + "/users" 
-  : configuration.hostTrainingSetsFolder + "/users";
-
-configuration.defaultUserArchiveFile = hostname + "_" + getTimeStamp() + "_users.zip";
-
-configuration.archiveFileUploadCompleteFlagFolder = (hostname === "google") 
-  ? configuration.defaultTrainingSetsFolder + "/users"
-  : configuration.hostTrainingSetsFolder + "/users";
+configuration.saveFileQueueInterval = 1000;
 
 configuration.archiveFileUploadCompleteFlagFile = "usersZipUploadComplete.json";
-
-configuration.defaultUserArchivePath = configuration.defaultUserArchiveFolder + "/" + configuration.defaultUserArchiveFile;
-
 configuration.trainingSetFile = "trainingSet.json";
 configuration.requiredTrainingSetFile = "requiredTrainingSet.txt";
+configuration.userArchiveFile = "usersZipUploadComplete.json";
 
-configuration.quitOnComplete = DEFAULT_QUIT_ON_COMPLETE;
+const DROPBOX_CONFIG_FOLDER = "/config/utility";
+const DROPBOX_CONFIG_DEFAULT_FOLDER = DROPBOX_CONFIG_FOLDER + "/default";
+const DROPBOX_CONFIG_HOST_FOLDER = DROPBOX_CONFIG_FOLDER + "/" + hostname;
 
-if (process.env.GTS_QUIT_ON_COMPLETE !== undefined) {
+configuration.local = {};
+configuration.local.trainingSetsFolder = DROPBOX_CONFIG_HOST_FOLDER + "/trainingSets";
+configuration.local.histogramsFolder = DROPBOX_CONFIG_HOST_FOLDER + "/histograms";
+configuration.local.userArchiveFolder = DROPBOX_CONFIG_HOST_FOLDER + "/trainingSets/users";
+configuration.local.userArchivePath = configuration.local.userArchiveFolder + "/" + configuration.userArchiveFile;
 
-  console.log("GTS | ENV GTS_QUIT_ON_COMPLETE: " + process.env.GTS_QUIT_ON_COMPLETE);
+configuration.default = {};
+configuration.default.trainingSetsFolder = DROPBOX_CONFIG_DEFAULT_FOLDER + "/trainingSets";
+configuration.default.histogramsFolder = DROPBOX_CONFIG_DEFAULT_FOLDER + "/histograms";
+configuration.default.userArchiveFolder = DROPBOX_CONFIG_DEFAULT_FOLDER + "/trainingSets/users";
+configuration.default.userArchivePath = configuration.default.userArchiveFolder + "/" + configuration.userArchiveFile;
 
-  if (!process.env.GTS_QUIT_ON_COMPLETE || (process.env.GTS_QUIT_ON_COMPLETE === false) || (process.env.GTS_QUIT_ON_COMPLETE === "false")) {
-    configuration.quitOnComplete = false ;
-  }
-  else {
-    configuration.quitOnComplete = true ;
-  }
-}
-
+configuration.trainingSetsFolder = configuration[HOST].trainingSetsFolder;
+configuration.archiveFileUploadCompleteFlagFolder = configuration[HOST].trainingSetsFolder + "/users";
+configuration.histogramsFolder = configuration[HOST].histogramsFolder;
+configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
+configuration.userArchivePath = "/Users/tc/Dropbox/Apps/wordAssociation" + configuration[HOST].userArchivePath;
 
 configuration.DROPBOX = {};
 configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN = process.env.DROPBOX_WORD_ASSO_ACCESS_TOKEN ;
@@ -1193,7 +1143,7 @@ function loadFile(params) {
 
     if (configuration.offlineMode || params.loadLocalFile) {
 
-      if (hostname === "google") {
+      if (hostname === PRIMARY_HOST) {
         fullPath = "/home/tc/Dropbox/Apps/wordAssociation/" + fullPath;
         console.log(chalkInfo("OFFLINE_MODE: FULL PATH " + fullPath));
       }
@@ -1648,20 +1598,20 @@ function encodeHistogramUrls(params){
 
           if (validUrl.isUri(url)){
             const urlB64 = btoa(url);
-            console.log(chalkAlert("HISTOGRAM " + histogram + ".urls | " + url + " -> " + urlB64));
+            debug(chalkAlert("HISTOGRAM " + histogram + ".urls | " + url + " -> " + urlB64));
             urls[urlB64] = urls[url];
             delete urls[url];
             return;
           }
 
           if (url === "url") {
-            console.log(chalkAlert("HISTOGRAM " + histogram + ".urls | XXX URL: " + url));
+            debug(chalkAlert("HISTOGRAM " + histogram + ".urls | XXX URL: " + url));
             delete urls[url];
             return;
           }
 
           if (validUrl.isUri(atob(url))) {
-            console.log(chalkGreen("HISTOGRAM " + histogram + ".urls | IS B64: " + url));
+            debug(chalkGreen("HISTOGRAM " + histogram + ".urls | IS B64: " + url));
             return;
           }
 
@@ -1670,13 +1620,13 @@ function encodeHistogramUrls(params){
 
           if (validUrl.isUri(httpsUrl)){
             const urlB64 = btoa(httpsUrl);
-            console.log(chalkAlert("HISTOGRAM " + histogram + ".urls | " + httpsUrl + " -> " + urlB64));
+            debug(chalkAlert("HISTOGRAM " + histogram + ".urls | " + httpsUrl + " -> " + urlB64));
             urls[urlB64] = urls[url];
             delete urls[url];
             return;
           }
 
-          console.log(chalkAlert("HISTOGRAM " + histogram + ".urls |  XXX NOT URL NOR B64: " + url));
+          debug(chalkAlert("HISTOGRAM " + histogram + ".urls |  XXX NOT URL NOR B64: " + url));
 
           delete urls[url];
           return;
@@ -1686,7 +1636,7 @@ function encodeHistogramUrls(params){
             return cb(err);
           }
           if (Object.keys(urls).length > 0){
-            console.log("CONVERTED URLS | @" + user.screenName + "\n" + jsonPrint(urls));
+            debug("CONVERTED URLS | @" + user.screenName + "\n" + jsonPrint(urls));
           }
           user[histogram].urls = urls;
           cb();
@@ -1713,8 +1663,7 @@ function updateCategorizedUsers(){
 
     statsObj.status = "UPDATE CATEGORIZED USERS";
 
-    let userSubDirectory = (hostname === "google") ? configuration.defaultTrainingSetsFolder + "/users"
-    : configuration.hostTrainingSetsFolder + "/users";
+    let userSubDirectory = configuration.trainingSetsFolder + "/users"
 
     let userFile;
 
@@ -2296,17 +2245,12 @@ function generateGlobalTrainingTestSet(params){
       await initCategorizedUserHashmap();
       await updateCategorizedUsers();
 
-      // const tempArchiveFile = configuration.defaultUserArchivePath + ".tmp_" + process.pid;
-
-      // console.log(chalkAlert("GTS | USERS ARCHIVE FILE: " + configuration.defaultUserArchivePath));
-
-      await initArchiver({outputFile: configuration.defaultUserArchivePath});
+      await initArchiver();
       await archiveUsers();
 
       let mihmObj = {};
 
       mihmObj.maxInputHashMap = {};
-      // mihmObj.maxInputHashMap = params.maxInputHashMap;
       mihmObj.maxInputHashMap = userServerController.getMaxInputsHashMap();
 
       mihmObj.normalization = {};
@@ -2315,12 +2259,7 @@ function generateGlobalTrainingTestSet(params){
       const buf = Buffer.from(JSON.stringify(mihmObj));
 
       archive.append(buf, { name: "maxInputHashMap.json" });
-
       archive.finalize();
-
-      // const stats = fs.statSync(configuration.defaultUserArchivePath);
-      // const fileSizeInBytes = stats.size;
-      // const savedSize = fileSizeInBytes/ONE_MEGABYTE;
 
       resolve();
 
@@ -2409,31 +2348,31 @@ function releaseFileLock(params){
   });
 }
 
-configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(archiveFilePath){
+configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(){
 
   try{
 
-    await delay({message: "GTS | WAIT FOR DROPBOX FILE SYNC | " + archiveFilePath, period: 15*ONE_SECOND});
+    await delay({message: "WAIT FOR DROPBOX FILE SYNC | " + configuration.userArchivePath, period: 15*ONE_SECOND});
 
-    await releaseFileLock({file: archiveFilePath + ".lock"});
+    await releaseFileLock({file: configuration.userArchivePath + ".lock"});
 
-    const stats = fs.statSync(archiveFilePath);
+    const stats = fs.statSync(configuration.userArchivePath);
     const fileSizeInBytes = stats.size;
     const savedSize = fileSizeInBytes/ONE_MEGABYTE;
 
     console.log(chalkLog("GTS | SAVING FLAG FILE" 
-      + " | " + configuration.defaultUserArchiveFolder + "/" + configuration.archiveFileUploadCompleteFlagFile 
+      + " | " + configuration.userArchiveFolder + "/" + configuration.archiveFileUploadCompleteFlagFile 
       + " | " + fileSizeInBytes + " B | " + savedSize.toFixed(3) + " MB"
     ));
 
     const fileSizeObj = { 
-      path: configuration.defaultUserArchiveFolder + "/" + configuration.defaultUserArchiveFile,
+      path: configuration.userArchivePath,
       size: fileSizeInBytes
     };
 
-    await saveFile({folder: configuration.defaultUserArchiveFolder, file: configuration.archiveFileUploadCompleteFlagFile, obj: fileSizeObj });
+    await saveFile({folder: configuration.userArchiveFolder, file: configuration.archiveFileUploadCompleteFlagFile, obj: fileSizeObj });
 
-    await delay({message: "GTS | WAIT FOR DROPBOX FLAG FILE SYNC", period: 15*ONE_SECOND});
+    await delay({message: "WAIT FOR DROPBOX FLAG FILE SYNC", period: 15*ONE_SECOND});
 
     quit("DONE");
   }
@@ -2448,18 +2387,18 @@ function initArchiver(params){
 
   return new Promise(async function(resolve, reject){
 
-    const archiveFilePath = (hostname === "google") ? "/home/tc/Dropbox/Apps/wordAssociation" + params.outputFile : "/Users/tc/Dropbox/Apps/wordAssociation" + params.outputFile;
+    let userArchivePath = configuration.userArchivePath;
 
-    console.log(chalkBlue("GTS | INIT ARCHIVER | " + archiveFilePath));
+    console.log(chalkBlue("GTS | INIT ARCHIVER | " + userArchivePath));
 
     if (archive && archive.isOpen) {
-      console.log(chalkAlert("GTS | ARCHIVE ALREADY OPEN | " + archiveFilePath));
+      console.log(chalkAlert("GTS | ARCHIVE ALREADY OPEN | " + userArchivePath));
       return resolve();
     }
 
     try {
 
-      const lockFileName = archiveFilePath + ".lock";
+      const lockFileName = userArchivePath + ".lock";
 
       // console.log(chalkAlert("GTS | ARCHIVE LOCK FILE: " + lockFileName));
 
@@ -2474,7 +2413,7 @@ function initArchiver(params){
       }
 
       // create a file to stream archive data to.
-      const output = fs.createWriteStream(archiveFilePath);
+      const output = fs.createWriteStream(userArchivePath);
 
       archive = archiver("zip", {
         zlib: { level: 9 } // Sets the compression level.
@@ -2483,7 +2422,7 @@ function initArchiver(params){
       output.on("close", function() {
         const archiveSize = toMegabytes(archive.pointer());
         console.log(chalkGreen("GTS | ARCHIVE OUTPUT | CLOSED | " + archiveSize.toFixed(2) + " MB"));
-        configEvents.emit("ARCHIVE_OUTPUT_CLOSED", archiveFilePath);
+        configEvents.emit("ARCHIVE_OUTPUT_CLOSED", userArchivePath);
       });
        
       output.on("end", function() {
@@ -2514,11 +2453,11 @@ function initArchiver(params){
       });
        
       archive.on("close", function() {
-        console.log(chalkBlueBold("GTS | ARCHIVE | CLOSED | " + archiveFilePath));
+        console.log(chalkBlueBold("GTS | ARCHIVE | CLOSED | " + userArchivePath));
       });
        
       archive.on("finish", function() {
-        console.log(chalkBlueBold("GTS | +++ ARCHIVE | FINISHED | " + archiveFilePath));
+        console.log(chalkBlueBold("GTS | +++ ARCHIVE | FINISHED | " + userArchivePath));
       });
        
       archive.on("error", function(err) {
@@ -2532,7 +2471,7 @@ function initArchiver(params){
       resolve();
     }
     catch(err){
-      console.log(chalkError("GTS | *** INIT ARCHIVE ERROR | " + archiveFilePath + " | ERROR: " + err));
+      console.log(chalkError("GTS | *** INIT ARCHIVE ERROR | " + userArchivePath + " | ERROR: " + err));
       reject(err);
     }
 
@@ -2630,8 +2569,6 @@ function initialize(cnf){
         console.log(chalkGreen("GTS | +++ USC READY | " + appname));
       });
 
-      // initStatsUpdate(configuration);
-
       resolve(configuration);
 
     }
@@ -2653,16 +2590,3 @@ setTimeout(async function(){
   }
 
 }, 1000);
-
-// initialize(configuration)
-//   .then(async function(cnf){
-//     try {
-//       await generateGlobalTrainingTestSet({usersHashMap: trainingSetUsersHashMap, maxInputHashMap: userMaxInputHashMap});
-//     }
-//     catch(err){
-
-//     }
-//   })
-//   .catch(function(err){
-
-//   });
