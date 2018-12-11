@@ -2,8 +2,8 @@
 /*jshint sub:true*/
 "use strict";
 
-const HOST = "default";
-const PRIMARY_HOST = "mbp3";
+const HOST = process.env.PRIMARY_HOST || "local";
+const PRIMARY_HOST = process.env.PRIMARY_HOST || "macpro2";
 
 const inputTypes = [
   "emoji", 
