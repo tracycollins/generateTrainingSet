@@ -20,7 +20,7 @@
     "@google-cloud/vision": "^0.23.0",
     "@threeceelabs/mongoose-twitter": "^1.0.181",
     "@threeceelabs/twitter-image-parser": "^1.0.65",
-    "@threeceelabs/twitter-text-parser": "^1.0.72",
+    "@threeceelabs/twitter-text-parser": "^1.0.77",
     "@threeceelabs/user-server-controller": "^1.0.392",
     "archiver": "^3.0.0",
     "array-normalize": "^1.1.3",
