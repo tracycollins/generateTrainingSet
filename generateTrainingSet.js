@@ -739,45 +739,6 @@ let userDbUpdateQueueInterval;
 let userDbUpdateQueueReadyFlag = true;
 let userDbUpdateQueue = [];
 
-// function connectDb(){
-
-//   return new Promise(function(resolve, reject){
-
-//     statsObj.status = "CONNECT DB";
-
-//     wordAssoDb.connect("GTS_" + process.pid, function(err, db){
-//       if (err) {
-//         console.log(chalkError("GTS | *** MONGO DB CONNECTION ERROR: " + err));
-//         dbConnectionReady = false;
-//         return reject(err);
-//       }
-
-//       db.on("error", function(){
-//         console.error.bind(console, "GTS | *** MONGO DB CONNECTION ERROR ***\n");
-//         console.log(chalkError("GTS | *** MONGO DB CONNECTION ERROR ***\n"));
-//         db.close();
-//         dbConnectionReady = false;
-//       });
-
-//       db.on("disconnected", function(){
-//         console.error.bind(console, "GTS | *** MONGO DB DISCONNECTED ***\n");
-//         console.log(chalkAlert("GTS | *** MONGO DB DISCONNECTED ***\n"));
-//         dbConnectionReady = false;
-//       });
-
-//       console.log(chalkGreen("GTS | MONGOOSE DEFAULT CONNECTION OPEN"));
-
-//       dbConnectionReady = true;
-
-//       User = mongoose.model("User", userModel.UserSchema);
-
-//       resolve(db);
-
-//     });
-
-//   });
-// }
-
 function connectDb(){
 
   return new Promise(async function(resolve, reject){
@@ -791,7 +752,6 @@ function connectDb(){
         if (err) {
           console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION ERROR: " + err));
           statsObj.status = "MONGO CONNECTION ERROR";
-          // slackSendMessage(hostname + " | TNN | " + statsObj.status);
           dbConnectionReady = false;
           quit({cause: "MONGO DB ERROR: " + err});
           return reject(err);
@@ -905,8 +865,6 @@ function saveFile(params){
         console.log(chalkInfo("GTS | SAVED LOCALLY | " + objSizeMBytes.toFixed(2) + " MB | " + fullPath));
 
         const waitSaveTimeout = (objSizeMBytes < 10) ? 100 : 5*ONE_SECOND;
-
-        // console.log(chalkInfo("GTS | ... PAUSE 5 SEC TO FINISH FILE SAVE | " + objSizeMBytes.toFixed(2) + " MB | " + fullPath));
 
         setTimeout(function(){
 
@@ -1144,7 +1102,7 @@ function loadFile(params) {
     if (configuration.offlineMode || params.loadLocalFile) {
 
       if (hostname === PRIMARY_HOST) {
-        fullPath = "/home/tc/Dropbox/Apps/wordAssociation/" + fullPath;
+        fullPath = "/Users/tc/Dropbox/Apps/wordAssociation/" + fullPath;
         console.log(chalkInfo("OFFLINE_MODE: FULL PATH " + fullPath));
       }
 
