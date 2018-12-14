@@ -2,7 +2,6 @@
 /*jshint sub:true*/
 "use strict";
 
-const HOST = process.env.PRIMARY_HOST || "local";
 const PRIMARY_HOST = process.env.PRIMARY_HOST || "macpro2";
 
 const inputTypes = [
@@ -76,6 +75,8 @@ hostname = hostname.replace(/.fios-router/g, "");
 hostname = hostname.replace(/.fios-router.home/g, "");
 hostname = hostname.replace(/word0-instance-1/g, "google");
 hostname = hostname.replace(/word/g, "google");
+
+const HOST = (hostname === PRIMARY_HOST) ? "default" : "local";
 
 const MODULE_NAME = "generateTrainingSet";
 const MODULE_ID_PREFIX = "GTS";
@@ -276,7 +277,7 @@ configuration.saveFileQueueInterval = 1000;
 configuration.archiveFileUploadCompleteFlagFile = "usersZipUploadComplete.json";
 configuration.trainingSetFile = "trainingSet.json";
 configuration.requiredTrainingSetFile = "requiredTrainingSet.txt";
-configuration.userArchiveFile = "usersZipUploadComplete.json";
+configuration.userArchiveFile = hostname + "_" + getTimeStamp() + "_users.zip";
 
 const DROPBOX_CONFIG_FOLDER = "/config/utility";
 const DROPBOX_CONFIG_DEFAULT_FOLDER = DROPBOX_CONFIG_FOLDER + "/default";
@@ -2323,10 +2324,9 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(){
       + " | " + fileSizeInBytes + " B | " + savedSize.toFixed(3) + " MB"
     ));
 
-    const fileSizeObj = { 
-      path: configuration.userArchivePath,
-      size: fileSizeInBytes
-    };
+    let fileSizeObj = {};
+    fileSizeObj.path = configuration.userArchivePath;
+    fileSizeObj.size = fileSizeInBytes;
 
     await saveFile({folder: configuration.userArchiveFolder, file: configuration.archiveFileUploadCompleteFlagFile, obj: fileSizeObj });
 
