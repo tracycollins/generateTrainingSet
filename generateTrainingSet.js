@@ -91,7 +91,7 @@ const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 const SMALL_SET_SIZE = 100;
 const SMALL_TEST_SET_SIZE = 20;
 
-const TEST_MODE_LENGTH = 100;
+const TEST_MODE_LENGTH = 1000;
 const TEST_DROPBOX_NN_LOAD = 10;
 
 const DEFAULT_LOAD_ALL_INPUTS = false;
@@ -1631,8 +1631,8 @@ function updateCategorizedUsers(){
     let categorizedNodeIds = categorizedUserHashmap.keys();
 
     if (configuration.testMode) {
-      categorizedNodeIds.length = TEST_MODE_LENGTH;
-      console.log(chalkAlert("GTS | *** TEST MODE *** | CATEGORIZE MAX " + TEST_MODE_LENGTH + " USERS"));
+      categorizedNodeIds.length = Math.min(categorizedNodeIds.length, TEST_MODE_LENGTH);
+      console.log(chalkAlert("GTS | *** TEST MODE *** | CATEGORIZE MAX " + categorizedNodeIds.length + " USERS"));
     }
 
     let maxMagnitude = -Infinity;
@@ -1659,7 +1659,13 @@ function updateCategorizedUsers(){
     let categorizedUsersRemain = 0;
     let categorizedUsersRate = 0;
 
-    async.eachSeries(categorizedNodeIds, function(nodeId, cb0){
+    async.each(categorizedNodeIds, function(nodeId, cb0){
+
+      if (!nodeId || nodeId === undefined) {
+        console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS: NODE ID UNDEFINED"));
+        statsObj.errors.users.findOne += 1;
+        return cb0() ;
+      }
 
       User.findOne( { "$or":[ {nodeId: nodeId.toString()}, {screenName: nodeId.toLowerCase()} ]}, function(err, userDoc){
 
