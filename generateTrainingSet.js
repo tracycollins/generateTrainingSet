@@ -16,7 +16,7 @@ const HOST = (hostname === PRIMARY_HOST) ? "default" : "local";
 
 let DROPBOX_ROOT_FOLDER;
 
-if (PRIMARY_HOST === "google") {
+if (hostname === "google") {
   DROPBOX_ROOT_FOLDER = "/home/tc/Dropbox/Apps/wordAssociation";
 }
 else {
