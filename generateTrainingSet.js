@@ -2,7 +2,7 @@
 /*jshint sub:true*/
 "use strict";
 
-const PRIMARY_HOST = process.env.PRIMARY_HOST || "macpro2";
+const PRIMARY_HOST = process.env.PRIMARY_HOST || "google";
 
 const inputTypes = [
   "emoji", 
