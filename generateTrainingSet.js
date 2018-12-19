@@ -2073,7 +2073,7 @@ function initCategorizedUserHashmap(){
     p.limit = DEFAULT_FIND_CAT_USER_CURSOR_LIMIT;
     p.batchSize = DEFAULT_CURSOR_BATCH_SIZE;
     p.query = { 
-      "$and": [ { "ignored": { "$nin": [ true ] } }, { "category": { "$nin": [ false, null ] } } ]
+      "$and": [ { "ignored": { "$nin": [ true, "true" ] } }, { "category": { "$in": [ "left", "right", "neutral" ] } } ]
     };
 
     let more = true;
