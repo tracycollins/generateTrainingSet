@@ -2,7 +2,26 @@
 /*jshint sub:true*/
 "use strict";
 
+const os = require("os");
+let hostname = os.hostname();
+hostname = hostname.replace(/.local/g, "");
+hostname = hostname.replace(/.home/g, "");
+hostname = hostname.replace(/.at.net/g, "");
+hostname = hostname.replace(/.fios-router.home/g, "");
+hostname = hostname.replace(/word0-instance-1/g, "google");
+hostname = hostname.replace(/word/g, "google");
+
 const PRIMARY_HOST = process.env.PRIMARY_HOST || "google";
+const HOST = (hostname === PRIMARY_HOST) ? "default" : "local";
+
+let DROPBOX_ROOT_FOLDER;
+
+if (PRIMARY_HOST === "google") {
+  DROPBOX_ROOT_FOLDER = "/home/tc/Dropbox/Apps/wordAssociation";
+}
+else {
+  DROPBOX_ROOT_FOLDER = "/Users/tc/Dropbox/Apps/wordAssociation";
+}
 
 const inputTypes = [
   "emoji", 
@@ -48,7 +67,6 @@ let fileLockOptions = {
   wait: DEFAULT_FILELOCK_WAIT
 };
 
-const os = require("os");
 const moment = require("moment");
 const lockFile = require("lockfile");
 const merge = require("deepmerge");
@@ -66,17 +84,6 @@ const validUrl = require("valid-url");
 let archive;
 let archiveOutputStream;
 
-
-let hostname = os.hostname();
-hostname = hostname.replace(/.local/g, "");
-hostname = hostname.replace(/.home/g, "");
-hostname = hostname.replace(/.at.net/g, "");
-hostname = hostname.replace(/.fios-router/g, "");
-hostname = hostname.replace(/.fios-router.home/g, "");
-hostname = hostname.replace(/word0-instance-1/g, "google");
-hostname = hostname.replace(/word/g, "google");
-
-const HOST = (hostname === PRIMARY_HOST) ? "default" : "local";
 
 const MODULE_NAME = "generateTrainingSet";
 const MODULE_ID_PREFIX = "GTS";
@@ -299,7 +306,7 @@ configuration.trainingSetsFolder = configuration[HOST].trainingSetsFolder;
 configuration.archiveFileUploadCompleteFlagFolder = configuration[HOST].trainingSetsFolder + "/users";
 configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
-configuration.userArchivePath = "/Users/tc/Dropbox/Apps/wordAssociation" + configuration[HOST].userArchivePath;
+configuration.userArchivePath = DROPBOX_ROOT_FOLDER + configuration[HOST].userArchivePath;
 
 configuration.DROPBOX = {};
 configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN = process.env.DROPBOX_WORD_ASSO_ACCESS_TOKEN ;
@@ -555,7 +562,7 @@ function filesGetMetadataLocal(options){
 
     console.log("filesGetMetadataLocal options\n" + jsonPrint(options));
 
-    const fullPath = "/Users/tc/Dropbox/Apps/wordAssociation" + options.path;
+    const fullPath = DROPBOX_ROOT_FOLDER + options.path;
 
     fs.stat(fullPath, function(err, stats){
       if (err) {
@@ -577,7 +584,7 @@ function filesListFolderLocal(options){
 
     debug("filesListFolderLocal options\n" + jsonPrint(options));
 
-    const fullPath = "/Users/tc/Dropbox/Apps/wordAssociation" + options.path;
+    const fullPath = DROPBOX_ROOT_FOLDER + options.path;
 
     fs.readdir(fullPath, function(err, items){
       if (err) {
@@ -1103,12 +1110,12 @@ function loadFile(params) {
     if (configuration.offlineMode || params.loadLocalFile) {
 
       if (hostname === PRIMARY_HOST) {
-        fullPath = "/Users/tc/Dropbox/Apps/wordAssociation/" + fullPath;
+        fullPath = DROPBOX_ROOT_FOLDER + fullPath;
         console.log(chalkInfo("OFFLINE_MODE: FULL PATH " + fullPath));
       }
 
       if ((hostname === "mbp3") || (hostname === "mbp2")) {
-        fullPath = "/Users/tc/Dropbox/Apps/wordAssociation/" + fullPath;
+        fullPath = DROPBOX_ROOT_FOLDER + fullPath;
         console.log(chalkInfo("OFFLINE_MODE: FULL PATH " + fullPath));
       }
 
