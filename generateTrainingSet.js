@@ -2508,37 +2508,37 @@ function initialize(cnf){
 
       global.dbConnection = await connectDb();
 
-      const emojiModel = require("@threeceelabs/mongoose-twitter/models/emoji.server.model");
-      const hashtagModel = require("@threeceelabs/mongoose-twitter/models/hashtag.server.model");
-      const locationModel = require("@threeceelabs/mongoose-twitter/models/location.server.model");
-      const mediaModel = require("@threeceelabs/mongoose-twitter/models/media.server.model");
-      const neuralNetworkModel = require("@threeceelabs/mongoose-twitter/models/neuralNetwork.server.model");
-      const placeModel = require("@threeceelabs/mongoose-twitter/models/place.server.model");
-      const tweetModel = require("@threeceelabs/mongoose-twitter/models/tweet.server.model");
-      const urlModel = require("@threeceelabs/mongoose-twitter/models/url.server.model");
-      const userModel = require("@threeceelabs/mongoose-twitter/models/user.server.model");
-      const wordModel = require("@threeceelabs/mongoose-twitter/models/word.server.model");
+      // const emojiModel = require("@threeceelabs/mongoose-twitter/models/emoji.server.model");
+      // const hashtagModel = require("@threeceelabs/mongoose-twitter/models/hashtag.server.model");
+      // const locationModel = require("@threeceelabs/mongoose-twitter/models/location.server.model");
+      // const mediaModel = require("@threeceelabs/mongoose-twitter/models/media.server.model");
+      // const neuralNetworkModel = require("@threeceelabs/mongoose-twitter/models/neuralNetwork.server.model");
+      // const placeModel = require("@threeceelabs/mongoose-twitter/models/place.server.model");
+      // const tweetModel = require("@threeceelabs/mongoose-twitter/models/tweet.server.model");
+      // const urlModel = require("@threeceelabs/mongoose-twitter/models/url.server.model");
+      // const userModel = require("@threeceelabs/mongoose-twitter/models/user.server.model");
+      // const wordModel = require("@threeceelabs/mongoose-twitter/models/word.server.model");
 
-      global.Emoji = global.dbConnection.model("Emoji", emojiModel.EmojiSchema);
-      global.Hashtag = global.dbConnection.model("Hashtag", hashtagModel.HashtagSchema);
-      global.Location = global.dbConnection.model("Location", locationModel.LocationSchema);
-      global.Media = global.dbConnection.model("Media", mediaModel.MediaSchema);
-      global.NeuralNetwork = global.dbConnection.model("NeuralNetwork", neuralNetworkModel.NeuralNetworkSchema);
-      global.Place = global.dbConnection.model("Place", placeModel.PlaceSchema);
-      global.Tweet = global.dbConnection.model("Tweet", tweetModel.TweetSchema);
-      global.Url = global.dbConnection.model("Url", urlModel.UrlSchema);
-      global.User = global.dbConnection.model("User", userModel.UserSchema);
-      global.Word = global.dbConnection.model("Word", wordModel.WordSchema);
+      // global.Emoji = global.dbConnection.model("Emoji", emojiModel.EmojiSchema);
+      // global.Hashtag = global.dbConnection.model("Hashtag", hashtagModel.HashtagSchema);
+      // global.Location = global.dbConnection.model("Location", locationModel.LocationSchema);
+      // global.Media = global.dbConnection.model("Media", mediaModel.MediaSchema);
+      // global.NeuralNetwork = global.dbConnection.model("NeuralNetwork", neuralNetworkModel.NeuralNetworkSchema);
+      // global.Place = global.dbConnection.model("Place", placeModel.PlaceSchema);
+      // global.Tweet = global.dbConnection.model("Tweet", tweetModel.TweetSchema);
+      // global.Url = global.dbConnection.model("Url", urlModel.UrlSchema);
+      // global.User = global.dbConnection.model("User", userModel.UserSchema);
+      // global.Word = global.dbConnection.model("Word", wordModel.WordSchema);
 
-      UserServerController = require("@threeceelabs/user-server-controller");
-      userServerController = new UserServerController("GTS_USC");
+      // UserServerController = require("@threeceelabs/user-server-controller");
+      // userServerController = new UserServerController("GTS_USC");
 
-      userServerControllerReady = false;
+      // userServerControllerReady = false;
 
-      userServerController.on("ready", function(appname){
-        userServerControllerReady = true;
-        console.log(chalkGreen("GTS | +++ USC READY | " + appname));
-      });
+      // userServerController.on("ready", function(appname){
+      //   userServerControllerReady = true;
+      //   console.log(chalkGreen("GTS | +++ USC READY | " + appname));
+      // });
 
       resolve(configuration);
 
