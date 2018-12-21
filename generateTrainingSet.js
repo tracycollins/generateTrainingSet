@@ -2,8 +2,26 @@
 /*jshint sub:true*/
 "use strict";
 
-const HOST = process.env.PRIMARY_HOST || "local";
-const PRIMARY_HOST = process.env.PRIMARY_HOST || "macpro2";
+const os = require("os");
+let hostname = os.hostname();
+hostname = hostname.replace(/.local/g, "");
+hostname = hostname.replace(/.home/g, "");
+hostname = hostname.replace(/.at.net/g, "");
+hostname = hostname.replace(/.fios-router.home/g, "");
+hostname = hostname.replace(/word0-instance-1/g, "google");
+hostname = hostname.replace(/word/g, "google");
+
+const PRIMARY_HOST = process.env.PRIMARY_HOST || "google";
+const HOST = (hostname === PRIMARY_HOST) ? "default" : "local";
+
+let DROPBOX_ROOT_FOLDER;
+
+if (hostname === "google") {
+  DROPBOX_ROOT_FOLDER = "/home/tc/Dropbox/Apps/wordAssociation";
+}
+else {
+  DROPBOX_ROOT_FOLDER = "/Users/tc/Dropbox/Apps/wordAssociation";
+}
 
 const inputTypes = [
   "emoji", 
@@ -49,7 +67,6 @@ let fileLockOptions = {
   wait: DEFAULT_FILELOCK_WAIT
 };
 
-const os = require("os");
 const moment = require("moment");
 const lockFile = require("lockfile");
 const merge = require("deepmerge");
@@ -68,15 +85,6 @@ let archive;
 let archiveOutputStream;
 
 
-let hostname = os.hostname();
-hostname = hostname.replace(/.local/g, "");
-hostname = hostname.replace(/.home/g, "");
-hostname = hostname.replace(/.at.net/g, "");
-hostname = hostname.replace(/.fios-router/g, "");
-hostname = hostname.replace(/.fios-router.home/g, "");
-hostname = hostname.replace(/word0-instance-1/g, "google");
-hostname = hostname.replace(/word/g, "google");
-
 const MODULE_NAME = "generateTrainingSet";
 const MODULE_ID_PREFIX = "GTS";
 const MODULE_ID = MODULE_ID_PREFIX + "_node_" + hostname;
@@ -90,7 +98,7 @@ const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 const SMALL_SET_SIZE = 100;
 const SMALL_TEST_SET_SIZE = 20;
 
-const TEST_MODE_LENGTH = 100;
+const TEST_MODE_LENGTH = 1000;
 const TEST_DROPBOX_NN_LOAD = 10;
 
 const DEFAULT_LOAD_ALL_INPUTS = false;
@@ -276,7 +284,7 @@ configuration.saveFileQueueInterval = 1000;
 configuration.archiveFileUploadCompleteFlagFile = "usersZipUploadComplete.json";
 configuration.trainingSetFile = "trainingSet.json";
 configuration.requiredTrainingSetFile = "requiredTrainingSet.txt";
-configuration.userArchiveFile = "usersZipUploadComplete.json";
+configuration.userArchiveFile = hostname + "_" + getTimeStamp() + "_users.zip";
 
 const DROPBOX_CONFIG_FOLDER = "/config/utility";
 const DROPBOX_CONFIG_DEFAULT_FOLDER = DROPBOX_CONFIG_FOLDER + "/default";
@@ -298,7 +306,7 @@ configuration.trainingSetsFolder = configuration[HOST].trainingSetsFolder;
 configuration.archiveFileUploadCompleteFlagFolder = configuration[HOST].trainingSetsFolder + "/users";
 configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
-configuration.userArchivePath = "/Users/tc/Dropbox/Apps/wordAssociation" + configuration[HOST].userArchivePath;
+configuration.userArchivePath = DROPBOX_ROOT_FOLDER + configuration[HOST].userArchivePath;
 
 configuration.DROPBOX = {};
 configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN = process.env.DROPBOX_WORD_ASSO_ACCESS_TOKEN ;
@@ -554,7 +562,7 @@ function filesGetMetadataLocal(options){
 
     console.log("filesGetMetadataLocal options\n" + jsonPrint(options));
 
-    const fullPath = "/Users/tc/Dropbox/Apps/wordAssociation" + options.path;
+    const fullPath = DROPBOX_ROOT_FOLDER + options.path;
 
     fs.stat(fullPath, function(err, stats){
       if (err) {
@@ -576,7 +584,7 @@ function filesListFolderLocal(options){
 
     debug("filesListFolderLocal options\n" + jsonPrint(options));
 
-    const fullPath = "/Users/tc/Dropbox/Apps/wordAssociation" + options.path;
+    const fullPath = DROPBOX_ROOT_FOLDER + options.path;
 
     fs.readdir(fullPath, function(err, items){
       if (err) {
@@ -1102,12 +1110,12 @@ function loadFile(params) {
     if (configuration.offlineMode || params.loadLocalFile) {
 
       if (hostname === PRIMARY_HOST) {
-        fullPath = "/Users/tc/Dropbox/Apps/wordAssociation/" + fullPath;
+        fullPath = DROPBOX_ROOT_FOLDER + fullPath;
         console.log(chalkInfo("OFFLINE_MODE: FULL PATH " + fullPath));
       }
 
       if ((hostname === "mbp3") || (hostname === "mbp2")) {
-        fullPath = "/Users/tc/Dropbox/Apps/wordAssociation/" + fullPath;
+        fullPath = DROPBOX_ROOT_FOLDER + fullPath;
         console.log(chalkInfo("OFFLINE_MODE: FULL PATH " + fullPath));
       }
 
@@ -1630,8 +1638,8 @@ function updateCategorizedUsers(){
     let categorizedNodeIds = categorizedUserHashmap.keys();
 
     if (configuration.testMode) {
-      categorizedNodeIds.length = TEST_MODE_LENGTH;
-      console.log(chalkAlert("GTS | *** TEST MODE *** | CATEGORIZE MAX " + TEST_MODE_LENGTH + " USERS"));
+      categorizedNodeIds.length = Math.min(categorizedNodeIds.length, TEST_MODE_LENGTH);
+      console.log(chalkAlert("GTS | *** TEST MODE *** | CATEGORIZE MAX " + categorizedNodeIds.length + " USERS"));
     }
 
     let maxMagnitude = -Infinity;
@@ -1658,7 +1666,13 @@ function updateCategorizedUsers(){
     let categorizedUsersRemain = 0;
     let categorizedUsersRate = 0;
 
-    async.eachSeries(categorizedNodeIds, function(nodeId, cb0){
+    async.each(categorizedNodeIds, function(nodeId, cb0){
+
+      if (!nodeId || nodeId === undefined) {
+        console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS: NODE ID UNDEFINED"));
+        statsObj.errors.users.findOne += 1;
+        return cb0() ;
+      }
 
       User.findOne( { "$or":[ {nodeId: nodeId.toString()}, {screenName: nodeId.toLowerCase()} ]}, function(err, userDoc){
 
@@ -2059,7 +2073,7 @@ function initCategorizedUserHashmap(){
     p.limit = DEFAULT_FIND_CAT_USER_CURSOR_LIMIT;
     p.batchSize = DEFAULT_CURSOR_BATCH_SIZE;
     p.query = { 
-      "$and": [ { "ignored": { "$nin": [ true ] } }, { "category": { "$nin": [ false, null ] } } ]
+      "$and": [ { "ignored": { "$nin": [ true, "true" ] } }, { "category": { "$in": [ "left", "right", "neutral" ] } } ]
     };
 
     let more = true;
@@ -2323,10 +2337,9 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(){
       + " | " + fileSizeInBytes + " B | " + savedSize.toFixed(3) + " MB"
     ));
 
-    const fileSizeObj = { 
-      path: configuration.userArchivePath,
-      size: fileSizeInBytes
-    };
+    let fileSizeObj = {};
+    fileSizeObj.file = configuration.userArchiveFile;
+    fileSizeObj.size = fileSizeInBytes;
 
     await saveFile({folder: configuration.userArchiveFolder, file: configuration.archiveFileUploadCompleteFlagFile, obj: fileSizeObj });
 
@@ -2494,38 +2507,6 @@ function initialize(cnf){
       statsObj.commandLineArgsLoaded = true;
 
       global.dbConnection = await connectDb();
-
-      const emojiModel = require("@threeceelabs/mongoose-twitter/models/emoji.server.model");
-      const hashtagModel = require("@threeceelabs/mongoose-twitter/models/hashtag.server.model");
-      const locationModel = require("@threeceelabs/mongoose-twitter/models/location.server.model");
-      const mediaModel = require("@threeceelabs/mongoose-twitter/models/media.server.model");
-      const neuralNetworkModel = require("@threeceelabs/mongoose-twitter/models/neuralNetwork.server.model");
-      const placeModel = require("@threeceelabs/mongoose-twitter/models/place.server.model");
-      const tweetModel = require("@threeceelabs/mongoose-twitter/models/tweet.server.model");
-      const urlModel = require("@threeceelabs/mongoose-twitter/models/url.server.model");
-      const userModel = require("@threeceelabs/mongoose-twitter/models/user.server.model");
-      const wordModel = require("@threeceelabs/mongoose-twitter/models/word.server.model");
-
-      global.Emoji = global.dbConnection.model("Emoji", emojiModel.EmojiSchema);
-      global.Hashtag = global.dbConnection.model("Hashtag", hashtagModel.HashtagSchema);
-      global.Location = global.dbConnection.model("Location", locationModel.LocationSchema);
-      global.Media = global.dbConnection.model("Media", mediaModel.MediaSchema);
-      global.NeuralNetwork = global.dbConnection.model("NeuralNetwork", neuralNetworkModel.NeuralNetworkSchema);
-      global.Place = global.dbConnection.model("Place", placeModel.PlaceSchema);
-      global.Tweet = global.dbConnection.model("Tweet", tweetModel.TweetSchema);
-      global.Url = global.dbConnection.model("Url", urlModel.UrlSchema);
-      global.User = global.dbConnection.model("User", userModel.UserSchema);
-      global.Word = global.dbConnection.model("Word", wordModel.WordSchema);
-
-      UserServerController = require("@threeceelabs/user-server-controller");
-      userServerController = new UserServerController("GTS_USC");
-
-      userServerControllerReady = false;
-
-      userServerController.on("ready", function(appname){
-        userServerControllerReady = true;
-        console.log(chalkGreen("GTS | +++ USC READY | " + appname));
-      });
 
       resolve(configuration);
 
