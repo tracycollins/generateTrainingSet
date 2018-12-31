@@ -279,7 +279,7 @@ configuration.enableRequiredTrainingSet = false;
 configuration.quitOnComplete = DEFAULT_QUIT_ON_COMPLETE;
 configuration.globalTrainingSetId = GLOBAL_TRAINING_SET_ID;
 
-configuration.saveFileQueueInterval = 1000;
+configuration.saveFileQueueInterval = SAVE_FILE_QUEUE_INTERVAL;
 
 configuration.archiveFileUploadCompleteFlagFile = "usersZipUploadComplete.json";
 configuration.trainingSetFile = "trainingSet.json";
