@@ -17,7 +17,7 @@
   },
   "homepage": "https://github.com/tracycollins/generateTrainingSet#readme",
   "dependencies": {
-    "@google-cloud/vision": "^0.23.0",
+    "@google-cloud/vision": "^0.24.0",
     "@google/maps": "^0.5.5",
     "@threeceelabs/mongoose-twitter": "^1.0.193",
     "@threeceelabs/twitter-image-parser": "^1.0.65",
