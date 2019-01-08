@@ -23,17 +23,17 @@ else {
   DROPBOX_ROOT_FOLDER = "/Users/tc/Dropbox/Apps/wordAssociation";
 }
 
-const inputTypes = [
-  "emoji", 
-  "hashtags",  
-  "images", 
-  "locations", 
-  "media", 
-  "mentions", 
-  "places", 
-  "sentiment", 
-  "urls", 
-  "userMentions", 
+const DEFAULT_INPUT_TYPES = [
+  "emoji",
+  "hashtags",
+  "images",
+  "locations",
+  "media",
+  "mentions",
+  "places",
+  "sentiment",
+  "urls",
+  "userMentions",
   "words"
 ];
 
@@ -81,6 +81,8 @@ const atob = require("atob");
 const btoa = require("btoa");
 const objectPath = require("object-path");
 const validUrl = require("valid-url");
+const MergeHistograms = require("@threeceelabs/mergehistograms");
+const mergeHistograms = new MergeHistograms();
 
 let archive;
 let archiveOutputStream;
@@ -106,8 +108,6 @@ const DEFAULT_LOAD_ALL_INPUTS = false;
 
 const DEFAULT_QUIT_ON_COMPLETE = false;
 const DEFAULT_TEST_RATIO = 0.20;
-
-let saveFileQueue = [];
 
 const retry = require("retry");
 const JSONParse = require("json-parse-safe");
@@ -152,7 +152,14 @@ let prevHostConfigFileModifiedMoment = moment("2010-01-01");
 let prevDefaultConfigFileModifiedMoment = moment("2010-01-01");
 let prevConfigFileModifiedMoment = moment("2010-01-01");
 
-let userMaxInputHashMap = {};
+let maxInputHashMap = {};
+let globalhistograms = {};
+
+DEFAULT_INPUT_TYPES.forEach(function(type){
+  globalhistograms[type] = {};
+  maxInputHashMap[type] = {};
+});
+
 
 let trainingSetUsersHashMap = new HashMap();
 
@@ -255,9 +262,6 @@ let slackText = "";
 
 let initMainInterval;
 
-let saveFileQueueInterval;
-let saveFileBusy = false;
-
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 configuration.normalization = null;
 configuration.verbose = false;
@@ -279,8 +283,6 @@ configuration.interruptFlag = false;
 configuration.enableRequiredTrainingSet = false;
 configuration.quitOnComplete = DEFAULT_QUIT_ON_COMPLETE;
 configuration.globalTrainingSetId = GLOBAL_TRAINING_SET_ID;
-
-configuration.saveFileQueueInterval = SAVE_FILE_QUEUE_INTERVAL;
 
 configuration.archiveFileUploadCompleteFlagFile = "usersZipUploadComplete.json";
 configuration.trainingSetFile = "trainingSet.json";
@@ -365,13 +367,6 @@ else {
   statsObj.runId = DEFAULT_RUN_ID;
   console.log(chalkLog("GTS | DEFAULT RUN ID: " + statsObj.runId));
 }
-
-let globalhistograms = {};
-
-
-inputTypes.forEach(function(type){
-  globalhistograms[type] = {};
-});
 
 let categorizedUserHashmap = new HashMap();
 
@@ -677,7 +672,6 @@ function quit(options){
   console.log(chalkAlert("GTS | QUITTING ..." ));
 
   clearInterval(initMainInterval);
-  clearInterval(saveFileQueueInterval);
 
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
 
@@ -1268,28 +1262,6 @@ function getFileMetadata(params) {
   });
 }
 
-let statsUpdateInterval;
-
-function initStatsUpdate(cnf){
-
-  console.log(chalkBlue("GTS | INIT STATS UPDATE INTERVAL | " + cnf.statsUpdateIntervalTime + " MS"));
-
-  clearInterval(statsUpdateInterval);
-
-  saveFileQueue.push({localFlag: false, folder: statsFolder, file: statsFile, obj: statsObj});
-
-  statsUpdateInterval = setInterval(function () {
-
-    statsObj.elapsed = moment().valueOf() - statsObj.startTime;
-    statsObj.timeStamp = moment().format(compactDateTimeFormat);
- 
-    showStats();
-
-    saveFileQueue.push({localFlag: false, folder: statsFolder, file: statsFile, obj: statsObj});
-
-  }, cnf.statsUpdateIntervalTime);
-}
-
 function userChanged(uOld, uNew){
   ["category"].forEach(function(prop){
     if (uOld[prop] !== uNew[prop]){
@@ -1483,11 +1455,6 @@ function loadConfigFile(params) {
           newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
         }
 
-        if (loadedConfigObj.GTS_STATS_UPDATE_INTERVAL  !== undefined) {
-          console.log("GTS | LOADED GTS_STATS_UPDATE_INTERVAL: " + loadedConfigObj.GTS_STATS_UPDATE_INTERVAL);
-          newConfiguration.statsUpdateIntervalTime = loadedConfigObj.GTS_STATS_UPDATE_INTERVAL;
-        }
-
         return resolve(newConfiguration);
       }
 
@@ -1624,9 +1591,57 @@ function encodeHistogramUrls(params){
   });
 }
 
+function resetMaxInputsHashMap(params){
+  return new Promise(async function(resolve, reject){
+
+    console.log(chalkInfo("GTS | RESET MAX INPUT HASHMAP"));
+
+    DEFAULT_INPUT_TYPES.forEach(function(type){
+      maxInputHashMap[type] = {};
+    });
+
+    resolve();
+
+  });
+}
+
+function updateMaxInputHashMap(params){
+  return new Promise(async function(resolve, reject){
+
+    const mergedHistograms = await mergeHistograms.merge({ histogramA: params.user.profileHistograms, histogramB: params.user.tweetHistograms });
+    const histogramTypes = Object.keys(mergedHistograms);
+
+    async.each(histogramTypes, function(type, cb0){
+
+      if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
+
+      const histogramTypeEntities = Object.keys(mergedHistograms[type]);
+
+      async.each(histogramTypeEntities, function(entity, cb1){
+
+        maxInputHashMap[type][entity] = (maxInputHashMap[type][entity] === undefined)
+          ? mergedHistograms[type][entity]
+          : Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
+
+          cb1();
+
+      }, function(err){
+        if (err) { return reject(err); }
+        cb0();
+      });
+
+    }, function(err){
+      if (err) { return reject(err); }
+      resolve();
+    });
+  });
+}
+
 function updateCategorizedUsers(){
 
-  return new Promise(function(resolve, reject){
+  return new Promise(async function(resolve, reject){
+
+    console.log(chalkInfo("GTS | UPDATE CATEGORIZED USERS"));
 
     statsObj.status = "UPDATE CATEGORIZED USERS";
 
@@ -1634,7 +1649,13 @@ function updateCategorizedUsers(){
 
     let userFile;
 
-    userServerController.resetMaxInputsHashMap();
+    try {
+      await resetMaxInputsHashMap();
+    }
+    catch(err){
+      console.log(chalkError("GTS | *** RESET MAX INPUT HASHMAP ERROR: " + err));
+      return reject(err);
+    }
 
     let categorizedNodeIds = categorizedUserHashmap.keys();
 
@@ -1675,7 +1696,7 @@ function updateCategorizedUsers(){
         return cb0() ;
       }
 
-      User.findOne( { "$or":[ {nodeId: nodeId.toString()}, {screenName: nodeId.toLowerCase()} ]}, function(err, userDoc){
+      User.findOne( { "$or":[ {nodeId: nodeId.toString()}, {screenName: nodeId.toLowerCase()} ]}, async function(err, userDoc){
 
         userIndex += 1;
 
@@ -1700,6 +1721,14 @@ function updateCategorizedUsers(){
         }
 
         let user = userDoc.toObject();
+
+        try {
+          await updateMaxInputHashMap({user:user});
+        }
+        catch(err){
+          console.log(chalkError("GTS | *** UPDATE MAX INPUT HASHMAP ERROR: " + err));
+          return reject(err);
+        }
 
         debug(chalkInfo("GTS | UPDATE CL USR <DB"
           + " [" + userIndex + "/" + categorizedNodeIds.length + "]"
@@ -1948,10 +1977,6 @@ function updateCategorizedUsers(){
         return reject(err);
       }
 
-      userMaxInputHashMap = userServerController.getMaxInputsHashMap();
-
-      // console.log("MAX INPUT HASHMAP keys\n" + Object.keys(userMaxInputHashMap.images));
-
       categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIds.length;
       categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
       categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
@@ -2046,7 +2071,7 @@ function updateTrainingSet(params){
     tObj.trainingSetObj.testSet.meta.setSize = tObj.trainingSetObj.testSet.data.length;
 
 
-    tObj.trainingSetObj.maxInputHashMap = userMaxInputHashMap;
+    tObj.trainingSetObj.maxInputHashMap = maxInputHashMap;
 
     console.log(chalkLog("GTS | TRAINING SET"
       + " | SIZE: " + tObj.trainingSetObj.trainingSet.meta.setSize
@@ -2103,7 +2128,7 @@ function initCategorizedUserHashmap(){
 
             more = false;
 
-            console.log(chalkLog("GTS | LOADING CATEGORIZED USERS FROM DB"
+            console.log(chalkLog("GTS | +++ LOADED CATEGORIZED USERS FROM DB"
               + " | TOTAL CATEGORIZED: " + totalCount
               + " | LIMIT: " + p.limit
               + " | SKIP: " + p.skip
@@ -2224,10 +2249,17 @@ function generateGlobalTrainingTestSet(params){
       let mihmObj = {};
 
       mihmObj.maxInputHashMap = {};
-      mihmObj.maxInputHashMap = userServerController.getMaxInputsHashMap();
+      mihmObj.maxInputHashMap = maxInputHashMap;
 
       mihmObj.normalization = {};
       mihmObj.normalization = statsObj.normalization;
+
+      console.log(MODULE_ID_PREFIX
+        + " | SAVING MAX INPUT HASHMAP FILE | "
+        + configuration.trainingSetsFolder + "/maxInputHashMap.json"
+      );
+
+      await saveFile({folder: configuration.trainingSetsFolder, file: "maxInputHashMap.json", obj: mihmObj });
 
       const buf = Buffer.from(JSON.stringify(mihmObj));
 
@@ -2483,7 +2515,6 @@ function initialize(cnf){
 
       cnf.categorizedUsersFile = process.env.GTS_CATEGORIZED_USERS_FILE || categorizedUsersFile;
       cnf.categorizedUsersFolder = globalCategorizedUsersFolder;
-      cnf.statsUpdateIntervalTime = process.env.GTS_STATS_UPDATE_INTERVAL || 10000;
 
       debug(chalkWarn("dropboxConfigDefaultFolder: " + dropboxConfigDefaultFolder));
       debug(chalkWarn("dropboxConfigDefaultFile  : " + dropboxConfigDefaultFile));
@@ -2523,7 +2554,7 @@ setTimeout(async function(){
 
   try{
     configuration = await initialize(configuration);
-    await generateGlobalTrainingTestSet({usersHashMap: trainingSetUsersHashMap, maxInputHashMap: userMaxInputHashMap});
+    await generateGlobalTrainingTestSet({usersHashMap: trainingSetUsersHashMap, maxInputHashMap: maxInputHashMap});
   }
   catch(err){
     console.log(chalkError("GTS | *** INITIALIZE ERROR: " + err));
