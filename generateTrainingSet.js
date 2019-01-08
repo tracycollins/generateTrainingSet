@@ -1623,7 +1623,11 @@ function updateMaxInputHashMap(params){
           ? mergedHistograms[type][entity]
           : Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
 
-          cb1();
+        if (maxInputHashMap[type][entity] === 0) {
+          maxInputHashMap[type][entity] = 1;
+        }
+
+        cb1();
 
       }, function(err){
         if (err) { return reject(err); }
