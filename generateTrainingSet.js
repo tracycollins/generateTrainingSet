@@ -2016,9 +2016,7 @@ function initCategorizedUserHashmap(){
             if (configuration.verbose || (totalCount % 1000 === 0)) {
 
               console.log(chalkLog("GTS | LOADING CATEGORIZED USERS FROM DB"
-                + " | TOTAL CATEGORIZED: " + totalCount
-                + " | LIMIT: " + p.limit
-                + " | SKIP: " + p.skip
+                + " | TOTAL: " + totalCount
                 + " | " + totalManual + " MAN"
                 + " | " + totalAuto + " AUTO"
                 + " | " + totalMatched + " MATCHED"
@@ -2037,9 +2035,7 @@ function initCategorizedUserHashmap(){
             more = false;
 
             console.log(chalkLog("GTS | LOADING CATEGORIZED USERS FROM DB"
-              + " | TOTAL CATEGORIZED: " + totalCount
-              + " | LIMIT: " + p.limit
-              + " | SKIP: " + p.skip
+              + " | TOTAL: " + totalCount
               + " | " + totalManual + " MAN"
               + " | " + totalAuto + " AUTO"
               + " | " + totalMatched + " MATCHED"
