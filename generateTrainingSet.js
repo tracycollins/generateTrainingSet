@@ -1,6 +1,6 @@
 /*jslint node: true */
 /*jshint sub:true*/
-"use strict";
+
 
 const os = require("os");
 let hostname = os.hostname();
@@ -39,29 +39,29 @@ const DEFAULT_INPUT_TYPES = [
 
 const ONE_SECOND = 1000;
 const ONE_MINUTE = 60 * ONE_SECOND;
-const ONE_HOUR = 60 * ONE_MINUTE;
+// const ONE_HOUR = 60 * ONE_MINUTE;
 
 const ONE_KILOBYTE = 1024;
 const ONE_MEGABYTE = 1024 * ONE_KILOBYTE;
 
 const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 
-const DEFAULT_OFFLINE_MODE = false;
+// const DEFAULT_OFFLINE_MODE = false;
 const DEFAULT_SERVER_MODE = false;
 
 const DEFAULT_FIND_CAT_USER_CURSOR_LIMIT = 100;
 const DEFAULT_CURSOR_BATCH_SIZE = process.env.DEFAULT_CURSOR_BATCH_SIZE || 100;
 
-const SAVE_FILE_QUEUE_INTERVAL = 5*ONE_SECOND;
+// const SAVE_FILE_QUEUE_INTERVAL = 5*ONE_SECOND;
 const DEFAULT_WAIT_UNLOCK_INTERVAL = 15*ONE_SECOND;
 const DEFAULT_WAIT_UNLOCK_TIMEOUT = 10*ONE_MINUTE;
 
-const DEFAULT_FILELOCK_RETRIES = 20;
+// const DEFAULT_FILELOCK_RETRIES = 20;
 const DEFAULT_FILELOCK_RETRY_WAIT = DEFAULT_WAIT_UNLOCK_INTERVAL;
 const DEFAULT_FILELOCK_STALE = 2*DEFAULT_WAIT_UNLOCK_TIMEOUT;
 const DEFAULT_FILELOCK_WAIT = DEFAULT_WAIT_UNLOCK_TIMEOUT;
 
-let fileLockOptions = { 
+const fileLockOptions = { 
   retries: DEFAULT_FILELOCK_WAIT,
   retryWait: DEFAULT_FILELOCK_RETRY_WAIT,
   stale: DEFAULT_FILELOCK_STALE,
@@ -73,10 +73,10 @@ const lockFile = require("lockfile");
 const merge = require("deepmerge");
 const treeify = require("treeify");
 const archiver = require("archiver");
-const watch = require("watch");
-const unzip = require("unzip");
+// const watch = require("watch");
+// const unzip = require("unzip");
 const fs = require("fs");
-const yauzl = require("yauzl");
+// const yauzl = require("yauzl");
 const atob = require("atob");
 const btoa = require("btoa");
 const objectPath = require("object-path");
@@ -84,34 +84,18 @@ const validUrl = require("valid-url");
 const MergeHistograms = require("@threeceelabs/mergehistograms");
 const mergeHistograms = new MergeHistograms();
 
+
 let archive;
-let archiveOutputStream;
 
-
-const MODULE_NAME = "generateTrainingSet";
 const MODULE_ID_PREFIX = "GTS";
 const MODULE_ID = MODULE_ID_PREFIX + "_node_" + hostname;
-
-const DEFAULT_DELETE_NOT_IN_INPUTS_ID_ARRAY = false;
-
-const ENABLE_INIT_PURGE_LOCAL = true;
-
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
-const SMALL_SET_SIZE = 100;
-const SMALL_TEST_SET_SIZE = 20;
-
 const TEST_MODE_LENGTH = 1000;
-const TEST_DROPBOX_NN_LOAD = 10;
-
-const DEFAULT_LOAD_ALL_INPUTS = false;
-
 const DEFAULT_QUIT_ON_COMPLETE = false;
 const DEFAULT_TEST_RATIO = 0.20;
 
-const retry = require("retry");
 const JSONParse = require("json-parse-safe");
-const arraySlice = require("array-slice");
 const util = require("util");
 const _ = require("lodash");
 const writeJsonFile = require("write-json-file");
@@ -122,10 +106,7 @@ const fetch = require("isomorphic-fetch"); // or another library of choice.
 const Dropbox = require("dropbox").Dropbox;
 
 const pick = require("object.pick");
-const omit = require("object.omit");
 const Slack = require("slack-node");
-const cp = require("child_process");
-const arrayNormalize = require("array-normalize");
 
 const EventEmitter3 = require("eventemitter3");
 const async = require("async");
@@ -140,20 +121,16 @@ const chalkError = chalk.bold.red;
 const chalkWarn = chalk.red;
 const chalkLog = chalk.gray;
 const chalkInfo = chalk.black;
-const chalkRed = chalk.red;
 
 const debug = require("debug")("gts");
 const commandLineArgs = require("command-line-args");
-
-const twitterTextParser = require("@threeceelabs/twitter-text-parser");
-const twitterImageParser = require("@threeceelabs/twitter-image-parser");
 
 let prevHostConfigFileModifiedMoment = moment("2010-01-01");
 let prevDefaultConfigFileModifiedMoment = moment("2010-01-01");
 let prevConfigFileModifiedMoment = moment("2010-01-01");
 
-let maxInputHashMap = {};
-let globalhistograms = {};
+const maxInputHashMap = {};
+const globalhistograms = {};
 
 DEFAULT_INPUT_TYPES.forEach(function(type){
   globalhistograms[type] = {};
@@ -161,9 +138,9 @@ DEFAULT_INPUT_TYPES.forEach(function(type){
 });
 
 
-let trainingSetUsersHashMap = new HashMap();
+const trainingSetUsersHashMap = new HashMap();
 
-let statsObj = {};
+const statsObj = {};
 let statsObjSmall = {};
 
 statsObj.status = "LOAD";
@@ -198,7 +175,7 @@ statsObj.errors.users = {};
 statsObj.errors.users.findOne = 0;
 
 
-let statsPickArray = [
+const statsPickArray = [
   "pid", 
   "startTime", 
   "elapsed", 
@@ -229,9 +206,9 @@ function jsonPrint(obj) {
 }
 
 function getTimeStamp(inputTime) {
-  let currentTimeStamp ;
+  let currentTimeStamp;
 
-  if (inputTime  === undefined) {
+  if (inputTime === undefined) {
     currentTimeStamp = moment().format(compactDateTimeFormat);
     return currentTimeStamp;
   }
@@ -252,12 +229,7 @@ function getTimeStamp(inputTime) {
   }
 }
 
-let tempArchiveDirectory = "/tmp/archive_" + getTimeStamp();
-
-let initMainReady = false;
-let requiredTrainingSet = new Set();
-
-let slackChannel = "#gts";
+const slackChannel = "#gts";
 let slackText = "";
 
 let initMainInterval;
@@ -293,6 +265,8 @@ const DROPBOX_CONFIG_FOLDER = "/config/utility";
 const DROPBOX_CONFIG_DEFAULT_FOLDER = DROPBOX_CONFIG_FOLDER + "/default";
 const DROPBOX_CONFIG_HOST_FOLDER = DROPBOX_CONFIG_FOLDER + "/" + hostname;
 
+const DROPBOX_LIST_FOLDER_LIMIT = 50;
+
 configuration.local = {};
 configuration.local.trainingSetsFolder = DROPBOX_CONFIG_HOST_FOLDER + "/trainingSets";
 configuration.local.histogramsFolder = DROPBOX_CONFIG_HOST_FOLDER + "/histograms";
@@ -312,11 +286,15 @@ configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
 configuration.userArchivePath = DROPBOX_ROOT_FOLDER + configuration[HOST].userArchivePath;
 
 configuration.DROPBOX = {};
-configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN = process.env.DROPBOX_WORD_ASSO_ACCESS_TOKEN ;
-configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_KEY = process.env.DROPBOX_WORD_ASSO_APP_KEY ;
+configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN = process.env.DROPBOX_WORD_ASSO_ACCESS_TOKEN;
+configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_KEY = process.env.DROPBOX_WORD_ASSO_APP_KEY;
 configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_SECRET = process.env.DROPBOX_WORD_ASSO_APP_SECRET;
 configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE = process.env.DROPBOX_GTS_CONFIG_FILE || "generateTrainingSetConfig.json";
 configuration.DROPBOX.DROPBOX_GTS_STATS_FILE = process.env.DROPBOX_GTS_STATS_FILE || "generateTrainingSetStats.json";
+
+const drbx = require("@davvo/drbx")({
+  token: configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN
+});
 
 
 const slackOAuthAccessToken = "xoxp-3708084981-3708084993-206468961315-ec62db5792cd55071a51c544acf0da55";
@@ -325,8 +303,9 @@ function toMegabytes(sizeInBytes) {
   return sizeInBytes/ONE_MEGABYTE;
 }
 
-function msToTime(duration) {
+function msToTime(d) {
 
+  let duration = d;
   let sign = 1;
 
   if (duration < 0) {
@@ -347,16 +326,6 @@ function msToTime(duration) {
   return "- " + days + ":" + hours + ":" + minutes + ":" + seconds;
 }
 
-function printCat(c){
-  if (c === "left") { return "L"; }
-  if (c === "neutral") { return "N"; }
-  if (c === "right") { return "R"; }
-  if (c === "positive") { return "+"; }
-  if (c === "negative") { return "-"; }
-  if (c === "none") { return "0"; }
-  return ".";
-}
-
 const DEFAULT_RUN_ID = hostname + "_" + process.pid + "_" + statsObj.startTimeMoment.format(compactDateTimeFormat);
 
 if (process.env.GTS_RUN_ID !== undefined) {
@@ -368,9 +337,9 @@ else {
   console.log(chalkLog("GTS | DEFAULT RUN ID: " + statsObj.runId));
 }
 
-let categorizedUserHashmap = new HashMap();
+const categorizedUserHashmap = new HashMap();
 
-let categorizedUserHistogram = {};
+const categorizedUserHistogram = {};
 categorizedUserHistogram.left = 0;
 categorizedUserHistogram.right = 0;
 categorizedUserHistogram.neutral = 0;
@@ -400,7 +369,7 @@ const configEvents = new EventEmitter3({
 
 let stdin;
 
-let slack = new Slack(slackOAuthAccessToken);
+const slack = new Slack(slackOAuthAccessToken);
 
 function slackPostMessage(channel, text, callback){
 
@@ -442,7 +411,7 @@ const quitOnComplete = { name: "quitOnComplete", alias: "q", type: Boolean };
 const quitOnError = { name: "quitOnError", alias: "Q", type: Boolean, defaultValue: true };
 const verbose = { name: "verbose", alias: "v", type: Boolean };
 
-const trainingSetFile = { name: "trainingSetFile", alias: "T", type: String};
+// const trainingSetFile = { name: "trainingSetFile", alias: "T", type: String};
 const testMode = { name: "testMode", alias: "X", type: Boolean };
 
 const optionDefinitions = [
@@ -491,7 +460,7 @@ statsObj.normalization.magnitude.min = 0;
 statsObj.normalization.magnitude.max = -Infinity;
 
 
-let testObj = {};
+const testObj = {};
 testObj.testRunId = statsObj.runId;
 testObj.results = {};
 testObj.testSet = [];
@@ -516,10 +485,10 @@ const dropboxConfigHostFolder = "/config/utility/" + hostname;
 const dropboxConfigDefaultFile = "default_" + configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE;
 const dropboxConfigHostFile = hostname + "_" + configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE;
 
-const defaultTrainingSetFolder = dropboxConfigDefaultFolder + "/trainingSets";
-const localTrainingSetFolder = dropboxConfigHostFolder + "/trainingSets";
+// const defaultTrainingSetFolder = dropboxConfigDefaultFolder + "/trainingSets";
+// const localTrainingSetFolder = dropboxConfigHostFolder + "/trainingSets";
 
-const defaultTrainingSetUserArchive = defaultTrainingSetFolder + "/users/users.zip";
+// const defaultTrainingSetUserArchive = defaultTrainingSetFolder + "/users/users.zip";
 
 const statsFolder = "/stats/" + hostname + "/generateTrainingSet";
 const statsFile = "generateTrainingSetStats_" + statsObj.runId + ".json";
@@ -539,12 +508,32 @@ debug("GTS | DROPBOX_WORD_ASSO_ACCESS_TOKEN :" + configuration.DROPBOX.DROPBOX_W
 debug("GTS | DROPBOX_WORD_ASSO_APP_KEY :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_KEY);
 debug("GTS | DROPBOX_WORD_ASSO_APP_SECRET :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_SECRET);
 
-let dropboxRemoteClient = new Dropbox({ 
+global.globalDbConnection = false;
+const mongoose = require("mongoose");
+mongoose.set("useFindAndModify", false);
+
+const emojiModel = require("@threeceelabs/mongoose-twitter/models/emoji.server.model");
+const hashtagModel = require("@threeceelabs/mongoose-twitter/models/hashtag.server.model");
+const locationModel = require("@threeceelabs/mongoose-twitter/models/location.server.model");
+const mediaModel = require("@threeceelabs/mongoose-twitter/models/media.server.model");
+const neuralNetworkModel = require("@threeceelabs/mongoose-twitter/models/neuralNetwork.server.model");
+const placeModel = require("@threeceelabs/mongoose-twitter/models/place.server.model");
+const tweetModel = require("@threeceelabs/mongoose-twitter/models/tweet.server.model");
+const urlModel = require("@threeceelabs/mongoose-twitter/models/url.server.model");
+const userModel = require("@threeceelabs/mongoose-twitter/models/user.server.model");
+const wordModel = require("@threeceelabs/mongoose-twitter/models/word.server.model");
+
+global.globalWordAssoDb = require("@threeceelabs/mongoose-twitter");
+
+const UserServerController = require("@threeceelabs/user-server-controller");
+let userServerController;
+
+const dropboxRemoteClient = new Dropbox({ 
   accessToken: configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN,
   fetch: fetch
 });
 
-let dropboxLocalClient = {  // offline mode
+const dropboxLocalClient = { // offline mode
   filesListFolder: filesListFolderLocal,
   filesUpload: function(){},
   filesDownload: function(){},
@@ -588,7 +577,7 @@ function filesListFolderLocal(options){
       }
       else {
 
-        let itemArray = [];
+        const itemArray = [];
 
         async.each(items, function(item, cb){
 
@@ -603,6 +592,10 @@ function filesListFolderLocal(options){
           cb();
 
         }, function(err){
+
+          if (err){
+            return reject(err);
+          }
 
           const response = {
             cursor: false,
@@ -626,8 +619,8 @@ else {
   dropboxClient = dropboxRemoteClient;
 }
 
-let globalCategorizedUsersFolder = dropboxConfigDefaultFolder + "/categorizedUsers";
-let categorizedUsersFile = "categorizedUsers_manual.json";
+const globalCategorizedUsersFolder = dropboxConfigDefaultFolder + "/categorizedUsers";
+const categorizedUsersFile = "categorizedUsers_manual.json";
 
 
 function showStats(options){
@@ -694,7 +687,7 @@ function quit(options){
   showStats();
 
   setTimeout(function(){
-    global.dbConnection.close(function () {
+    global.globalDbConnection.close(function () {
       console.log(chalkAlert(
             "GTS | =========================="
         + "\nGTS | MONGO DB CONNECTION CLOSED"
@@ -713,34 +706,6 @@ process.on("exit", function() {
   quit("SIGINT");
 });
 
-global.dbConnection = false;
-const mongoose = require("mongoose");
-mongoose.set("useFindAndModify", false);
-
-global.wordAssoDb = require("@threeceelabs/mongoose-twitter");
-
-global.Emoji;
-global.Hashtag;
-global.Location;
-global.Media;
-global.NetworkInputs;
-global.NeuralNetwork;
-global.Place;
-global.Tweet;
-global.Url;
-global.User;
-global.Word;
-
-let dbConnectionReady = false;
-let dbConnectionReadyInterval;
-
-let UserServerController;
-let userServerController;
-let userServerControllerReady = false;
-
-let userDbUpdateQueueInterval;
-let userDbUpdateQueueReadyFlag = true;
-let userDbUpdateQueue = [];
 
 function connectDb(){
 
@@ -750,12 +715,11 @@ function connectDb(){
 
       statsObj.status = "CONNECTING MONGO DB";
 
-      wordAssoDb.connect(MODULE_ID + "_" + process.pid, async function(err, db){
+      global.globalWordAssoDb.connect(MODULE_ID + "_" + process.pid, async function(err, db){
 
         if (err) {
           console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION ERROR: " + err));
           statsObj.status = "MONGO CONNECTION ERROR";
-          dbConnectionReady = false;
           quit({cause: "MONGO DB ERROR: " + err});
           return reject(err);
         }
@@ -766,7 +730,6 @@ function connectDb(){
           console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION ERROR"));
           // slackSendMessage(hostname + " | TNN | " + statsObj.status);
           db.close();
-          dbConnectionReady = false;
           quit({cause: "MONGO DB ERROR: " + err});
         });
 
@@ -775,54 +738,32 @@ function connectDb(){
           console.error.bind(console, MODULE_ID_PREFIX + " | *** MONGO DB DISCONNECTED");
           // slackSendMessage(hostname + " | TNN | " + statsObj.status);
           console.log(chalkAlert(MODULE_ID_PREFIX + " | *** MONGO DB DISCONNECTED"));
-          dbConnectionReady = false;
           quit({cause: "MONGO DB DISCONNECTED"});
         });
 
 
-        global.dbConnection = db;
+        global.globalDbConnection = db;
 
         console.log(chalk.green(MODULE_ID_PREFIX + " | MONGOOSE DEFAULT CONNECTION OPEN"));
 
-
-        const emojiModel = require("@threeceelabs/mongoose-twitter/models/emoji.server.model");
-        const hashtagModel = require("@threeceelabs/mongoose-twitter/models/hashtag.server.model");
-        const locationModel = require("@threeceelabs/mongoose-twitter/models/location.server.model");
-        const mediaModel = require("@threeceelabs/mongoose-twitter/models/media.server.model");
-        const neuralNetworkModel = require("@threeceelabs/mongoose-twitter/models/neuralNetwork.server.model");
-        const placeModel = require("@threeceelabs/mongoose-twitter/models/place.server.model");
-        const tweetModel = require("@threeceelabs/mongoose-twitter/models/tweet.server.model");
-        const urlModel = require("@threeceelabs/mongoose-twitter/models/url.server.model");
-        const userModel = require("@threeceelabs/mongoose-twitter/models/user.server.model");
-        const wordModel = require("@threeceelabs/mongoose-twitter/models/word.server.model");
-
-        global.Emoji = global.dbConnection.model("Emoji", emojiModel.EmojiSchema);
-        global.Hashtag = global.dbConnection.model("Hashtag", hashtagModel.HashtagSchema);
-        global.Location = global.dbConnection.model("Location", locationModel.LocationSchema);
-        global.Media = global.dbConnection.model("Media", mediaModel.MediaSchema);
-        global.NeuralNetwork = global.dbConnection.model("NeuralNetwork", neuralNetworkModel.NeuralNetworkSchema);
-        global.Place = global.dbConnection.model("Place", placeModel.PlaceSchema);
-        global.Tweet = global.dbConnection.model("Tweet", tweetModel.TweetSchema);
-        global.Url = global.dbConnection.model("Url", urlModel.UrlSchema);
-        global.User = global.dbConnection.model("User", userModel.UserSchema);
-        global.Word = global.dbConnection.model("Word", wordModel.WordSchema);
+        global.globalEmoji = global.globalDbConnection.model("Emoji", emojiModel.EmojiSchema);
+        global.globalHashtag = global.globalDbConnection.model("Hashtag", hashtagModel.HashtagSchema);
+        global.globalLocation = global.globalDbConnection.model("Location", locationModel.LocationSchema);
+        global.globalMedia = global.globalDbConnection.model("Media", mediaModel.MediaSchema);
+        global.globalNeuralNetwork = global.globalDbConnection.model("NeuralNetwork", neuralNetworkModel.NeuralNetworkSchema);
+        global.globalPlace = global.globalDbConnection.model("Place", placeModel.PlaceSchema);
+        global.globalTweet = global.globalDbConnection.model("Tweet", tweetModel.TweetSchema);
+        global.globalUrl = global.globalDbConnection.model("Url", urlModel.UrlSchema);
+        global.globalUser = global.globalDbConnection.model("User", userModel.UserSchema);
+        global.globalWord = global.globalDbConnection.model("Word", wordModel.WordSchema);
 
         const uscChildName = MODULE_ID_PREFIX + "_USC";
-        UserServerController = require("@threeceelabs/user-server-controller");
         userServerController = new UserServerController(uscChildName);
 
-        userServerControllerReady = false;
         userServerController.on("ready", function(appname){
-
           statsObj.status = "MONGO DB CONNECTED";
-          // slackSendMessage(hostname + " | TNN | " + statsObj.status);
-
-          userServerControllerReady = true;
           console.log(chalkLog(MODULE_ID_PREFIX + " | " + uscChildName + " READY | " + appname));
-          dbConnectionReady = true;
-
           resolve(db);
-
         });
       });
     }
@@ -844,7 +785,7 @@ function saveFile(params){
     debug(chalkInfo("LOAD FILE " + params.file));
     debug(chalkInfo("FULL PATH " + fullPath));
 
-    let options = {};
+    const options = {};
 
     if (params.localFlag) {
 
@@ -862,12 +803,10 @@ function saveFile(params){
       showStats();
       console.log(chalkInfo("GTS | ... SAVING LOCALLY | " + objSizeMBytes.toFixed(2) + " MB | " + fullPath));
 
-      writeJsonFile(fullPath, params.obj)
-      .then(function() {
+      writeJsonFile(fullPath, params.obj).
+      then(function() {
 
         console.log(chalkInfo("GTS | SAVED LOCALLY | " + objSizeMBytes.toFixed(2) + " MB | " + fullPath));
-
-        const waitSaveTimeout = (objSizeMBytes < 10) ? 100 : 5*ONE_SECOND;
 
         setTimeout(function(){
 
@@ -884,13 +823,8 @@ function saveFile(params){
             + "\n DST: " + options.destination
           ));
 
-          const drbx = require("@davvo/drbx")({
-            token: configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN
-          });
-
-          let localReadStream = fs.createReadStream(fullPath);
-          let remoteWriteStream = drbx.file(options.destination).createWriteStream();
-
+          const localReadStream = fs.createReadStream(fullPath);
+          const remoteWriteStream = drbx.file(options.destination).createWriteStream();
 
           let bytesRead = 0;
           let chunksRead = 0;
@@ -944,10 +878,10 @@ function saveFile(params){
             return reject(err);
           });
 
-        }, waitInterval);
+        }, configuration.waitInterval);
 
-      })
-      .catch(function(err){
+      }).
+      catch(function(err){
         console.trace(chalkError("GTS | " + moment().format(compactDateTimeFormat) 
           + " | !!! ERROR DROBOX JSON WRITE | FILE: " + fullPath 
           + " | ERROR: " + err
@@ -970,12 +904,12 @@ function saveFile(params){
 
       const dbFileUpload = function () {
 
-        dropboxClient.filesUpload(options)
-        .then(function(){
+        dropboxClient.filesUpload(options).
+        then(function(){
           console.log(chalkLog("GTS | SAVED DROPBOX JSON | " + options.path));
           resolve();
-        })
-        .catch(function(err){
+        }).
+        catch(function(err){
           if (err.status === 413){
             console.log(chalkError("GTS | " + moment().format(compactDateTimeFormat) 
               + " | !!! ERROR DROBOX JSON WRITE | FILE: " + fullPath 
@@ -1009,8 +943,8 @@ function saveFile(params){
 
       if (options.mode === "add") {
 
-        dropboxClient.filesListFolder({path: params.folder, limit: DROPBOX_LIST_FOLDER_LIMIT})
-        .then(function(response){
+        dropboxClient.filesListFolder({path: params.folder, limit: DROPBOX_LIST_FOLDER_LIMIT}).
+        then(function(response){
 
           debug(chalkLog("DROPBOX LIST FOLDER"
             + " | ENTRIES: " + response.entries.length
@@ -1049,8 +983,8 @@ function saveFile(params){
             }
           });
 
-        })
-        .catch(function(err){
+        }).
+        catch(function(err){
           console.log(chalkError("GTS | *** DROPBOX SAVE FILE ERROR: " + err));
           return reject(err);
         });
@@ -1067,10 +1001,10 @@ function loadFileRetry(params){
 
   return new Promise(async function(resolve, reject){
 
-    let maxRetries = params.maxRetries || 5;
+    const maxRetries = params.maxRetries || 5;
     let i;
 
-    for (i = 0; i < maxRetries; ++i) {
+    for (i = 0;i < maxRetries;++i) {
       try {
         
         if (i > 0) { console.log(chalkAlert("TNN | FILE LOAD RETRY: " + i + " OF " + maxRetries)); }
@@ -1164,8 +1098,8 @@ function loadFile(params) {
      }
     else {
 
-      dropboxClient.filesDownload({path: fullPath})
-      .then(function(data) {
+      dropboxClient.filesDownload({path: fullPath}).
+      then(function(data) {
 
         debug(chalkLog(getTimeStamp()
           + " | LOADING FILE FROM DROPBOX FILE: " + fullPath
@@ -1173,7 +1107,7 @@ function loadFile(params) {
 
         if (params.file.match(/\.json$/gi)) {
 
-          let payload = data.fileBinary;
+          const payload = data.fileBinary;
 
           if (!payload || (payload === undefined)) {
             return reject(new Error("GTS LOAD FILE PAYLOAD UNDEFINED"));
@@ -1191,8 +1125,8 @@ function loadFile(params) {
         else {
           resolve();
         }
-      })
-      .catch(function(error) {
+      }).
+      catch(function(error) {
 
         console.log(chalkError("GTS | DROPBOX loadFile ERROR: " + fullPath));
         
@@ -1233,12 +1167,12 @@ function getFileMetadata(params) {
       dropboxClient = dropboxRemoteClient;
     }
 
-    dropboxClient.filesGetMetadata({path: fullPath})
-      .then(function(response) {
+    dropboxClient.filesGetMetadata({path: fullPath}).
+      then(function(response) {
         debug(chalkInfo("FILE META\n" + jsonPrint(response)));
         return resolve(response);
-      })
-      .catch(function(err) {
+      }).
+      catch(function(err) {
 
         console.log(chalkError("GTS | DROPBOX getFileMetadata ERROR: " + fullPath));
         console.log(chalkError("GTS | !!! DROPBOX READ " + fullPath + " ERROR"));
@@ -1262,23 +1196,14 @@ function getFileMetadata(params) {
   });
 }
 
-function userChanged(uOld, uNew){
-  ["category"].forEach(function(prop){
-    if (uOld[prop] !== uNew[prop]){
-      return true;
-    }
-    return false;
-  });
-}
-
 function initStdIn(){
 
-  return new Promise(function(resolve, reject){
+  return new Promise(function(resolve){
 
     console.log("GTS | STDIN ENABLED");
 
     stdin = process.stdin;
-    if(stdin.setRawMode  !== undefined) {
+    if(stdin.setRawMode !== undefined) {
       stdin.setRawMode( true );
     }
     stdin.resume();
@@ -1322,7 +1247,7 @@ function initStdIn(){
 
 function loadCommandLineArgs(){
 
-  return new Promise(async function(resolve, reject){
+  return new Promise(async function(resolve){
 
     statsObj.status = "LOAD COMMAND LINE ARGS";
 
@@ -1401,10 +1326,10 @@ function loadConfigFile(params) {
 
         console.log(chalkInfo("GTS | LOADED CONFIG FILE: " + fullPath + "\n" + jsonPrint(loadedConfigObj)));
 
-        let newConfiguration = {};
+        const newConfiguration = {};
         newConfiguration.evolve = {};
 
-        if (loadedConfigObj.GTS_TEST_MODE  !== undefined){
+        if (loadedConfigObj.GTS_TEST_MODE !== undefined){
           console.log("GTS | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE);
 
           if ((loadedConfigObj.GTS_TEST_MODE === true) || (loadedConfigObj.GTS_TEST_MODE === "true")) {
@@ -1421,7 +1346,7 @@ function loadConfigFile(params) {
         }
 
 
-        if (loadedConfigObj.GTS_OFFLINE_MODE  !== undefined){
+        if (loadedConfigObj.GTS_OFFLINE_MODE !== undefined){
           console.log("GTS | LOADED GTS_OFFLINE_MODE: " + loadedConfigObj.GTS_OFFLINE_MODE);
 
           if ((loadedConfigObj.GTS_OFFLINE_MODE === false) || (loadedConfigObj.GTS_OFFLINE_MODE === "false")) {
@@ -1438,19 +1363,19 @@ function loadConfigFile(params) {
         if (loadedConfigObj.GTS_QUIT_ON_COMPLETE !== undefined) {
           console.log("GTS | LOADED GTS_QUIT_ON_COMPLETE: " + loadedConfigObj.GTS_QUIT_ON_COMPLETE);
           if (!loadedConfigObj.GTS_QUIT_ON_COMPLETE || (loadedConfigObj.GTS_QUIT_ON_COMPLETE === "false")) {
-            newConfiguration.quitOnComplete = false ;
+            newConfiguration.quitOnComplete = false;
           }
           else {
-            newConfiguration.quitOnComplete = true ;
+            newConfiguration.quitOnComplete = true;
           }
         }
 
-        if (loadedConfigObj.GTS_VERBOSE_MODE  !== undefined){
+        if (loadedConfigObj.GTS_VERBOSE_MODE !== undefined){
           console.log("GTS | LOADED GTS_VERBOSE_MODE: " + loadedConfigObj.GTS_VERBOSE_MODE);
           newConfiguration.verbose = loadedConfigObj.GTS_VERBOSE_MODE;
         }
 
-        if (loadedConfigObj.GTS_ENABLE_STDIN  !== undefined){
+        if (loadedConfigObj.GTS_ENABLE_STDIN !== undefined){
           console.log("GTS | LOADED GTS_ENABLE_STDIN: " + loadedConfigObj.GTS_ENABLE_STDIN);
           newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
         }
@@ -1469,7 +1394,7 @@ function loadConfigFile(params) {
   });
 }
 
-function loadAllConfigFiles(callback){
+function loadAllConfigFiles(){
 
   return new Promise(async function(resolve, reject){
 
@@ -1478,23 +1403,23 @@ function loadAllConfigFiles(callback){
 
       console.log(chalkLog("GTS | LOAD ALL CONFIG FILES"));
 
-      let defaultConfig = await loadConfigFile({folder: dropboxConfigDefaultFolder, file: dropboxConfigDefaultFile, skipOnNotFound: true});
+      const defaultConfig = await loadConfigFile({folder: dropboxConfigDefaultFolder, file: dropboxConfigDefaultFile, skipOnNotFound: true});
 
       if (defaultConfig) {
         defaultConfiguration = defaultConfig;
         console.log(chalkAlert("GTS | +++ LOADED DEFAULT CONFIG " + dropboxConfigDefaultFolder + "/" + dropboxConfigDefaultFile));
       }
 
-      let hostConfig = await loadConfigFile({folder: dropboxConfigHostFolder, file: dropboxConfigHostFile, skipOnNotFound: true});
+      const hostConfig = await loadConfigFile({folder: dropboxConfigHostFolder, file: dropboxConfigHostFile, skipOnNotFound: true});
 
       if (hostConfig) {
         hostConfiguration = hostConfig;
         console.log(chalkAlert("GTS | +++ LOADED HOST CONFIG " + dropboxConfigHostFolder + "/" + dropboxConfigHostFile));
       }
    
-      let defaultAndHostConfig = merge(defaultConfiguration, hostConfiguration); // host settings override defaults
+      const defaultAndHostConfig = merge(defaultConfiguration, hostConfiguration); // host settings override defaults
       console.log("defaultAndHostConfig.testMode: " + defaultAndHostConfig.testMode);
-      let tempConfig = merge(configuration, defaultAndHostConfig); // any new settings override existing config
+      const tempConfig = merge(configuration, defaultAndHostConfig); // any new settings override existing config
       console.log("tempConfig.testMode: " + tempConfig.testMode);
 
       resolve(tempConfig);
@@ -1518,11 +1443,11 @@ configEvents.once("INIT_MONGODB", function(){
 function encodeHistogramUrls(params){
   return new Promise(function(resolve, reject){
 
-    let user = params.user;
+    const user = params.user;
 
     async.eachSeries(["histograms", "profileHistograms", "tweetHistograms"], function(histogram, cb){
 
-      let urls = objectPath.get(user, [histogram, "urls"]);
+      const urls = objectPath.get(user, [histogram, "urls"]);
 
       if (urls) {
 
@@ -1591,8 +1516,8 @@ function encodeHistogramUrls(params){
   });
 }
 
-function resetMaxInputsHashMap(params){
-  return new Promise(async function(resolve, reject){
+function resetMaxInputsHashMap(){
+  return new Promise(async function(resolve){
 
     console.log(chalkInfo("GTS | RESET MAX INPUT HASHMAP"));
 
@@ -1649,10 +1574,6 @@ function updateCategorizedUsers(){
 
     statsObj.status = "UPDATE CATEGORIZED USERS";
 
-    let userSubDirectory = configuration.trainingSetsFolder + "/users"
-
-    let userFile;
-
     try {
       await resetMaxInputsHashMap();
     }
@@ -1661,7 +1582,7 @@ function updateCategorizedUsers(){
       return reject(err);
     }
 
-    let categorizedNodeIds = categorizedUserHashmap.keys();
+    const categorizedNodeIds = categorizedUserHashmap.keys();
 
     if (configuration.testMode) {
       categorizedNodeIds.length = Math.min(categorizedNodeIds.length, TEST_MODE_LENGTH);
@@ -1686,7 +1607,7 @@ function updateCategorizedUsers(){
 
     let userIndex = 0;
     let categorizedUsersPercent = 0;
-    let categorizedUsersStartMoment = moment();
+    const categorizedUsersStartMoment = moment();
     let categorizedUsersEndMoment = moment();
     let categorizedUsersElapsed = 0;
     let categorizedUsersRemain = 0;
@@ -1697,41 +1618,41 @@ function updateCategorizedUsers(){
       if (!nodeId || nodeId === undefined) {
         console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS: NODE ID UNDEFINED"));
         statsObj.errors.users.findOne += 1;
-        return cb0() ;
+        return cb0();
       }
 
-      User.findOne( { "$or":[ {nodeId: nodeId.toString()}, {screenName: nodeId.toLowerCase()} ]}, async function(err, userDoc){
+      global.globalUser.findOne( { "$or": [{nodeId: nodeId.toString()}, {screenName: nodeId.toLowerCase()}]}, async function(err, userDoc){
 
         userIndex += 1;
 
         if (err){
           console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER FIND ONE ERROR: " + err));
           statsObj.errors.users.findOne += 1;
-          return cb0(err) ;
+          return cb0(err);
         }
 
         if (!userDoc){
           console.log(chalkLog("GTS | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + nodeId));
           statsObj.users.notFound += 1;
           statsObj.users.notCategorized += 1;
-          return cb0() ;
+          return cb0();
         }
 
         if (userDoc.screenName === undefined) {
           console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED\n" + jsonPrint(userDoc)));
           statsObj.users.screenNameUndefined += 1;
           statsObj.users.notCategorized += 1;
-          return cb0() ;
+          return cb0();
         }
 
-        let user = userDoc.toObject();
+        const user = userDoc.toObject();
 
         try {
-          await updateMaxInputHashMap({user:user});
+          await updateMaxInputHashMap({user: user});
         }
-        catch(err){
-          console.log(chalkError("GTS | *** UPDATE MAX INPUT HASHMAP ERROR: " + err));
-          return reject(err);
+        catch(e){
+          console.log(chalkError("GTS | *** UPDATE MAX INPUT HASHMAP ERROR: " + e));
+          return reject(e);
         }
 
         debug(chalkInfo("GTS | UPDATE CL USR <DB"
@@ -1740,9 +1661,7 @@ function updateCategorizedUsers(){
           + " | @" + user.screenName
         ));
 
-        let sentimentText;
-
-        let sentimentObj = {};
+        const sentimentObj = {};
         sentimentObj.magnitude = 0;
         sentimentObj.score = 0;
 
@@ -1764,8 +1683,6 @@ function updateCategorizedUsers(){
           user.languageAnalysis.sentiment.magnitude = 0;
           user.languageAnalysis.sentiment.score = 0;
         }
-
-        sentimentText = "M: " + sentimentObj.magnitude.toFixed(2) + " S: " + sentimentObj.score.toFixed(2);
 
         const category = user.category || false;
 
@@ -1808,7 +1725,6 @@ function updateCategorizedUsers(){
 
           debug(chalkLog("\n==============================\n"));
           debug(currentChalk("ADD  | U"
-            + " | SEN: " + sentimentText
             + " | " + classText
             + " | " + user.screenName
             + " | " + user.nodeId
@@ -1852,8 +1768,8 @@ function updateCategorizedUsers(){
             ));
           }
 
-          encodeHistogramUrls({user: user})
-          .then(function(updatedUser){
+          encodeHistogramUrls({user: user}).
+          then(function(updatedUser){
 
             const subUser = pick(
               updatedUser,
@@ -1888,8 +1804,8 @@ function updateCategorizedUsers(){
               cb0();
             });
 
-          })
-          .catch(function(err){
+          }).
+          catch(function(err){
             return cb0(err);
           })
 
@@ -1913,7 +1829,6 @@ function updateCategorizedUsers(){
             + " | 3CF: " + user.threeceeFollowing
             + " | FLs: " + user.followersCount
             + " | FRs: " + user.friendsCount
-            + " | SEN: " + sentimentText
           ));
 
           categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIds.length;
@@ -1950,8 +1865,8 @@ function updateCategorizedUsers(){
 
           user.category = categorizedUserHashmap.get(nodeId).manual;
 
-          encodeHistogramUrls({user: user})
-          .then(function(updatedUser){
+          encodeHistogramUrls({user: user}).
+          then(function(updatedUser){
 
             userServerController.findOneUser(updatedUser, {noInc: true}, function(err, dbUser){
               if (err) {
@@ -1961,8 +1876,8 @@ function updateCategorizedUsers(){
               cb0();
             });
 
-          })
-          .catch(function(err){
+          }).
+          catch(function(err){
             return cb0(err);
           });
         }
@@ -2026,69 +1941,6 @@ function updateCategorizedUsers(){
   });
 }
 
-function updateTrainingSet(params){
-
-  console.log(chalkBlue("GTS | UPDATE TRAINING SET"));
-
-  return new Promise(function(resolve, reject) {
-
-    let tObj = {};
-
-    if (trainingSetHashMap.has(configuration.globalTrainingSetId)) {
-      tObj = trainingSetHashMap.get(configuration.globalTrainingSetId);
-      console.log(chalkInfo("GTS | +++ TRAINING SET HM HIT: " + tObj.trainingSetObj.trainingSetId));
-    }
-    else {
-
-      console.log(chalkInfo("GTS | --- TRAINING SET HM MISS: " + configuration.globalTrainingSetId + " ... CREATING..."));
-
-      tObj.trainingSetObj = {};
-
-      tObj.trainingSetObj.trainingSetId = configuration.globalTrainingSetId;
-
-      tObj.trainingSetObj.meta = {};
-      tObj.trainingSetObj.meta.numInputs = 0;
-      tObj.trainingSetObj.meta.numOutputs = 3;
-      tObj.trainingSetObj.trainingSet = {};
-      tObj.trainingSetObj.trainingSet.meta = {};
-      tObj.trainingSetObj.trainingSet.meta.numInputs = 0;
-      tObj.trainingSetObj.trainingSet.meta.numOutputs = 3;
-      tObj.trainingSetObj.trainingSet.meta.setSize = 0;
-      tObj.trainingSetObj.trainingSet.data = [];
-
-      tObj.trainingSetObj.testSet = {};
-      tObj.trainingSetObj.testSet.meta = {};
-      tObj.trainingSetObj.testSet.meta.numInputs = 0;
-      tObj.trainingSetObj.testSet.meta.numOutputs = 3;
-      tObj.trainingSetObj.testSet.meta.setSize = 0;
-      tObj.trainingSetObj.testSet.data = [];
-
-      tObj.trainingSetObj.maxInputHashMap = {};
-    }
-
-    const testSetSize = parseInt(configuration.testSetRatio * trainingSetUsersHashMap.size);
-
-    tObj.trainingSetObj.trainingSet.data = trainingSetUsersHashMap.values().slice(testSetSize);
-    tObj.trainingSetObj.trainingSet.meta.setSize = tObj.trainingSetObj.trainingSet.data.length;
-
-    tObj.trainingSetObj.testSet.data = trainingSetUsersHashMap.values().slice(0, testSetSize-1);
-    tObj.trainingSetObj.testSet.meta.setSize = tObj.trainingSetObj.testSet.data.length;
-
-
-    tObj.trainingSetObj.maxInputHashMap = maxInputHashMap;
-
-    console.log(chalkLog("GTS | TRAINING SET"
-      + " | SIZE: " + tObj.trainingSetObj.trainingSet.meta.setSize
-      + " | TEST SIZE: " + tObj.trainingSetObj.testSet.meta.setSize
-    ));
-
-    trainingSetHashMap.set(tObj.trainingSetObj.trainingSetId, tObj);
-
-    resolve();
-
-  });
-}
-
 function initCategorizedUserHashmap(){
 
   return new Promise(async function(resolve, reject){
@@ -2097,13 +1949,13 @@ function initCategorizedUserHashmap(){
 
     // const query = (params.query) ? params.query : { $or: [ { "category": { $nin: [ false, null ] } } , { "categoryAuto": { $nin: [ false, null ] } } ] };
 
-    let p = {};
+    const p = {};
 
     p.skip = 0;
     p.limit = DEFAULT_FIND_CAT_USER_CURSOR_LIMIT;
     p.batchSize = DEFAULT_CURSOR_BATCH_SIZE;
     p.query = { 
-      "$and": [ { "ignored": { "$nin": [ true, "true" ] } }, { "category": { "$in": [ "left", "right", "neutral" ] } } ]
+      "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
     };
 
     let more = true;
@@ -2217,7 +2069,9 @@ function archiveUsers(){
 
   return new Promise(function(resolve, reject){
 
-    if (archive === undefined) { return reject(err); }
+    if (archive === undefined) { 
+      return reject(new Error("ARCHIVE UNDEFINED"));
+    }
 
     async.each(trainingSetUsersHashMap.values(), function(user, cb){
       const userFile = "user_" + user.userId + ".json";
@@ -2225,6 +2079,9 @@ function archiveUsers(){
       archive.append(userBuffer, { name: userFile });
       cb();
     }, function(err){
+      if (err) {
+        return reject(err);
+      }
       resolve();
     });
 
@@ -2232,7 +2089,7 @@ function archiveUsers(){
   });
 }
 
-function generateGlobalTrainingTestSet(params){
+function generateGlobalTrainingTestSet(){
 
   return new Promise(async function(resolve, reject){
 
@@ -2250,7 +2107,7 @@ function generateGlobalTrainingTestSet(params){
       await initArchiver();
       await archiveUsers();
 
-      let mihmObj = {};
+      const mihmObj = {};
 
       mihmObj.maxInputHashMap = {};
       mihmObj.maxInputHashMap = maxInputHashMap;
@@ -2317,7 +2174,7 @@ function getFileLock(params){
 }
 
 function delay(params){
-  return new Promise(function(resolve, reject){
+  return new Promise(function(resolve){
 
     if (params.message) {
       console.log(chalkLog("GTS | " + params.message + " | PERIOD: " + msToTime(params.period)));
@@ -2374,7 +2231,7 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(){
       + " | " + fileSizeInBytes + " B | " + savedSize.toFixed(3) + " MB"
     ));
 
-    let fileSizeObj = {};
+    const fileSizeObj = {};
     fileSizeObj.file = configuration.userArchiveFile;
     fileSizeObj.size = fileSizeInBytes;
 
@@ -2395,7 +2252,7 @@ function initArchiver(params){
 
   return new Promise(async function(resolve, reject){
 
-    let userArchivePath = configuration.userArchivePath;
+    const userArchivePath = configuration.userArchivePath;
 
     console.log(chalkBlue("GTS | INIT ARCHIVER | " + userArchivePath));
 
@@ -2410,7 +2267,7 @@ function initArchiver(params){
 
       // console.log(chalkAlert("GTS | ARCHIVE LOCK FILE: " + lockFileName));
 
-      let archiveFileLocked = await getFileLock({file: lockFileName, options: fileLockOptions});
+      const archiveFileLocked = await getFileLock({file: lockFileName, options: fileLockOptions});
 
       if (!archiveFileLocked) {
 
@@ -2440,8 +2297,7 @@ function initArchiver(params){
        
       archive.on("warning", function(err) {
         console.log(chalkAlert("GTS | ARCHIVE | WARNING\n" + jsonPrint(err)));
-        if (err.code === "ENOENT") {
-        } else {
+        if (err.code !== "ENOENT") {
           throw err;
         }
       });
@@ -2503,17 +2359,17 @@ function initialize(cnf){
       cnf.processName = process.env.GTS_PROCESS_NAME || "node_gts";
       cnf.runId = process.env.GTS_RUN_ID || statsObj.runId;
 
-      cnf.verbose = process.env.GTS_VERBOSE_MODE || false ;
-      cnf.quitOnError = process.env.GTS_QUIT_ON_ERROR || false ;
-      cnf.enableStdin = process.env.GTS_ENABLE_STDIN || true ;
+      cnf.verbose = process.env.GTS_VERBOSE_MODE || false;
+      cnf.quitOnError = process.env.GTS_QUIT_ON_ERROR || false;
+      cnf.enableStdin = process.env.GTS_ENABLE_STDIN || true;
 
       if (process.env.GTS_QUIT_ON_COMPLETE !== undefined) {
         console.log("GTS | ENV GTS_QUIT_ON_COMPLETE: " + process.env.GTS_QUIT_ON_COMPLETE);
         if (!process.env.GTS_QUIT_ON_COMPLETE || (process.env.GTS_QUIT_ON_COMPLETE === false) || (process.env.GTS_QUIT_ON_COMPLETE === "false")) {
-          cnf.quitOnComplete = false ;
+          cnf.quitOnComplete = false;
         }
         else {
-          cnf.quitOnComplete = true ;
+          cnf.quitOnComplete = true;
         }
       }
 
@@ -2527,7 +2383,7 @@ function initialize(cnf){
       
       configuration = await loadAllConfigFiles();
 
-      let tempCommandLineArgs = await loadCommandLineArgs();
+      await loadCommandLineArgs();
       
       const configArgs = Object.keys(configuration);
 
@@ -2542,7 +2398,7 @@ function initialize(cnf){
       
       statsObj.commandLineArgsLoaded = true;
 
-      global.dbConnection = await connectDb();
+      global.globalDbConnection = await connectDb();
 
       resolve(configuration);
 
