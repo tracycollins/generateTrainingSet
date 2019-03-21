@@ -2230,6 +2230,7 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(){
     const fileSizeObj = {};
     fileSizeObj.file = configuration.userArchiveFile;
     fileSizeObj.size = fileSizeInBytes;
+    fileSizeObj.numUsers = categorizedUserHashmap.size;
 
     await saveFile({folder: configuration.userArchiveFolder, file: configuration.archiveFileUploadCompleteFlagFile, obj: fileSizeObj });
 
