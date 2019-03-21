@@ -2214,7 +2214,7 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(){
 
   try{
 
-    await delay({message: "WAIT FOR DROPBOX FILE SYNC | " + configuration.userArchivePath, period: 15*ONE_SECOND});
+    await delay({message: "WAIT FOR DROPBOX FILE SYNC | " + configuration.userArchivePath, period: ONE_MINUTE});
 
     await releaseFileLock({file: configuration.userArchivePath + ".lock"});
 
@@ -2235,7 +2235,7 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(){
 
     await saveFile({folder: configuration.userArchiveFolder, file: configuration.archiveFileUploadCompleteFlagFile, obj: fileSizeObj });
 
-    await delay({message: "WAIT FOR DROPBOX FLAG FILE SYNC", period: 15*ONE_SECOND});
+    await delay({message: "WAIT FOR DROPBOX FLAG FILE SYNC", period: ONE_MINUTE});
 
     quit("DONE");
   }
