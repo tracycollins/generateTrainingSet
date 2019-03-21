@@ -1613,7 +1613,7 @@ function updateCategorizedUsers(){
     let categorizedUsersRemain = 0;
     let categorizedUsersRate = 0;
 
-    async.each(categorizedNodeIds, function(nodeId, cb0){
+    async.eachSeries(categorizedNodeIds, function(nodeId, cb0){
 
       if (!nodeId || nodeId === undefined) {
         console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS: NODE ID UNDEFINED"));
@@ -1652,7 +1652,8 @@ function updateCategorizedUsers(){
         }
         catch(e){
           console.log(chalkError("GTS | *** UPDATE MAX INPUT HASHMAP ERROR: " + e));
-          return reject(e);
+          return cb0(e);
+          // return reject(e);
         }
 
         debug(chalkInfo("GTS | UPDATE CL USR <DB"
@@ -1803,7 +1804,6 @@ function updateCategorizedUsers(){
               debug("dbUser\n" + jsonPrint(dbUser));
               cb0();
             });
-
           }).
           catch(function(err){
             return cb0(err);
