@@ -25,6 +25,7 @@ else {
 
 const DEFAULT_INPUT_TYPES = [
   "emoji",
+  "friends",
   "hashtags",
   "images",
   "locations",
