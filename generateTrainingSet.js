@@ -1784,6 +1784,7 @@ function updateCategorizedUsers(){
                 "statusesCount",
                 "followersCount",
                 "friendsCount",
+                "friends",
                 "languageAnalysis", 
                 "category", 
                 "categoryAuto", 
