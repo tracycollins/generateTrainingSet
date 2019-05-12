@@ -1622,7 +1622,8 @@ function updateCategorizedUsers(){
         return cb0();
       }
 
-      global.globalUser.findOne( { "$or": [{nodeId: nodeId.toString()}, {screenName: nodeId.toLowerCase()}]}, async function(err, userDoc){
+      // global.globalUser.findOne( { "$or": [{nodeId: nodeId.toString()}, {screenName: nodeId.toLowerCase()}]}, async function(err, userDoc){
+      global.globalUser.findOne({ nodeId: nodeId.toString() }, async function(err, userDoc){
 
         userIndex += 1;
 
