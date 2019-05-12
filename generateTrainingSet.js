@@ -1649,8 +1649,11 @@ function updateCategorizedUsers(){
 
         const user = userDoc.toObject();
 
+        console.log(chalkLog("GTS | FIND ONE USER | " + user.nodeId + " | @" + user.screenName));
+
         try {
           await updateMaxInputHashMap({user: user});
+          console.log(chalkLog("GTS | UPDATE MAX INPUT USER | " + user.nodeId + " | @" + user.screenName));
         }
         catch(e){
           console.log(chalkError("GTS | *** UPDATE MAX INPUT HASHMAP ERROR: " + e));
@@ -1658,11 +1661,13 @@ function updateCategorizedUsers(){
           // return reject(e);
         }
 
-        debug(chalkInfo("GTS | UPDATE CL USR <DB"
-          + " [" + userIndex + "/" + categorizedNodeIds.length + "]"
-          + " | " + user.nodeId
-          + " | @" + user.screenName
-        ));
+        if (configuration.verbose) {
+          console.log(chalkInfo("GTS | UPDATE CL USR <DB"
+            + " [" + userIndex + "/" + categorizedNodeIds.length + "]"
+            + " | " + user.nodeId
+            + " | @" + user.screenName
+          ));
+        }
 
         const sentimentObj = {};
         sentimentObj.magnitude = 0;
@@ -1800,14 +1805,16 @@ function updateCategorizedUsers(){
 
             trainingSetUsersHashMap.set(subUser.nodeId, subUser);
 
-            userServerController.findOneUser(updatedUser, {noInc: true}, function(err, dbUser){
-              if (err) {
-                console.log(chalkError("GTS | *** FIND ONE USER ERROR: " + err));
-                return cb0(err);
-              }
-              debug("dbUser\n" + jsonPrint(dbUser));
-              cb0();
-            });
+            cb0();
+
+            // userServerController.findOneUser(updatedUser, {noInc: true}, function(err, dbUser){
+            //   if (err) {
+            //     console.log(chalkError("GTS | *** FIND ONE USER ERROR: " + err));
+            //     return cb0(err);
+            //   }
+            //   debug("dbUser\n" + jsonPrint(dbUser));
+            //   cb0();
+            // });
 
           }).
           catch(function(err){
