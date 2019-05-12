@@ -1446,7 +1446,7 @@ function encodeHistogramUrls(params){
 
     const user = params.user;
 
-    async.eachSeries(["histograms", "profileHistograms", "tweetHistograms"], function(histogram, cb){
+    async.eachSeries(["histograms", "profileHistograms", "tweetHistograms"], function(histogram, cb0){
 
       const urls = objectPath.get(user, [histogram, "urls"]);
 
@@ -1454,25 +1454,25 @@ function encodeHistogramUrls(params){
 
         debug("URLS\n" + jsonPrint(urls));
 
-        async.eachSeries(Object.keys(urls), async function(url){
+        async.eachSeries(Object.keys(urls), function(url, cb1){
 
           if (validUrl.isUri(url)){
             const urlB64 = btoa(url);
             debug(chalkAlert("HISTOGRAM " + histogram + ".urls | " + url + " -> " + urlB64));
             urls[urlB64] = urls[url];
             delete urls[url];
-            return;
+            return cb1();
           }
 
           if (url === "url") {
             debug(chalkAlert("HISTOGRAM " + histogram + ".urls | XXX URL: " + url));
             delete urls[url];
-            return;
+            return cb1();
           }
 
           if (validUrl.isUri(atob(url))) {
             debug(chalkGreen("HISTOGRAM " + histogram + ".urls | IS B64: " + url));
-            return;
+            return cb1();
           }
 
 
@@ -1483,28 +1483,28 @@ function encodeHistogramUrls(params){
             debug(chalkAlert("HISTOGRAM " + histogram + ".urls | " + httpsUrl + " -> " + urlB64));
             urls[urlB64] = urls[url];
             delete urls[url];
-            return;
+            return cb1();
           }
 
           debug(chalkAlert("HISTOGRAM " + histogram + ".urls |  XXX NOT URL NOR B64: " + url));
 
           delete urls[url];
-          return;
+          cb1();
 
         }, function(err){
           if (err) {
-            return cb(err);
+            return cb0(err);
           }
           if (Object.keys(urls).length > 0){
             debug("CONVERTED URLS | @" + user.screenName + "\n" + jsonPrint(urls));
           }
           user[histogram].urls = urls;
-          cb();
+          cb0();
         });
 
       }
       else {
-        cb();
+        cb0();
       }
 
     }, function(err){
@@ -1623,7 +1623,7 @@ function updateCategorizedUsers(){
       }
 
       // global.globalUser.findOne( { "$or": [{nodeId: nodeId.toString()}, {screenName: nodeId.toLowerCase()}]}, async function(err, userDoc){
-      global.globalUser.findOne({ nodeId: nodeId.toString() }, async function(err, userDoc){
+      global.globalUser.findOne({ nodeId: nodeId }, async function(err, userDoc){
 
         userIndex += 1;
 
@@ -1802,18 +1802,19 @@ function updateCategorizedUsers(){
 
             userServerController.findOneUser(updatedUser, {noInc: true}, function(err, dbUser){
               if (err) {
+                console.log(chalkError("GTS | *** FIND ONE USER ERROR: " + err));
                 return cb0(err);
               }
               debug("dbUser\n" + jsonPrint(dbUser));
               cb0();
             });
+
           }).
           catch(function(err){
+            console.log(chalkError("GTS | *** ENCODE HISTOGRAM URLS ERROR: " + err));
             return cb0(err);
-          })
+          });
 
-
-          // cb0();
         }
         else {
 
@@ -1873,6 +1874,7 @@ function updateCategorizedUsers(){
 
             userServerController.findOneUser(updatedUser, {noInc: true}, function(err, dbUser){
               if (err) {
+                console.log(chalkError("GTS | *** FIND ONE USER ERROR: " + err));
                 return cb0(err);
               }
               debug("dbUser\n" + jsonPrint(dbUser));
@@ -1881,6 +1883,7 @@ function updateCategorizedUsers(){
 
           }).
           catch(function(err){
+            console.log(chalkError("GTS | *** ENCODE HISTOGRAM URLS ERROR: " + err));
             return cb0(err);
           });
         }
