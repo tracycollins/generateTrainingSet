@@ -1649,11 +1649,8 @@ function updateCategorizedUsers(){
 
         const user = userDoc.toObject();
 
-        console.log(chalkLog("GTS | FIND ONE USER | " + user.nodeId + " | @" + user.screenName));
-
         try {
           await updateMaxInputHashMap({user: user});
-          console.log(chalkLog("GTS | UPDATE MAX INPUT USER | " + user.nodeId + " | @" + user.screenName));
         }
         catch(e){
           console.log(chalkError("GTS | *** UPDATE MAX INPUT HASHMAP ERROR: " + e));
