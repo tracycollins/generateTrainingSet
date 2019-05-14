@@ -1804,15 +1804,6 @@ function updateCategorizedUsers(){
 
             cb0();
 
-            // userServerController.findOneUser(updatedUser, {noInc: true}, function(err, dbUser){
-            //   if (err) {
-            //     console.log(chalkError("GTS | *** FIND ONE USER ERROR: " + err));
-            //     return cb0(err);
-            //   }
-            //   debug("dbUser\n" + jsonPrint(dbUser));
-            //   cb0();
-            // });
-
           }).
           catch(function(err){
             console.log(chalkError("GTS | *** ENCODE HISTOGRAM URLS ERROR: " + err));
