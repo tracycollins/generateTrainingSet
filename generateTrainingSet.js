@@ -351,6 +351,7 @@ categorizedUserHistogram.none = 0;
 categorizedUserHistogram.total = 0;
 
 const categorizedUserHistogramTotal = function(){
+  categorizedUserHistogram.total = 0;
   categorizedUserHistogram.total = categorizedUserHistogram.left;
   categorizedUserHistogram.total += categorizedUserHistogram.right;
   categorizedUserHistogram.total += categorizedUserHistogram.neutral;
