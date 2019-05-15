@@ -4,6 +4,7 @@
 
 const os = require("os");
 let hostname = os.hostname();
+hostname = hostname.replace(/.tld/g, ""); // amtrak wifi
 hostname = hostname.replace(/.local/g, "");
 hostname = hostname.replace(/.home/g, "");
 hostname = hostname.replace(/.at.net/g, "");
@@ -1614,48 +1615,47 @@ function updateCategorizedUsers(){
     let categorizedUsersRemain = 0;
     let categorizedUsersRate = 0;
 
-    async.eachSeries(categorizedNodeIds, function(nodeId, cb0){
+    async.eachSeries(categorizedNodeIds, async function(nodeId){
 
       if (!nodeId || nodeId === undefined) {
         console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS: NODE ID UNDEFINED"));
         statsObj.errors.users.findOne += 1;
-        return cb0();
+        return;
       }
 
       // global.globalUser.findOne( { "$or": [{nodeId: nodeId.toString()}, {screenName: nodeId.toLowerCase()}]}, async function(err, userDoc){
-      global.globalUser.findOne({ nodeId: nodeId }, async function(err, userDoc){
+      // global.globalUser.findOne({ nodeId: nodeId }, async function(err, userDoc){
 
+      try {
+        const user = await global.globalUser.findOne({ nodeId: nodeId }).lean();
         userIndex += 1;
 
-        if (err){
-          console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER FIND ONE ERROR: " + err));
-          statsObj.errors.users.findOne += 1;
-          return cb0(err);
-        }
-
-        if (!userDoc){
+        if (!user || user === undefined){
           console.log(chalkLog("GTS | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + nodeId));
           statsObj.users.notFound += 1;
           statsObj.users.notCategorized += 1;
-          return cb0();
+          return;
         }
 
-        if (userDoc.screenName === undefined) {
-          console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED\n" + jsonPrint(userDoc)));
+        if (!user.category || user.category === undefined) {
+          console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED\n" + jsonPrint(user)));
+          statsObj.users.notCategorized += 1;
+          return;
+        }
+
+        if (user.screenName === undefined) {
+          console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
           statsObj.users.screenNameUndefined += 1;
           statsObj.users.notCategorized += 1;
-          return cb0();
+          return;
         }
-
-        const user = userDoc.toObject();
 
         try {
           await updateMaxInputHashMap({user: user});
         }
         catch(e){
           console.log(chalkError("GTS | *** UPDATE MAX INPUT HASHMAP ERROR: " + e));
-          return cb0(e);
-          // return reject(e);
+          return e;
         }
 
         if (configuration.verbose) {
@@ -1689,200 +1689,125 @@ function updateCategorizedUsers(){
           user.languageAnalysis.sentiment.score = 0;
         }
 
-        const category = user.category || false;
+        let classText = "";
+        let currentChalk = chalkLog;
 
-        if (category) {
+        switch (user.category) {
+          case "left":
+            categorizedUserHistogram.left += 1;
+            classText = "L";
+            currentChalk = chalk.blue;
+          break;
+          case "right":
+            categorizedUserHistogram.right += 1;
+            classText = "R";
+            currentChalk = chalk.yellow;
+          break;
+          case "neutral":
+            categorizedUserHistogram.neutral += 1;
+            classText = "N";
+            currentChalk = chalk.black;
+          break;
+          case "positive":
+            categorizedUserHistogram.positive += 1;
+            classText = "+";
+            currentChalk = chalk.green;
+          break;
+          case "negative":
+            categorizedUserHistogram.negative += 1;
+            classText = "-";
+            currentChalk = chalk.red;
+          break;
+          default:
+            categorizedUserHistogram.none += 1;
+            classText = "O";
+            currentChalk = chalk.bold.gray;
+        }
 
-          let classText = "";
-          let currentChalk = chalkLog;
+        debug(chalkLog("\n==============================\n"));
+        debug(currentChalk("ADD  | U"
+          + " | " + classText
+          + " | " + user.screenName
+          + " | " + user.nodeId
+          + " | " + user.name
+          + " | 3C FOLLOW: " + user.threeceeFollowing
+          + " | FLLWs: " + user.followersCount
+          + " | FRNDs: " + user.friendsCount
+        ));
 
-          switch (category) {
-            case "left":
-              categorizedUserHistogram.left += 1;
-              classText = "L";
-              currentChalk = chalk.blue;
-            break;
-            case "right":
-              categorizedUserHistogram.right += 1;
-              classText = "R";
-              currentChalk = chalk.yellow;
-            break;
-            case "neutral":
-              categorizedUserHistogram.neutral += 1;
-              classText = "N";
-              currentChalk = chalk.black;
-            break;
-            case "positive":
-              categorizedUserHistogram.positive += 1;
-              classText = "+";
-              currentChalk = chalk.green;
-            break;
-            case "negative":
-              categorizedUserHistogram.negative += 1;
-              classText = "-";
-              currentChalk = chalk.red;
-            break;
-            default:
-              categorizedUserHistogram.none += 1;
-              classText = "O";
-              currentChalk = chalk.bold.gray;
-          }
+        statsObj.users.updatedCategorized += 1;
 
-          debug(chalkLog("\n==============================\n"));
-          debug(currentChalk("ADD  | U"
-            + " | " + classText
-            + " | " + user.screenName
-            + " | " + user.nodeId
-            + " | " + user.name
-            + " | 3C FOLLOW: " + user.threeceeFollowing
-            + " | FLLWs: " + user.followersCount
-            + " | FRNDs: " + user.friendsCount
+        categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIds.length;
+        categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
+        categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
+        categorizedUsersRemain = (categorizedNodeIds.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
+        categorizedUsersEndMoment = moment();
+        categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
+
+        if ((statsObj.users.notCategorized + statsObj.users.updatedCategorized) % 100 === 0){
+
+          console.log(chalkLog("GTS"
+            + " | START: " + categorizedUsersStartMoment.format(compactDateTimeFormat)
+            + " | ELAPSED: " + msToTime(categorizedUsersElapsed)
+            + " | REMAIN: " + msToTime(categorizedUsersRemain)
+            + " | ETC: " + categorizedUsersEndMoment.format(compactDateTimeFormat)
+            + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIds.length
+            + " (" + categorizedUsersPercent.toFixed(1) + "%)"
+            + " USERS CATEGORIZED"
           ));
 
-          statsObj.users.updatedCategorized += 1;
+          categorizedUserHistogramTotal();
 
-          categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIds.length;
-          categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
-          categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
-          categorizedUsersRemain = (categorizedNodeIds.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
-          categorizedUsersEndMoment = moment();
-          categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
-
-          if ((statsObj.users.notCategorized + statsObj.users.updatedCategorized) % 100 === 0){
-
-            console.log(chalkLog("GTS"
-              + " | START: " + categorizedUsersStartMoment.format(compactDateTimeFormat)
-              + " | ELAPSED: " + msToTime(categorizedUsersElapsed)
-              + " | REMAIN: " + msToTime(categorizedUsersRemain)
-              + " | ETC: " + categorizedUsersEndMoment.format(compactDateTimeFormat)
-              + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIds.length
-              + " (" + categorizedUsersPercent.toFixed(1) + "%)"
-              + " USERS CATEGORIZED"
-            ));
-
-            categorizedUserHistogramTotal();
-
-            console.log(chalkLog("GTS | CL U HIST"
-              + " | TOTAL: " + categorizedUserHistogram.total
-              + " | L: " + categorizedUserHistogram.left 
-              + " | R: " + categorizedUserHistogram.right
-              + " | N: " + categorizedUserHistogram.neutral
-              + " | +: " + categorizedUserHistogram.positive
-              + " | -: " + categorizedUserHistogram.negative
-              + " | 0: " + categorizedUserHistogram.none
-            ));
-          }
-
-          encodeHistogramUrls({user: user}).
-          then(function(updatedUser){
-
-            const subUser = pick(
-              updatedUser,
-              [
-                "userId", 
-                "screenName", 
-                "nodeId", 
-                "name",
-                "lang",
-                "statusesCount",
-                "followersCount",
-                "friendsCount",
-                "friends",
-                "languageAnalysis", 
-                "category", 
-                "categoryAuto", 
-                "histograms", 
-                "profileHistograms", 
-                "tweetHistograms", 
-                "location", 
-                "ignored", 
-                "following", 
-                "threeceeFollowing"
-              ]);
-
-            trainingSetUsersHashMap.set(subUser.nodeId, subUser);
-
-            cb0();
-
-          }).
-          catch(function(err){
-            console.log(chalkError("GTS | *** ENCODE HISTOGRAM URLS ERROR: " + err));
-            return cb0(err);
-          });
-
-        }
-        else {
-
-          statsObj.users.notCategorized += 1;
-
-          if (statsObj.users.notCategorized % 10 === 0){
-            console.log(chalkLog("GTS | " + statsObj.users.notCategorized + " USERS NOT CATEGORIZED"));
-          }
-
-          debug(chalkBlue("GTS *** USR DB NOT CL"
-            + " | CM: " + user.category
-            + " | CM HM: " + categorizedUserHashmap.get(nodeId).manual
-            + " | " + user.nodeId
-            + " | " + user.screenName
-            + " | " + user.name
-            + " | 3CF: " + user.threeceeFollowing
-            + " | FLs: " + user.followersCount
-            + " | FRs: " + user.friendsCount
+          console.log(chalkLog("GTS | CL U HIST"
+            + " | TOTAL: " + categorizedUserHistogram.total
+            + " | L: " + categorizedUserHistogram.left 
+            + " | R: " + categorizedUserHistogram.right
+            + " | N: " + categorizedUserHistogram.neutral
+            + " | +: " + categorizedUserHistogram.positive
+            + " | -: " + categorizedUserHistogram.negative
+            + " | 0: " + categorizedUserHistogram.none
           ));
-
-          categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIds.length;
-          categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
-          categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
-          categorizedUsersRemain = (categorizedNodeIds.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
-          categorizedUsersEndMoment = moment();
-          categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
-
-          if ((statsObj.users.notCategorized + statsObj.users.updatedCategorized) % 20 === 0){
-
-            console.log(chalkLog("GTS"
-              + " | START: " + categorizedUsersStartMoment.format(compactDateTimeFormat)
-              + " | ELAPSED: " + msToTime(categorizedUsersElapsed)
-              + " | REMAIN: " + msToTime(categorizedUsersRemain)
-              + " | ETC: " + categorizedUsersEndMoment.format(compactDateTimeFormat)
-              + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIds.length
-              + " (" + categorizedUsersPercent.toFixed(1) + "%)"
-              + " USERS CATEGORIZED"
-            ));
-
-            categorizedUserHistogramTotal();
-
-            console.log(chalkLog("GTS | CL U HIST"
-              + " | TOTAL: " + categorizedUserHistogram.total
-              + " | L: " + categorizedUserHistogram.left 
-              + " | R: " + categorizedUserHistogram.right
-              + " | N: " + categorizedUserHistogram.neutral
-              + " | +: " + categorizedUserHistogram.positive
-              + " | -: " + categorizedUserHistogram.negative
-              + " | 0: " + categorizedUserHistogram.none
-            ));
-          }
-
-          user.category = categorizedUserHashmap.get(nodeId).manual;
-
-          encodeHistogramUrls({user: user}).
-          then(function(updatedUser){
-
-            userServerController.findOneUser(updatedUser, {noInc: true}, function(err, dbUser){
-              if (err) {
-                console.log(chalkError("GTS | *** FIND ONE USER ERROR: " + err));
-                return cb0(err);
-              }
-              debug("dbUser\n" + jsonPrint(dbUser));
-              cb0();
-            });
-
-          }).
-          catch(function(err){
-            console.log(chalkError("GTS | *** ENCODE HISTOGRAM URLS ERROR: " + err));
-            return cb0(err);
-          });
         }
-      });
+
+        try {
+          const updatedUser = await encodeHistogramUrls({user: user});
+          const subUser = pick(
+            updatedUser,
+            [
+              "userId", 
+              "screenName", 
+              "nodeId", 
+              "name",
+              "lang",
+              "statusesCount",
+              "followersCount",
+              "friendsCount",
+              "friends",
+              "languageAnalysis", 
+              "category", 
+              "categoryAuto", 
+              "histograms", 
+              "profileHistograms", 
+              "tweetHistograms", 
+              "location", 
+              "ignored", 
+              "following", 
+              "threeceeFollowing"
+            ]);
+          trainingSetUsersHashMap.set(subUser.nodeId, subUser);
+          return;
+        }
+        catch(err){
+          console.log(chalkError("GTS | *** ENCODE HISTOGRAM URLS ERROR: " + err));
+          return err;
+        }
+
+      }
+      catch(err){
+        console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS ERROR: " + err));
+        statsObj.errors.users.findOne += 1;
+        return err;
+      }
 
     }, function(err){
 
