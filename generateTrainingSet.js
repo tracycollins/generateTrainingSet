@@ -2011,7 +2011,7 @@ function initCategorizedUserHashmap(){
             totalMatchRate = 100*(totalMatched/totalCount);
 
             Object.keys(results.obj).forEach(function(nodeId){
-              categorizedUserHashmap.set(nodeId, results.obj[nodeId]);
+              if (results.obj[nodeId].category) { categorizedUserHashmap.set(nodeId, results.obj[nodeId]); }
             });
 
             if (configuration.verbose || (totalCount % 1000 === 0)) {
