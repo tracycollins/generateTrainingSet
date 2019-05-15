@@ -1623,9 +1623,6 @@ function updateCategorizedUsers(){
         return;
       }
 
-      // global.globalUser.findOne( { "$or": [{nodeId: nodeId.toString()}, {screenName: nodeId.toLowerCase()}]}, async function(err, userDoc){
-      // global.globalUser.findOne({ nodeId: nodeId }, async function(err, userDoc){
-
       try {
         const user = await global.globalUser.findOne({ nodeId: nodeId }).lean();
         userIndex += 1;
@@ -1936,7 +1933,12 @@ function initCategorizedUserHashmap(){
             totalMatchRate = 100*(totalMatched/totalCount);
 
             Object.keys(results.obj).forEach(function(nodeId){
-              if (results.obj[nodeId].category) { categorizedUserHashmap.set(nodeId, results.obj[nodeId]); }
+              if (results.obj[nodeId].category) { 
+                categorizedUserHashmap.set(nodeId, results.obj[nodeId]);
+              }
+              else {
+                console.log(chalkAlert("GTS | ??? UNCATEGORIZED USER FROM DB\n" + jsonPrint(results.obj[nodeId])));
+              }
             });
 
             if (configuration.verbose || (totalCount % 1000 === 0)) {
