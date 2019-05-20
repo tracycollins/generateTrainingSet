@@ -1892,9 +1892,7 @@ function initCategorizedUserHashmap(){
 
     async.whilst(
 
-      function() {
-        return more;
-      },
+      function test(cbTest) { cbTest(null, more); },
 
       function(cb){
 
