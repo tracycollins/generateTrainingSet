@@ -4,7 +4,7 @@
     "name": "gts",
     "script": "generateTrainingSet.js",
     "cwd": "/home/tc/generateTrainingSet",
-    "node_args": "--max-old-space-size=8192",
+    "node_args": "--max-old-space-size=16384",
     "autorestart": false,
     "restart_delay": 3600000,
     "env": {
