@@ -339,7 +339,8 @@ else {
   console.log(chalkLog("GTS | DEFAULT RUN ID: " + statsObj.runId));
 }
 
-const categorizedUserHashmap = new HashMap();
+// const categorizedUserHashmap = new HashMap();
+const categorizedNodeIdsSet = new Set();
 
 const categorizedUserHistogram = {};
 categorizedUserHistogram.left = 0;
@@ -1585,18 +1586,19 @@ function updateCategorizedUsers(){
       return reject(err);
     }
 
-    const categorizedNodeIds = categorizedUserHashmap.keys();
+    // const categorizedNodeIds = categorizedUserHashmap.keys();
+    const categorizedNodeIdsArray = [...categorizedNodeIdsSet];
 
     if (configuration.testMode) {
-      categorizedNodeIds.length = Math.min(categorizedNodeIds.length, configuration.maxTestCount);
-      console.log(chalkAlert("GTS | *** TEST MODE *** | CATEGORIZE MAX " + categorizedNodeIds.length + " USERS"));
+      categorizedNodeIdsArray.length = Math.min(categorizedNodeIdsArray.length, configuration.maxTestCount);
+      console.log(chalkAlert("GTS | *** TEST MODE *** | CATEGORIZE MAX " + categorizedNodeIdsArray.length + " USERS"));
     }
 
     let maxMagnitude = -Infinity;
     let minScore = Infinity;
     let maxScore = -Infinity;
 
-    console.log(chalkBlue("GTS | UPDATE CATEGORIZED USERS: " + categorizedNodeIds.length));
+    console.log(chalkBlue("GTS | UPDATE CATEGORIZED USERS: " + categorizedNodeIdsArray.length));
 
     if (configuration.normalization) {
       maxMagnitude = configuration.normalization.magnitude.max;
@@ -1616,7 +1618,7 @@ function updateCategorizedUsers(){
     let categorizedUsersRemain = 0;
     let categorizedUsersRate = 0;
 
-    async.eachSeries(categorizedNodeIds, async function(nodeId){
+    async.eachSeries(categorizedNodeIdsArray, async function(nodeId){
 
       if (!nodeId || nodeId === undefined) {
         console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS: NODE ID UNDEFINED"));
@@ -1658,7 +1660,7 @@ function updateCategorizedUsers(){
 
         if (configuration.verbose) {
           console.log(chalkInfo("GTS | UPDATE CL USR <DB"
-            + " [" + userIndex + "/" + categorizedNodeIds.length + "]"
+            + " [" + userIndex + "/" + categorizedNodeIdsArray.length + "]"
             + " | " + user.nodeId
             + " | @" + user.screenName
           ));
@@ -1735,10 +1737,10 @@ function updateCategorizedUsers(){
 
         statsObj.users.updatedCategorized += 1;
 
-        categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIds.length;
+        categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIdsArray.length;
         categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
         categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
-        categorizedUsersRemain = (categorizedNodeIds.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
+        categorizedUsersRemain = (categorizedNodeIdsArray.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
         categorizedUsersEndMoment = moment();
         categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
 
@@ -1749,7 +1751,7 @@ function updateCategorizedUsers(){
             + " | ELAPSED: " + msToTime(categorizedUsersElapsed)
             + " | REMAIN: " + msToTime(categorizedUsersRemain)
             + " | ETC: " + categorizedUsersEndMoment.format(compactDateTimeFormat)
-            + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIds.length
+            + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIdsArray.length
             + " (" + categorizedUsersPercent.toFixed(1) + "%)"
             + " USERS CATEGORIZED"
           ));
@@ -1820,10 +1822,10 @@ function updateCategorizedUsers(){
         return reject(err);
       }
 
-      categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIds.length;
+      categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIdsArray.length;
       categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
       categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
-      categorizedUsersRemain = (categorizedNodeIds.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
+      categorizedUsersRemain = (categorizedNodeIdsArray.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
       categorizedUsersEndMoment = moment();
       categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
 
@@ -1832,7 +1834,7 @@ function updateCategorizedUsers(){
         + "\nGTS | ==== ELAPSED: " + msToTime(categorizedUsersElapsed)
         + "\nGTS | ==== REMAIN:  " + msToTime(categorizedUsersRemain)
         + "\nGTS | ==== ETC:     " + categorizedUsersEndMoment.format(compactDateTimeFormat)
-        + "\nGTS | ====          " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIds.length
+        + "\nGTS | ====          " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIdsArray.length
         + " (" + categorizedUsersPercent.toFixed(1) + "%)" + " USERS CATEGORIZED"
       ));
 
@@ -1865,11 +1867,11 @@ function updateCategorizedUsers(){
   });
 }
 
-function initCategorizedUserHashmap(){
+function initCategorizedNodeIds(){
 
   return new Promise(async function(resolve, reject){
 
-    statsObj.status = "INIT CATEGORIZED USER HASHMAP";
+    statsObj.status = "INIT CATEGORIZED NODE IDS";
 
     // const query = (params.query) ? params.query : { $or: [ { "category": { $nin: [ false, null ] } } , { "categoryAuto": { $nin: [ false, null ] } } ] };
 
@@ -1899,7 +1901,7 @@ function initCategorizedUserHashmap(){
         userServerController.findCategorizedUsersCursor(p, function(err, results){
 
           if (err) {
-            console.error(chalkError("GTS | ERROR: initCategorizedUserHashmap: " + err));
+            console.error(chalkError("GTS | ERROR: initCategorizedNodeIds: " + err));
             cb(err);
           }
           else if (configuration.testMode && (totalCount >= configuration.maxTestCount)) {
@@ -1933,7 +1935,8 @@ function initCategorizedUserHashmap(){
 
             Object.keys(results.obj).forEach(function(nodeId){
               if (results.obj[nodeId].category) { 
-                categorizedUserHashmap.set(nodeId, results.obj[nodeId]);
+                // categorizedUserHashmap.set(nodeId, results.obj[nodeId]);
+                categorizedNodeIdsSet.add(nodeId);
               }
               else {
                 console.log(chalkAlert("GTS | ??? UNCATEGORIZED USER FROM DB\n" + jsonPrint(results.obj[nodeId])));
@@ -2046,7 +2049,7 @@ function generateGlobalTrainingTestSet(){
 
     try {
 
-      await initCategorizedUserHashmap();
+      await initCategorizedNodeIds();
       await updateCategorizedUsers();
 
       await initArchiver();
