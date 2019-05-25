@@ -1,6 +1,7 @@
 /*jslint node: true */
 /*jshint sub:true*/
 
+const TEST_MODE_LENGTH = 5000;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -93,7 +94,6 @@ const MODULE_ID_PREFIX = "GTS";
 const MODULE_ID = MODULE_ID_PREFIX + "_node_" + hostname;
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
-const TEST_MODE_LENGTH = 1000;
 const DEFAULT_QUIT_ON_COMPLETE = false;
 const DEFAULT_TEST_RATIO = 0.20;
 
@@ -241,7 +241,7 @@ configuration.normalization = null;
 configuration.verbose = false;
 configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
-configuration.maxTestCount = 500;
+configuration.maxTestCount = TEST_MODE_LENGTH;
 
 let defaultConfiguration = {}; // general configuration for GTS
 let hostConfiguration = {}; // host-specific configuration for GTS
@@ -1588,7 +1588,7 @@ function updateCategorizedUsers(){
     const categorizedNodeIds = categorizedUserHashmap.keys();
 
     if (configuration.testMode) {
-      categorizedNodeIds.length = Math.min(categorizedNodeIds.length, TEST_MODE_LENGTH);
+      categorizedNodeIds.length = Math.min(categorizedNodeIds.length, configuration.maxTestCount);
       console.log(chalkAlert("GTS | *** TEST MODE *** | CATEGORIZE MAX " + categorizedNodeIds.length + " USERS"));
     }
 
@@ -1996,11 +1996,33 @@ function archiveUsers(){
       return reject(new Error("ARCHIVE UNDEFINED"));
     }
 
-    async.each(trainingSetUsersHashMap.values(), function(user, cb){
+    console.log(chalkLog("GTS | START ARCHIVE USERS"));
+
+    let usersAppended = 0;
+    let percentAppended = 0;
+
+    async.eachSeries(trainingSetUsersHashMap.values(), function(user, cb){
+
       const userFile = "user_" + user.userId + ".json";
       const userBuffer = Buffer.from(JSON.stringify(user));
+
       archive.append(userBuffer, { name: userFile });
+
+      usersAppended += 1;
+      percentAppended = 100 * usersAppended/trainingSetUsersHashMap.size;
+
+      if (configuration.verbose || (usersAppended % 1000 === 0)) {
+
+        console.log(chalkLog("GTS | ARCHIVE"
+          + " | " + usersAppended 
+          + "/" + trainingSetUsersHashMap.size
+          + " (" + percentAppended.toFixed(2) + "%) USERS APPENDED"
+        ));
+
+      }
+
       cb();
+
     }, function(err){
       if (err) {
         return reject(err);
@@ -2232,8 +2254,9 @@ function initArchiver(params){
         const progressMbytes = toMegabytes(progress.fs.processedBytes);
         const totalMbytes = toMegabytes(archive.pointer());
 
-        if (progress.entries.processed % 100 === 0) {
+        if (progress.entries.processed % 1000 === 0) {
           console.log(chalkLog("GTS | ARCHIVE | PROGRESS"
+            + " | " + getTimeStamp()
             + " | ENTRIES: " + progress.entries.processed + " PROCESSED / " + progress.entries.total + " TOTAL"
             + " (" + (100*progress.entries.processed/progress.entries.total).toFixed(2) + "%)"
             + " | SIZE: " + progressMbytes.toFixed(2) + " PROCESSED / " + totalMbytes.toFixed(2) + " MB"
