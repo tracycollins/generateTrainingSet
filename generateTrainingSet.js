@@ -102,7 +102,7 @@ const util = require("util");
 const _ = require("lodash");
 const writeJsonFile = require("write-json-file");
 const sizeof = require("object-sizeof");
-const HashMap = require("hashmap").HashMap;
+// const HashMap = require("hashmap").HashMap;
 
 const fetch = require("isomorphic-fetch"); // or another library of choice.
 const Dropbox = require("dropbox").Dropbox;
@@ -140,7 +140,8 @@ DEFAULT_INPUT_TYPES.forEach(function(type){
 });
 
 
-const trainingSetUsersHashMap = new HashMap();
+// const trainingSetUsersHashMap = new HashMap();
+const trainingSetUsersArray = [];
 
 const statsObj = {};
 let statsObjSmall = {};
@@ -1744,7 +1745,7 @@ function updateCategorizedUsers(){
         categorizedUsersEndMoment = moment();
         categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
 
-        if ((statsObj.users.notCategorized + statsObj.users.updatedCategorized) % 100 === 0){
+        if ((statsObj.users.notCategorized + statsObj.users.updatedCategorized) % 1000 === 0){
 
           console.log(chalkLog("GTS"
             + " | START: " + categorizedUsersStartMoment.format(compactDateTimeFormat)
@@ -1794,7 +1795,7 @@ function updateCategorizedUsers(){
               "following", 
               "threeceeFollowing"
             ]);
-          trainingSetUsersHashMap.set(subUser.nodeId, subUser);
+          trainingSetUsersArray.push(subUser);
           return;
         }
         catch(err){
@@ -1921,7 +1922,6 @@ function initCategorizedNodeIds(){
 
             cb();
           }
-
           else if (results) {
 
             more = true;
@@ -1977,6 +1977,7 @@ function initCategorizedNodeIds(){
           }
 
         });
+
       },
 
       function(err){
@@ -2002,36 +2003,50 @@ function archiveUsers(){
     console.log(chalkLog("GTS | START ARCHIVE USERS"));
 
     let usersAppended = 0;
+    const totalUsers = trainingSetUsersArray.length;
     let percentAppended = 0;
+    let more = (trainingSetUsersArray.length > 0);
 
-    async.eachSeries(trainingSetUsersHashMap.values(), function(user, cb){
+    async.whilst(
 
-      const userFile = "user_" + user.userId + ".json";
-      const userBuffer = Buffer.from(JSON.stringify(user));
+      function test(cbTest) { cbTest(null, more); },
 
-      archive.append(userBuffer, { name: userFile });
+      function(cb){
 
-      usersAppended += 1;
-      percentAppended = 100 * usersAppended/trainingSetUsersHashMap.size;
+        const user = trainingSetUsersArray.shift();
 
-      if (configuration.verbose || (usersAppended % 1000 === 0)) {
+        more = (trainingSetUsersArray.length > 0);
 
-        console.log(chalkLog("GTS | ARCHIVE"
-          + " | " + usersAppended 
-          + "/" + trainingSetUsersHashMap.size
-          + " (" + percentAppended.toFixed(2) + "%) USERS APPENDED"
-        ));
+        const userFile = "user_" + user.userId + ".json";
+        const userBuffer = Buffer.from(JSON.stringify(user));
 
-      }
+        archive.append(userBuffer, { name: userFile });
 
-      cb();
+        usersAppended += 1;
+        percentAppended = 100 * usersAppended/totalUsers;
 
-    }, function(err){
-      if (err) {
-        return reject(err);
-      }
-      resolve();
-    });
+        if (configuration.verbose || (usersAppended % 1000 === 0)) {
+
+          console.log(chalkLog("GTS | ARCHIVE"
+            + " | " + usersAppended 
+            + "/" + trainingSetUsersArray.length
+            + " (" + percentAppended.toFixed(2) + "%) USERS APPENDED"
+          ));
+
+        }
+
+        async.setImmediate(function() {
+          cb();
+        });
+
+      }, 
+
+      function(err){
+        if (err) {
+          return reject(err);
+        }
+        resolve();
+      });
 
 
   });
@@ -2365,7 +2380,7 @@ setTimeout(async function(){
 
   try{
     configuration = await initialize(configuration);
-    await generateGlobalTrainingTestSet({usersHashMap: trainingSetUsersHashMap, maxInputHashMap: maxInputHashMap});
+    await generateGlobalTrainingTestSet();
   }
   catch(err){
     console.log(chalkError("GTS | *** INITIALIZE ERROR: " + err));
