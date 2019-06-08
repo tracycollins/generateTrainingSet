@@ -42,24 +42,19 @@ const DEFAULT_INPUT_TYPES = [
 
 const ONE_SECOND = 1000;
 const ONE_MINUTE = 60 * ONE_SECOND;
-// const ONE_HOUR = 60 * ONE_MINUTE;
 
 const ONE_KILOBYTE = 1024;
 const ONE_MEGABYTE = 1024 * ONE_KILOBYTE;
 
 const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 
-// const DEFAULT_OFFLINE_MODE = false;
 const DEFAULT_SERVER_MODE = false;
 
 const DEFAULT_FIND_CAT_USER_CURSOR_LIMIT = 100;
 const DEFAULT_CURSOR_BATCH_SIZE = process.env.DEFAULT_CURSOR_BATCH_SIZE || 100;
 
-// const SAVE_FILE_QUEUE_INTERVAL = 5*ONE_SECOND;
 const DEFAULT_WAIT_UNLOCK_INTERVAL = 15*ONE_SECOND;
 const DEFAULT_WAIT_UNLOCK_TIMEOUT = 10*ONE_MINUTE;
-
-// const DEFAULT_FILELOCK_RETRIES = 20;
 const DEFAULT_FILELOCK_RETRY_WAIT = DEFAULT_WAIT_UNLOCK_INTERVAL;
 const DEFAULT_FILELOCK_STALE = 2*DEFAULT_WAIT_UNLOCK_TIMEOUT;
 const DEFAULT_FILELOCK_WAIT = DEFAULT_WAIT_UNLOCK_TIMEOUT;
@@ -76,10 +71,7 @@ const lockFile = require("lockfile");
 const merge = require("deepmerge");
 const treeify = require("treeify");
 const archiver = require("archiver");
-// const watch = require("watch");
-// const unzip = require("unzip");
 const fs = require("fs");
-// const yauzl = require("yauzl");
 const atob = require("atob");
 const btoa = require("btoa");
 const objectPath = require("object-path");
@@ -102,14 +94,10 @@ const util = require("util");
 const _ = require("lodash");
 const writeJsonFile = require("write-json-file");
 const sizeof = require("object-sizeof");
-// const HashMap = require("hashmap").HashMap;
-
 const fetch = require("isomorphic-fetch"); // or another library of choice.
 const Dropbox = require("dropbox").Dropbox;
-
 const pick = require("object.pick");
 const Slack = require("slack-node");
-
 const EventEmitter3 = require("eventemitter3");
 const async = require("async");
 
@@ -139,8 +127,6 @@ DEFAULT_INPUT_TYPES.forEach(function(type){
   maxInputHashMap[type] = {};
 });
 
-
-// const trainingSetUsersHashMap = new HashMap();
 const trainingSetUsersArray = [];
 
 const statsObj = {};
@@ -186,7 +172,6 @@ const statsPickArray = [
   "status", 
   "authenticated", 
   "numChildren", 
-  // "socketError", 
   "userReadyAck", 
   "userReadyAckWait", 
   "userReadyTransmitted"
@@ -340,7 +325,6 @@ else {
   console.log(chalkLog("GTS | DEFAULT RUN ID: " + statsObj.runId));
 }
 
-// const categorizedUserHashmap = new HashMap();
 const categorizedNodeIdsSet = new Set();
 
 const categorizedUserHistogram = {};
@@ -416,7 +400,6 @@ const quitOnComplete = { name: "quitOnComplete", alias: "q", type: Boolean };
 const quitOnError = { name: "quitOnError", alias: "Q", type: Boolean, defaultValue: true };
 const verbose = { name: "verbose", alias: "v", type: Boolean };
 
-// const trainingSetFile = { name: "trainingSetFile", alias: "T", type: String};
 const testMode = { name: "testMode", alias: "X", type: Boolean };
 
 const optionDefinitions = [
@@ -432,12 +415,10 @@ const commandLineConfig = commandLineArgs(optionDefinitions);
 console.log(chalkInfo("GTS | COMMAND LINE CONFIG\nGTS | " + jsonPrint(commandLineConfig)));
 console.log("GTS | COMMAND LINE OPTIONS\nGTS | " + jsonPrint(commandLineConfig));
 
-
 if (Object.keys(commandLineConfig).includes("help")) {
   console.log("GTS |optionDefinitions\n" + jsonPrint(optionDefinitions));
   quit("help");
 }
-
 
 process.on("message", function(msg) {
   if (msg === "shutdown") {
@@ -489,11 +470,6 @@ const dropboxConfigHostFolder = "/config/utility/" + hostname;
 
 const dropboxConfigDefaultFile = "default_" + configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE;
 const dropboxConfigHostFile = hostname + "_" + configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE;
-
-// const defaultTrainingSetFolder = dropboxConfigDefaultFolder + "/trainingSets";
-// const localTrainingSetFolder = dropboxConfigHostFolder + "/trainingSets";
-
-// const defaultTrainingSetUserArchive = defaultTrainingSetFolder + "/users/users.zip";
 
 const statsFolder = "/stats/" + hostname + "/generateTrainingSet";
 const statsFile = "generateTrainingSetStats_" + statsObj.runId + ".json";
@@ -729,23 +705,23 @@ function connectDb(){
           return reject(err);
         }
 
+        db.on("close", async function(){
+          statsObj.status = "MONGO CLOSED";
+          console.error.bind(console, MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION CLOSED");
+          console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION CLOSED"));
+        });
+
         db.on("error", async function(){
           statsObj.status = "MONGO ERROR";
           console.error.bind(console, MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION ERROR");
           console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION ERROR"));
-          // slackSendMessage(hostname + " | TNN | " + statsObj.status);
-          db.close();
-          quit({cause: "MONGO DB ERROR: " + err});
         });
 
         db.on("disconnected", async function(){
           statsObj.status = "MONGO DISCONNECTED";
           console.error.bind(console, MODULE_ID_PREFIX + " | *** MONGO DB DISCONNECTED");
-          // slackSendMessage(hostname + " | TNN | " + statsObj.status);
           console.log(chalkAlert(MODULE_ID_PREFIX + " | *** MONGO DB DISCONNECTED"));
-          quit({cause: "MONGO DB DISCONNECTED"});
         });
-
 
         global.globalDbConnection = db;
 
@@ -793,8 +769,6 @@ function saveFile(params){
     const options = {};
 
     if (params.localFlag) {
-
-      // const jsonfileOptions = {};
 
       options.access_token = configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN;
       options.file_size = sizeof(params.obj);
