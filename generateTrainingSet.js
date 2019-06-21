@@ -148,9 +148,6 @@ statsObj.startTime = moment().valueOf();
 statsObj.elapsed = moment().valueOf() - statsObj.startTime;
 
 statsObj.users = {};
-statsObj.users.imageParse = {};
-statsObj.users.imageParse.parsed = 0;
-statsObj.users.imageParse.skipped = 0;
 statsObj.users.notCategorized = 0;
 statsObj.users.updatedCategorized = 0;
 statsObj.users.notFound = 0;
@@ -159,7 +156,6 @@ statsObj.users.unzipped = 0;
 statsObj.users.zipHashMapHit = 0;
 
 statsObj.errors = {};
-statsObj.errors.imageParse = {};
 statsObj.errors.users = {};
 statsObj.errors.users.findOne = 0;
 
@@ -238,7 +234,6 @@ console.log(chalkLog("GTS | SERVER MODE: " + configuration.serverMode));
 
 configuration.processName = process.env.GTS_PROCESS_NAME || "node_gts";
 
-configuration.forceBannerImageAnalysis = false;
 configuration.interruptFlag = false;
 configuration.enableRequiredTrainingSet = false;
 configuration.quitOnComplete = DEFAULT_QUIT_ON_COMPLETE;
