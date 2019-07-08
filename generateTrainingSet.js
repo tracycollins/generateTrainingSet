@@ -433,13 +433,15 @@ statsObj.commandLineConfig = commandLineConfig;
 
 statsObj.normalization = {};
 statsObj.normalization.score = {};
+statsObj.normalization.comp = {};
 statsObj.normalization.magnitude = {};
 
 statsObj.normalization.score.min = 1.0;
 statsObj.normalization.score.max = -1.0;
+statsObj.normalization.comp.min = Infinity;
+statsObj.normalization.comp.max = -Infinity;
 statsObj.normalization.magnitude.min = 0;
 statsObj.normalization.magnitude.max = -Infinity;
-
 
 const testObj = {};
 testObj.testRunId = statsObj.runId;
@@ -1522,7 +1524,7 @@ function updateMaxInputHashMap(params){
           ? mergedHistograms[type][entity]
           : Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
 
-        if (maxInputHashMap[type][entity] === 0) {
+        if ((type !== "sentiment") && (maxInputHashMap[type][entity] === 0)) {
           maxInputHashMap[type][entity] = 1;
         }
 
@@ -1567,6 +1569,8 @@ function updateCategorizedUsers(){
     let maxMagnitude = -Infinity;
     let minScore = Infinity;
     let maxScore = -Infinity;
+    let minComp = Infinity;
+    let maxComp = -Infinity;
 
     console.log(chalkBlue("GTS | UPDATE CATEGORIZED USERS: " + categorizedNodeIdsArray.length));
 
@@ -1574,6 +1578,8 @@ function updateCategorizedUsers(){
       maxMagnitude = configuration.normalization.magnitude.max;
       minScore = configuration.normalization.score.min;
       maxScore = configuration.normalization.score.max;
+      minComp = configuration.normalization.comp.min;
+      maxComp = configuration.normalization.comp.max;
       console.log(chalkInfo("GTS | SET NORMALIZATION\n" + jsonPrint(configuration.normalization)));
     }
 
@@ -1637,26 +1643,31 @@ function updateCategorizedUsers(){
         }
 
         const sentimentObj = {};
+
         sentimentObj.magnitude = 0;
-        sentimentObj.score = 0;
+        sentimentObj.score = 0.5;
+        sentimentObj.comp = 0;
 
-        if ((user.languageAnalysis !== undefined)
-          && (user.languageAnalysis.sentiment !== undefined)) {
+        if ((user.profileHistograms !== undefined)
+          && (user.profileHistograms.sentiment !== undefined)) {
 
-          sentimentObj.magnitude = user.languageAnalysis.sentiment.magnitude || 0;
-          sentimentObj.score = user.languageAnalysis.sentiment.score || 0;
+          sentimentObj.magnitude = user.profileHistograms.sentiment.magnitude || 0;
+          sentimentObj.score = user.profileHistograms.sentiment.score || 0.5;
+          sentimentObj.comp = user.profileHistograms.sentiment.comp || 0;
 
           if (!configuration.normalization) {
             maxMagnitude = Math.max(maxMagnitude, sentimentObj.magnitude);
             minScore = Math.min(minScore, sentimentObj.score);
             maxScore = Math.max(maxScore, sentimentObj.score);
+            minComp = Math.min(minComp, sentimentObj.comp);
+            maxComp = Math.max(maxComp, sentimentObj.comp);
           }
         }
-        else {
-          user.languageAnalysis = {};
-          user.languageAnalysis.sentiment = {};
-          user.languageAnalysis.sentiment.magnitude = 0;
-          user.languageAnalysis.sentiment.score = 0;
+        else if (!user.profileHistograms.sentiment && (user.profileHistograms.sentiment === undefined)) {
+          user.profileHistograms.sentiment = {};
+          user.profileHistograms.sentiment.magnitude = 0;
+          user.profileHistograms.sentiment.score = 0.5;
+          user.profileHistograms.sentiment.comp = 0;
         }
 
         let classText = "";
@@ -1820,14 +1831,16 @@ function updateCategorizedUsers(){
         + " | 0: " + categorizedUserHistogram.none
       ));
 
-
       statsObj.normalization.magnitude.max = maxMagnitude;
       statsObj.normalization.score.min = minScore;
       statsObj.normalization.score.max = maxScore;
+      statsObj.normalization.comp.min = minComp;
+      statsObj.normalization.comp.max = maxComp;
 
       console.log(chalkLog("GTS | CL U HIST | NORMALIZATION"
-        + " | MAG " + statsObj.normalization.magnitude.min.toFixed(2) + " MIN / " + statsObj.normalization.magnitude.max.toFixed(2) + " MAX"
-        + " | SCORE " + statsObj.normalization.score.min.toFixed(2) + " MIN / " + statsObj.normalization.score.max.toFixed(2) + " MAX"
+        + " | MAG " + statsObj.normalization.magnitude.min.toFixed(5) + " MIN / " + statsObj.normalization.magnitude.max.toFixed(5) + " MAX"
+        + " | SCORE " + statsObj.normalization.score.min.toFixed(5) + " MIN / " + statsObj.normalization.score.max.toFixed(5) + " MAX"
+        + " | COMP " + statsObj.normalization.comp.min.toFixed(5) + " MIN / " + statsObj.normalization.comp.max.toFixed(5) + " MAX"
       ));
 
       resolve();
