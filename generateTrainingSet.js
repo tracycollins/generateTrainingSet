@@ -1,7 +1,7 @@
 /*jslint node: true */
 /*jshint sub:true*/
 
-const TEST_MODE_LENGTH = 5000;
+const TEST_MODE_LENGTH = 1000;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -219,7 +219,7 @@ let slackText = "";
 let initMainInterval;
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
-configuration.normalization = null;
+// configuration.normalization = null;
 configuration.verbose = false;
 configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
@@ -1514,20 +1514,24 @@ function updateMaxInputHashMap(params){
 
     async.each(histogramTypes, function(type, cb0){
 
+      if (type === "sentiment") { return cb0(); }
+
       if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
 
       const histogramTypeEntities = Object.keys(mergedHistograms[type]);
 
       async.each(histogramTypeEntities, function(entity, cb1){
 
-        maxInputHashMap[type][entity] = (maxInputHashMap[type][entity] === undefined)
-          ? mergedHistograms[type][entity]
-          : Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
-
-        if ((type !== "sentiment") && (maxInputHashMap[type][entity] === 0)) {
-          maxInputHashMap[type][entity] = 1;
+        if (mergedHistograms[type][entity] === undefined){
+          return cb1();
         }
 
+        if (maxInputHashMap[type][entity] === undefined){
+          maxInputHashMap[type][entity] = Math.max(1, mergedHistograms[type][entity]);
+          return cb1();
+        }
+
+        maxInputHashMap[type][entity] = Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
         cb1();
 
       }, function(err){
@@ -1558,7 +1562,6 @@ function updateCategorizedUsers(){
       return reject(err);
     }
 
-    // const categorizedNodeIds = categorizedUserHashmap.keys();
     const categorizedNodeIdsArray = [...categorizedNodeIdsSet];
 
     if (configuration.testMode) {
@@ -1567,21 +1570,12 @@ function updateCategorizedUsers(){
     }
 
     let maxMagnitude = -Infinity;
-    let minScore = Infinity;
-    let maxScore = -Infinity;
+    let minScore = 1.0;
+    let maxScore = -1.0;
     let minComp = Infinity;
     let maxComp = -Infinity;
 
     console.log(chalkBlue("GTS | UPDATE CATEGORIZED USERS: " + categorizedNodeIdsArray.length));
-
-    if (configuration.normalization) {
-      maxMagnitude = configuration.normalization.magnitude.max;
-      minScore = configuration.normalization.score.min;
-      maxScore = configuration.normalization.score.max;
-      minComp = configuration.normalization.comp.min;
-      maxComp = configuration.normalization.comp.max;
-      console.log(chalkInfo("GTS | SET NORMALIZATION\n" + jsonPrint(configuration.normalization)));
-    }
 
     statsObj.users.updatedCategorized = 0;
     statsObj.users.notCategorized = 0;
@@ -1642,32 +1636,41 @@ function updateCategorizedUsers(){
           ));
         }
 
-        const sentimentObj = {};
-
-        sentimentObj.magnitude = 0;
-        sentimentObj.score = 0.5;
-        sentimentObj.comp = 0;
-
-        if ((user.profileHistograms !== undefined)
-          && (user.profileHistograms.sentiment !== undefined)) {
-
-          sentimentObj.magnitude = user.profileHistograms.sentiment.magnitude || 0;
-          sentimentObj.score = user.profileHistograms.sentiment.score || 0.5;
-          sentimentObj.comp = user.profileHistograms.sentiment.comp || 0;
-
-          if (!configuration.normalization) {
-            maxMagnitude = Math.max(maxMagnitude, sentimentObj.magnitude);
-            minScore = Math.min(minScore, sentimentObj.score);
-            maxScore = Math.max(maxScore, sentimentObj.score);
-            minComp = Math.min(minComp, sentimentObj.comp);
-            maxComp = Math.max(maxComp, sentimentObj.comp);
-          }
+        if (!user.profileHistograms || (user.profileHistograms === undefined)){
+          user.profileHistograms = {};
         }
-        else if (!user.profileHistograms.sentiment && (user.profileHistograms.sentiment === undefined)) {
-          user.profileHistograms.sentiment = {};
-          user.profileHistograms.sentiment.magnitude = 0;
-          user.profileHistograms.sentiment.score = 0.5;
-          user.profileHistograms.sentiment.comp = 0;
+
+        if (user.profileHistograms.sentiment && (user.profileHistograms.sentiment !== undefined)) {
+
+
+          if (user.profileHistograms.sentiment.magnitude !== undefined){
+            if (user.profileHistograms.sentiment.magnitude < 0){
+              console.log(chalkAlert("GTS | !!! NORMALIZATION MAG LESS THAN 0 | CLAMPED: " + user.profileHistograms.sentiment.magnitude));
+              user.profileHistograms.sentiment.magnitude = 0;
+            }
+            maxMagnitude = Math.max(maxMagnitude, user.profileHistograms.sentiment.magnitude);
+          }
+
+          if (user.profileHistograms.sentiment.score !== undefined){
+            if (user.profileHistograms.sentiment.score < -1.0){
+              console.log(chalkAlert("GTS | !!! NORMALIZATION SCORE LESS THAN -1.0 | CLAMPED: " + user.profileHistograms.sentiment.score));
+              user.profileHistograms.sentiment.score = -1.0;
+            }
+
+            if (user.profileHistograms.sentiment.score > 1.0){
+              console.log(chalkAlert("GTS | !!! NORMALIZATION SCORE GREATER THAN 1.0 | CLAMPED: " + user.profileHistograms.sentiment.score));
+              user.profileHistograms.sentiment.score = 1.0;
+            }
+
+            maxScore = Math.max(maxScore, user.profileHistograms.sentiment.score);
+            minScore = Math.min(minScore, user.profileHistograms.sentiment.score);
+          }
+
+          if (user.profileHistograms.sentiment.comp !== undefined){
+            maxComp = Math.max(maxComp, user.profileHistograms.sentiment.comp);
+            minComp = Math.min(minComp, user.profileHistograms.sentiment.comp);
+          }
+
         }
 
         let classText = "";

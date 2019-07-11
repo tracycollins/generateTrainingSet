@@ -34,7 +34,7 @@ module.exports = {
             "error",
             "last"
         ],
-        "complexity": "error",
+        "complexity": "off",
         "computed-property-spacing": [
             "error",
             "never"
@@ -52,10 +52,10 @@ module.exports = {
         ],
         "eol-last": "error",
         "eqeqeq": "off",
-        "func-names": [
-            "error",
-            "never"
-        ],
+        // "func-names": [
+        //     "error",
+        //     "never"
+        // ],
         "func-style": "off",
         "generator-star-spacing": "error",
         "global-require": "error",
