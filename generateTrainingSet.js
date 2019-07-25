@@ -119,6 +119,14 @@ let prevHostConfigFileModifiedMoment = moment("2010-01-01");
 let prevDefaultConfigFileModifiedMoment = moment("2010-01-01");
 let prevConfigFileModifiedMoment = moment("2010-01-01");
 
+let categorizedUsersPercent = 0;
+const categorizedUsersStartMoment = moment();
+let categorizedUsersEndMoment = moment();
+let categorizedUsersElapsed = 0;
+let categorizedUsersRemain = 0;
+let categorizedUsersRate = 0;
+let categorizedNodeIdsArray = [];
+
 const maxInputHashMap = {};
 const globalhistograms = {};
 
@@ -687,7 +695,7 @@ process.on("exit", function() {
 
 function connectDb(){
 
-  return new Promise(async function(resolve, reject){
+  return new Promise(function(resolve, reject){
 
     try {
 
@@ -973,37 +981,31 @@ function saveFile(params){
   });
 }
 
-function loadFileRetry(params){
+async function loadFileRetry(params){
 
-  return new Promise(async function(resolve, reject){
+  const maxRetries = params.maxRetries || 5;
+  let i;
 
-    const maxRetries = params.maxRetries || 5;
-    let i;
+  for (i = 0;i < maxRetries;++i) {
+    try {
+      
+      if (i > 0) { console.log(chalkAlert("TNN | FILE LOAD RETRY: " + i + " OF " + maxRetries)); }
 
-    for (i = 0;i < maxRetries;++i) {
-      try {
-        
-        if (i > 0) { console.log(chalkAlert("TNN | FILE LOAD RETRY: " + i + " OF " + maxRetries)); }
-
-        const fileObj = await loadFile(params);
-        resolve(fileObj);
-        break;
-      } 
-      catch(err) {
-        console.log(chalkAlert("TNN | *** FILE LOAD FAILED | RETRY: " + i + " OF " + maxRetries));
-        reject(err);
-      }
+      const fileObj = await loadFile(params);
+      return fileObj;
+    } 
+    catch(err) {
+      console.log(chalkAlert("TNN | *** FILE LOAD FAILED | RETRY: " + i + " OF " + maxRetries));
+      throw err;
     }
+  }
 
-    reject(new Error("FILE LOAD ERROR | RETRIES " + maxRetries));
-
-  });
-
+  throw new Error("FILE LOAD ERROR | RETRIES " + maxRetries);
 }
 
 function loadFile(params) {
 
-  return new Promise(async function(resolve, reject){
+  return new Promise(function(resolve, reject){
 
     let fullPath = params.folder + "/" + params.file
 
@@ -1128,7 +1130,7 @@ function loadFile(params) {
 
 function getFileMetadata(params) {
 
-  return new Promise(async function(resolve, reject){
+  return new Promise(function(resolve, reject){
 
     const fullPath = params.folder + "/" + params.file;
 
@@ -1223,7 +1225,7 @@ function initStdIn(){
 
 function loadCommandLineArgs(){
 
-  return new Promise(async function(resolve){
+  return new Promise(function(resolve){
 
     statsObj.status = "LOAD COMMAND LINE ARGS";
 
@@ -1240,171 +1242,151 @@ function loadCommandLineArgs(){
   });
 }
 
-function loadConfigFile(params) {
+async function loadConfigFile(params) {
 
-  return new Promise(async function(resolve, reject){
+  if (params.file === dropboxConfigDefaultFile) {
+    prevConfigFileModifiedMoment = moment(prevDefaultConfigFileModifiedMoment);
+  }
+  else {
+    prevConfigFileModifiedMoment = moment(prevHostConfigFileModifiedMoment);
+  }
 
-    try {
+  if (configuration.offlineMode) {
+    await loadCommandLineArgs();
+    return;
+  }
 
-      if (params.file === dropboxConfigDefaultFile) {
-        prevConfigFileModifiedMoment = moment(prevDefaultConfigFileModifiedMoment);
+  const fullPath = params.folder + "/" + params.file;
+
+  const response = await getFileMetadata(params);
+
+  let fileModifiedMoment;
+    
+  if (response) {
+
+    fileModifiedMoment = moment(new Date(response.client_modified));
+
+    if (fileModifiedMoment.isSameOrBefore(prevConfigFileModifiedMoment)){
+
+      console.log(chalkLog("GTS | CONFIG FILE BEFORE OR EQUAL"
+        + " | " + fullPath
+        + " | PREV: " + prevConfigFileModifiedMoment.format(compactDateTimeFormat)
+        + " | " + fileModifiedMoment.format(compactDateTimeFormat)
+      ));
+      return;
+    }
+
+    console.log(chalkAlert("GTS | +++ CONFIG FILE AFTER ... LOADING"
+      + " | " + fullPath
+      + " | PREV: " + prevConfigFileModifiedMoment.format(compactDateTimeFormat)
+      + " | " + fileModifiedMoment.format(compactDateTimeFormat)
+    ));
+
+    prevConfigFileModifiedMoment = moment(fileModifiedMoment);
+
+    if (params.file === dropboxConfigDefaultFile) {
+      prevDefaultConfigFileModifiedMoment = moment(fileModifiedMoment);
+    }
+    else {
+      prevHostConfigFileModifiedMoment = moment(fileModifiedMoment);
+    }
+
+    const loadedConfigObj = await loadFileRetry(params);
+
+    if ((loadedConfigObj === undefined) || !loadedConfigObj) {
+      console.log(chalkError("GTS | DROPBOX CONFIG LOAD FILE ERROR | JSON UNDEFINED ??? "));
+      throw new Error("LOAD FILE JSON UNDEFINED: " + params.file);
+    }
+
+    console.log(chalkInfo("GTS | LOADED CONFIG FILE: " + fullPath + "\n" + jsonPrint(loadedConfigObj)));
+
+    const newConfiguration = {};
+    newConfiguration.evolve = {};
+
+    if (loadedConfigObj.GTS_TEST_MODE !== undefined){
+      console.log("GTS | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE);
+
+      if ((loadedConfigObj.GTS_TEST_MODE === true) || (loadedConfigObj.GTS_TEST_MODE === "true")) {
+        newConfiguration.testMode = true;
+      }
+      else if ((loadedConfigObj.GTS_TEST_MODE === false) || (loadedConfigObj.GTS_TEST_MODE === "false")) {
+        newConfiguration.testMode = false;
       }
       else {
-        prevConfigFileModifiedMoment = moment(prevHostConfigFileModifiedMoment);
+        newConfiguration.testMode = false;
       }
 
-      if (configuration.offlineMode) {
-        await loadCommandLineArgs();
-        return resolve();
-      }
-
-      const fullPath = params.folder + "/" + params.file;
-
-      const response = await getFileMetadata(params);
-
-      let fileModifiedMoment;
-        
-      if (response) {
-
-        fileModifiedMoment = moment(new Date(response.client_modified));
-
-        if (fileModifiedMoment.isSameOrBefore(prevConfigFileModifiedMoment)){
-
-          console.log(chalkLog("GTS | CONFIG FILE BEFORE OR EQUAL"
-            + " | " + fullPath
-            + " | PREV: " + prevConfigFileModifiedMoment.format(compactDateTimeFormat)
-            + " | " + fileModifiedMoment.format(compactDateTimeFormat)
-          ));
-          return resolve();
-        }
-
-        console.log(chalkAlert("GTS | +++ CONFIG FILE AFTER ... LOADING"
-          + " | " + fullPath
-          + " | PREV: " + prevConfigFileModifiedMoment.format(compactDateTimeFormat)
-          + " | " + fileModifiedMoment.format(compactDateTimeFormat)
-        ));
-
-        prevConfigFileModifiedMoment = moment(fileModifiedMoment);
-
-        if (params.file === dropboxConfigDefaultFile) {
-          prevDefaultConfigFileModifiedMoment = moment(fileModifiedMoment);
-        }
-        else {
-          prevHostConfigFileModifiedMoment = moment(fileModifiedMoment);
-        }
-
-        const loadedConfigObj = await loadFileRetry(params);
-
-        if ((loadedConfigObj === undefined) || !loadedConfigObj) {
-          console.log(chalkError("GTS | DROPBOX CONFIG LOAD FILE ERROR | JSON UNDEFINED ??? "));
-          return reject();
-        }
-
-        console.log(chalkInfo("GTS | LOADED CONFIG FILE: " + fullPath + "\n" + jsonPrint(loadedConfigObj)));
-
-        const newConfiguration = {};
-        newConfiguration.evolve = {};
-
-        if (loadedConfigObj.GTS_TEST_MODE !== undefined){
-          console.log("GTS | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE);
-
-          if ((loadedConfigObj.GTS_TEST_MODE === true) || (loadedConfigObj.GTS_TEST_MODE === "true")) {
-            newConfiguration.testMode = true;
-          }
-          else if ((loadedConfigObj.GTS_TEST_MODE === false) || (loadedConfigObj.GTS_TEST_MODE === "false")) {
-            newConfiguration.testMode = false;
-          }
-          else {
-            newConfiguration.testMode = false;
-          }
-
-          console.log("GTS | LOADED newConfiguration.testMode: " + newConfiguration.testMode);
-        }
-
-
-        if (loadedConfigObj.GTS_OFFLINE_MODE !== undefined){
-          console.log("GTS | LOADED GTS_OFFLINE_MODE: " + loadedConfigObj.GTS_OFFLINE_MODE);
-
-          if ((loadedConfigObj.GTS_OFFLINE_MODE === false) || (loadedConfigObj.GTS_OFFLINE_MODE === "false")) {
-            newConfiguration.offlineMode = false;
-          }
-          else if ((loadedConfigObj.GTS_OFFLINE_MODE === true) || (loadedConfigObj.GTS_OFFLINE_MODE === "true")) {
-            newConfiguration.offlineMode = true;
-          }
-          else {
-            newConfiguration.offlineMode = false;
-          }
-        }
-
-        if (loadedConfigObj.GTS_QUIT_ON_COMPLETE !== undefined) {
-          console.log("GTS | LOADED GTS_QUIT_ON_COMPLETE: " + loadedConfigObj.GTS_QUIT_ON_COMPLETE);
-          if (!loadedConfigObj.GTS_QUIT_ON_COMPLETE || (loadedConfigObj.GTS_QUIT_ON_COMPLETE === "false")) {
-            newConfiguration.quitOnComplete = false;
-          }
-          else {
-            newConfiguration.quitOnComplete = true;
-          }
-        }
-
-        if (loadedConfigObj.GTS_VERBOSE_MODE !== undefined){
-          console.log("GTS | LOADED GTS_VERBOSE_MODE: " + loadedConfigObj.GTS_VERBOSE_MODE);
-          newConfiguration.verbose = loadedConfigObj.GTS_VERBOSE_MODE;
-        }
-
-        if (loadedConfigObj.GTS_ENABLE_STDIN !== undefined){
-          console.log("GTS | LOADED GTS_ENABLE_STDIN: " + loadedConfigObj.GTS_ENABLE_STDIN);
-          newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
-        }
-
-        return resolve(newConfiguration);
-      }
-
-      console.log(chalkAlert("GTS | ??? CONFIG FILE NOT FOUND ... SKIPPING | " + fullPath ));
-      resolve(false);
-    }
-    catch(err){
-      console.log(chalkError("GTS | *** LOAD CONFIG ERROR: " + err));
-      reject(err);
+      console.log("GTS | LOADED newConfiguration.testMode: " + newConfiguration.testMode);
     }
 
-  });
+
+    if (loadedConfigObj.GTS_OFFLINE_MODE !== undefined){
+      console.log("GTS | LOADED GTS_OFFLINE_MODE: " + loadedConfigObj.GTS_OFFLINE_MODE);
+
+      if ((loadedConfigObj.GTS_OFFLINE_MODE === false) || (loadedConfigObj.GTS_OFFLINE_MODE === "false")) {
+        newConfiguration.offlineMode = false;
+      }
+      else if ((loadedConfigObj.GTS_OFFLINE_MODE === true) || (loadedConfigObj.GTS_OFFLINE_MODE === "true")) {
+        newConfiguration.offlineMode = true;
+      }
+      else {
+        newConfiguration.offlineMode = false;
+      }
+    }
+
+    if (loadedConfigObj.GTS_QUIT_ON_COMPLETE !== undefined) {
+      console.log("GTS | LOADED GTS_QUIT_ON_COMPLETE: " + loadedConfigObj.GTS_QUIT_ON_COMPLETE);
+      if (!loadedConfigObj.GTS_QUIT_ON_COMPLETE || (loadedConfigObj.GTS_QUIT_ON_COMPLETE === "false")) {
+        newConfiguration.quitOnComplete = false;
+      }
+      else {
+        newConfiguration.quitOnComplete = true;
+      }
+    }
+
+    if (loadedConfigObj.GTS_VERBOSE_MODE !== undefined){
+      console.log("GTS | LOADED GTS_VERBOSE_MODE: " + loadedConfigObj.GTS_VERBOSE_MODE);
+      newConfiguration.verbose = loadedConfigObj.GTS_VERBOSE_MODE;
+    }
+
+    if (loadedConfigObj.GTS_ENABLE_STDIN !== undefined){
+      console.log("GTS | LOADED GTS_ENABLE_STDIN: " + loadedConfigObj.GTS_ENABLE_STDIN);
+      newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
+    }
+
+    return newConfiguration;
+  }
+
+  console.log(chalkAlert("GTS | ??? CONFIG FILE NOT FOUND ... SKIPPING | " + fullPath ));
+  return false;
 }
 
-function loadAllConfigFiles(){
+async function loadAllConfigFiles(){
 
-  return new Promise(async function(resolve, reject){
+  statsObj.status = "LOAD CONFIG";
 
-    try {
-      statsObj.status = "LOAD CONFIG";
+  console.log(chalkLog("GTS | LOAD ALL CONFIG FILES"));
 
-      console.log(chalkLog("GTS | LOAD ALL CONFIG FILES"));
+  const defaultConfig = await loadConfigFile({folder: dropboxConfigDefaultFolder, file: dropboxConfigDefaultFile, skipOnNotFound: true});
 
-      const defaultConfig = await loadConfigFile({folder: dropboxConfigDefaultFolder, file: dropboxConfigDefaultFile, skipOnNotFound: true});
+  if (defaultConfig) {
+    defaultConfiguration = defaultConfig;
+    console.log(chalkAlert("GTS | +++ LOADED DEFAULT CONFIG " + dropboxConfigDefaultFolder + "/" + dropboxConfigDefaultFile));
+  }
 
-      if (defaultConfig) {
-        defaultConfiguration = defaultConfig;
-        console.log(chalkAlert("GTS | +++ LOADED DEFAULT CONFIG " + dropboxConfigDefaultFolder + "/" + dropboxConfigDefaultFile));
-      }
+  const hostConfig = await loadConfigFile({folder: dropboxConfigHostFolder, file: dropboxConfigHostFile, skipOnNotFound: true});
 
-      const hostConfig = await loadConfigFile({folder: dropboxConfigHostFolder, file: dropboxConfigHostFile, skipOnNotFound: true});
+  if (hostConfig) {
+    hostConfiguration = hostConfig;
+    console.log(chalkAlert("GTS | +++ LOADED HOST CONFIG " + dropboxConfigHostFolder + "/" + dropboxConfigHostFile));
+  }
 
-      if (hostConfig) {
-        hostConfiguration = hostConfig;
-        console.log(chalkAlert("GTS | +++ LOADED HOST CONFIG " + dropboxConfigHostFolder + "/" + dropboxConfigHostFile));
-      }
-   
-      const defaultAndHostConfig = merge(defaultConfiguration, hostConfiguration); // host settings override defaults
-      console.log("defaultAndHostConfig.testMode: " + defaultAndHostConfig.testMode);
-      const tempConfig = merge(configuration, defaultAndHostConfig); // any new settings override existing config
-      console.log("tempConfig.testMode: " + tempConfig.testMode);
+  const defaultAndHostConfig = merge(defaultConfiguration, hostConfiguration); // host settings override defaults
+  console.log("defaultAndHostConfig.testMode: " + defaultAndHostConfig.testMode);
+  const tempConfig = merge(configuration, defaultAndHostConfig); // any new settings override existing config
+  console.log("tempConfig.testMode: " + tempConfig.testMode);
 
-      resolve(tempConfig);
-    }
-    catch(err){
-      reject(err);
-    }
-
-  });
+  return tempConfig;
 }
 
 console.log(chalkInfo("GTS | " + getTimeStamp() 
@@ -1493,7 +1475,7 @@ function encodeHistogramUrls(params){
 }
 
 function resetMaxInputsHashMap(){
-  return new Promise(async function(resolve){
+  return new Promise(function(resolve){
 
     console.log(chalkInfo("GTS | RESET MAX INPUT HASHMAP"));
 
@@ -1506,320 +1488,177 @@ function resetMaxInputsHashMap(){
   });
 }
 
-function updateMaxInputHashMap(params){
-  return new Promise(async function(resolve, reject){
+async function updateMaxInputHashMap(params){
 
-    const mergedHistograms = await mergeHistograms.merge({ histogramA: params.user.profileHistograms, histogramB: params.user.tweetHistograms });
-    const histogramTypes = Object.keys(mergedHistograms);
+  const mergedHistograms = await mergeHistograms.merge({ histogramA: params.user.profileHistograms, histogramB: params.user.tweetHistograms });
+  const histogramTypes = Object.keys(mergedHistograms);
 
-    async.each(histogramTypes, function(type, cb0){
+  async.each(histogramTypes, function(type, cb0){
 
-      if (type === "sentiment") { return cb0(); }
+    if (type === "sentiment") { return cb0(); }
 
-      if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
+    if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
 
-      const histogramTypeEntities = Object.keys(mergedHistograms[type]);
+    const histogramTypeEntities = Object.keys(mergedHistograms[type]);
 
-      async.each(histogramTypeEntities, function(entity, cb1){
+    async.each(histogramTypeEntities, function(entity, cb1){
 
-        if (mergedHistograms[type][entity] === undefined){
-          return cb1();
-        }
+      if (mergedHistograms[type][entity] === undefined){
+        return cb1();
+      }
 
-        if (maxInputHashMap[type][entity] === undefined){
-          maxInputHashMap[type][entity] = Math.max(1, mergedHistograms[type][entity]);
-          return cb1();
-        }
+      if (maxInputHashMap[type][entity] === undefined){
+        maxInputHashMap[type][entity] = Math.max(1, mergedHistograms[type][entity]);
+        return cb1();
+      }
 
-        maxInputHashMap[type][entity] = Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
-        cb1();
-
-      }, function(err){
-        if (err) { return reject(err); }
-        cb0();
-      });
+      maxInputHashMap[type][entity] = Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
+      cb1();
 
     }, function(err){
-      if (err) { return reject(err); }
-      resolve();
+      if (err) { throw err; }
+      cb0();
     });
+
+  }, function(err){
+    if (err) { throw err; }
+    return;
   });
 }
 
-function updateCategorizedUsers(){
+async function updateCategorizedUser(params){
 
-  return new Promise(async function(resolve, reject){
+  if (!params.nodeId || params.nodeId === undefined) {
+    console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS: NODE ID UNDEFINED"));
+    statsObj.errors.users.findOne += 1;
+    throw new Error("NODE ID UNDEFINED");
+  }
 
-    console.log(chalkInfo("GTS | UPDATE CATEGORIZED USERS"));
+  try {
+    const user = await global.globalUser.findOne({ nodeId: params.nodeId }).lean();
 
-    statsObj.status = "UPDATE CATEGORIZED USERS";
-
-    try {
-      await resetMaxInputsHashMap();
-    }
-    catch(err){
-      console.log(chalkError("GTS | *** RESET MAX INPUT HASHMAP ERROR: " + err));
-      return reject(err);
-    }
-
-    const categorizedNodeIdsArray = [...categorizedNodeIdsSet];
-
-    if (configuration.testMode) {
-      categorizedNodeIdsArray.length = Math.min(categorizedNodeIdsArray.length, configuration.maxTestCount);
-      console.log(chalkAlert("GTS | *** TEST MODE *** | CATEGORIZE MAX " + categorizedNodeIdsArray.length + " USERS"));
+    if (!user || user === undefined){
+      console.log(chalkLog("GTS | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + params.nodeId));
+      statsObj.users.notFound += 1;
+      statsObj.users.notCategorized += 1;
+      throw new Error("USER NOT FOUND | NODE ID: " + params.nodeId);
     }
 
-    let maxMagnitude = -Infinity;
-    let minScore = 1.0;
-    let maxScore = -1.0;
-    let minComp = Infinity;
-    let maxComp = -Infinity;
+    if (!user.category || user.category === undefined) {
+      console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED\n" + jsonPrint(user)));
+      statsObj.users.notCategorized += 1;
+      throw new Error("USER NOT CATEGORIZED | NODE ID: " + params.nodeId);
+    }
 
-    console.log(chalkBlue("GTS | UPDATE CATEGORIZED USERS: " + categorizedNodeIdsArray.length));
+    if (user.screenName === undefined) {
+      console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
+      statsObj.users.screenNameUndefined += 1;
+      statsObj.users.notCategorized += 1;
+      throw new Error("USER SCREENNAME UNDEFINED | NODE ID: " + params.nodeId);
+    }
 
-    statsObj.users.updatedCategorized = 0;
-    statsObj.users.notCategorized = 0;
+    await updateMaxInputHashMap({user: user});
 
-    let userIndex = 0;
-    let categorizedUsersPercent = 0;
-    const categorizedUsersStartMoment = moment();
-    let categorizedUsersEndMoment = moment();
-    let categorizedUsersElapsed = 0;
-    let categorizedUsersRemain = 0;
-    let categorizedUsersRate = 0;
+    if (!user.profileHistograms || (user.profileHistograms === undefined)){
+      user.profileHistograms = {};
+    }
 
-    async.eachSeries(categorizedNodeIdsArray, async function(nodeId){
+    if (user.profileHistograms.sentiment && (user.profileHistograms.sentiment !== undefined)) {
 
-      if (!nodeId || nodeId === undefined) {
-        console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS: NODE ID UNDEFINED"));
-        statsObj.errors.users.findOne += 1;
-        return;
+      if (user.profileHistograms.sentiment.magnitude !== undefined){
+        if (user.profileHistograms.sentiment.magnitude < 0){
+          console.log(chalkAlert("GTS | !!! NORMALIZATION MAG LESS THAN 0 | CLAMPED: " + user.profileHistograms.sentiment.magnitude));
+          user.profileHistograms.sentiment.magnitude = 0;
+        }
+        statsObj.normalization.magnitude.max = Math.max(statsObj.normalization.magnitude.max, user.profileHistograms.sentiment.magnitude);
       }
 
-      try {
-        const user = await global.globalUser.findOne({ nodeId: nodeId }).lean();
-        userIndex += 1;
-
-        if (!user || user === undefined){
-          console.log(chalkLog("GTS | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + nodeId));
-          statsObj.users.notFound += 1;
-          statsObj.users.notCategorized += 1;
-          return;
+      if (user.profileHistograms.sentiment.score !== undefined){
+        if (user.profileHistograms.sentiment.score < -1.0){
+          console.log(chalkAlert("GTS | !!! NORMALIZATION SCORE LESS THAN -1.0 | CLAMPED: " + user.profileHistograms.sentiment.score));
+          user.profileHistograms.sentiment.score = -1.0;
         }
 
-        if (!user.category || user.category === undefined) {
-          console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED\n" + jsonPrint(user)));
-          statsObj.users.notCategorized += 1;
-          return;
+        if (user.profileHistograms.sentiment.score > 1.0){
+          console.log(chalkAlert("GTS | !!! NORMALIZATION SCORE GREATER THAN 1.0 | CLAMPED: " + user.profileHistograms.sentiment.score));
+          user.profileHistograms.sentiment.score = 1.0;
         }
 
-        if (user.screenName === undefined) {
-          console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
-          statsObj.users.screenNameUndefined += 1;
-          statsObj.users.notCategorized += 1;
-          return;
-        }
-
-        try {
-          await updateMaxInputHashMap({user: user});
-        }
-        catch(e){
-          console.log(chalkError("GTS | *** UPDATE MAX INPUT HASHMAP ERROR: " + e));
-          return e;
-        }
-
-        if (configuration.verbose) {
-          console.log(chalkInfo("GTS | UPDATE CL USR <DB"
-            + " [" + userIndex + "/" + categorizedNodeIdsArray.length + "]"
-            + " | " + user.nodeId
-            + " | @" + user.screenName
-          ));
-        }
-
-        if (!user.profileHistograms || (user.profileHistograms === undefined)){
-          user.profileHistograms = {};
-        }
-
-        if (user.profileHistograms.sentiment && (user.profileHistograms.sentiment !== undefined)) {
-
-
-          if (user.profileHistograms.sentiment.magnitude !== undefined){
-            if (user.profileHistograms.sentiment.magnitude < 0){
-              console.log(chalkAlert("GTS | !!! NORMALIZATION MAG LESS THAN 0 | CLAMPED: " + user.profileHistograms.sentiment.magnitude));
-              user.profileHistograms.sentiment.magnitude = 0;
-            }
-            maxMagnitude = Math.max(maxMagnitude, user.profileHistograms.sentiment.magnitude);
-          }
-
-          if (user.profileHistograms.sentiment.score !== undefined){
-            if (user.profileHistograms.sentiment.score < -1.0){
-              console.log(chalkAlert("GTS | !!! NORMALIZATION SCORE LESS THAN -1.0 | CLAMPED: " + user.profileHistograms.sentiment.score));
-              user.profileHistograms.sentiment.score = -1.0;
-            }
-
-            if (user.profileHistograms.sentiment.score > 1.0){
-              console.log(chalkAlert("GTS | !!! NORMALIZATION SCORE GREATER THAN 1.0 | CLAMPED: " + user.profileHistograms.sentiment.score));
-              user.profileHistograms.sentiment.score = 1.0;
-            }
-
-            maxScore = Math.max(maxScore, user.profileHistograms.sentiment.score);
-            minScore = Math.min(minScore, user.profileHistograms.sentiment.score);
-          }
-
-          if (user.profileHistograms.sentiment.comp !== undefined){
-            maxComp = Math.max(maxComp, user.profileHistograms.sentiment.comp);
-            minComp = Math.min(minComp, user.profileHistograms.sentiment.comp);
-          }
-
-        }
-
-        let classText = "";
-        let currentChalk = chalkLog;
-
-        switch (user.category) {
-          case "left":
-            categorizedUserHistogram.left += 1;
-            classText = "L";
-            currentChalk = chalk.blue;
-          break;
-          case "right":
-            categorizedUserHistogram.right += 1;
-            classText = "R";
-            currentChalk = chalk.yellow;
-          break;
-          case "neutral":
-            categorizedUserHistogram.neutral += 1;
-            classText = "N";
-            currentChalk = chalk.black;
-          break;
-          case "positive":
-            categorizedUserHistogram.positive += 1;
-            classText = "+";
-            currentChalk = chalk.green;
-          break;
-          case "negative":
-            categorizedUserHistogram.negative += 1;
-            classText = "-";
-            currentChalk = chalk.red;
-          break;
-          default:
-            categorizedUserHistogram.none += 1;
-            classText = "O";
-            currentChalk = chalk.bold.gray;
-        }
-
-        debug(chalkLog("\n==============================\n"));
-        debug(currentChalk("ADD  | U"
-          + " | " + classText
-          + " | " + user.screenName
-          + " | " + user.nodeId
-          + " | " + user.name
-          + " | 3C FOLLOW: " + user.threeceeFollowing
-          + " | FLLWs: " + user.followersCount
-          + " | FRNDs: " + user.friendsCount
-        ));
-
-        statsObj.users.updatedCategorized += 1;
-
-        categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIdsArray.length;
-        categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
-        categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
-        categorizedUsersRemain = (categorizedNodeIdsArray.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
-        categorizedUsersEndMoment = moment();
-        categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
-
-        if ((statsObj.users.notCategorized + statsObj.users.updatedCategorized) % 1000 === 0){
-
-          console.log(chalkLog("GTS"
-            + " | START: " + categorizedUsersStartMoment.format(compactDateTimeFormat)
-            + " | ELAPSED: " + msToTime(categorizedUsersElapsed)
-            + " | REMAIN: " + msToTime(categorizedUsersRemain)
-            + " | ETC: " + categorizedUsersEndMoment.format(compactDateTimeFormat)
-            + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIdsArray.length
-            + " (" + categorizedUsersPercent.toFixed(1) + "%)"
-            + " USERS CATEGORIZED"
-          ));
-
-          categorizedUserHistogramTotal();
-
-          console.log(chalkLog("GTS | CL U HIST"
-            + " | TOTAL: " + categorizedUserHistogram.total
-            + " | L: " + categorizedUserHistogram.left 
-            + " | R: " + categorizedUserHistogram.right
-            + " | N: " + categorizedUserHistogram.neutral
-            + " | +: " + categorizedUserHistogram.positive
-            + " | -: " + categorizedUserHistogram.negative
-            + " | 0: " + categorizedUserHistogram.none
-          ));
-        }
-
-        try {
-          const updatedUser = await encodeHistogramUrls({user: user});
-          const subUser = pick(
-            updatedUser,
-            [
-              "userId", 
-              "screenName", 
-              "nodeId", 
-              "name",
-              "lang",
-              "statusesCount",
-              "followersCount",
-              "friendsCount",
-              "friends",
-              "languageAnalysis", 
-              "category", 
-              "categoryAuto", 
-              "histograms", 
-              "profileHistograms", 
-              "tweetHistograms", 
-              "location", 
-              "ignored", 
-              "following", 
-              "threeceeFollowing"
-            ]);
-          trainingSetUsersArray.push(subUser);
-          return;
-        }
-        catch(err){
-          console.log(chalkError("GTS | *** ENCODE HISTOGRAM URLS ERROR: " + err));
-          return err;
-        }
-
-      }
-      catch(err){
-        console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS ERROR: " + err));
-        statsObj.errors.users.findOne += 1;
-        return err;
+        statsObj.normalization.score.max = Math.max(statsObj.normalization.score.max, user.profileHistograms.sentiment.score);
+        statsObj.normalization.score.min = Math.min(statsObj.normalization.score.min, user.profileHistograms.sentiment.score);
       }
 
-    }, function(err){
-
-      if (err) {
-        if (err === "INTERRUPT") {
-          console.log(chalkAlert("GTS | INTERRUPT"));
-        }
-        else {
-          console.log(chalkError("GTS | UPDATE CATEGORIZED USERS ERROR: " + err));
-        }
-
-        return reject(err);
+      if (user.profileHistograms.sentiment.comp !== undefined){
+        statsObj.normalization.comp.max = Math.max(statsObj.normalization.comp.max, user.profileHistograms.sentiment.comp);
+        statsObj.normalization.comp.min = Math.min(statsObj.normalization.comp.min, user.profileHistograms.sentiment.comp);
       }
+    }
 
-      categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIdsArray.length;
-      categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
-      categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
-      categorizedUsersRemain = (categorizedNodeIdsArray.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
-      categorizedUsersEndMoment = moment();
-      categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
+    let classText = "";
+    let currentChalk = chalkLog;
 
-      console.log(chalkBlueBold("\nGTS | ======================= END CATEGORIZE USERS ======================="
-        + "\nGTS | ==== START:   " + categorizedUsersStartMoment.format(compactDateTimeFormat)
-        + "\nGTS | ==== ELAPSED: " + msToTime(categorizedUsersElapsed)
-        + "\nGTS | ==== REMAIN:  " + msToTime(categorizedUsersRemain)
-        + "\nGTS | ==== ETC:     " + categorizedUsersEndMoment.format(compactDateTimeFormat)
-        + "\nGTS | ====          " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIdsArray.length
-        + " (" + categorizedUsersPercent.toFixed(1) + "%)" + " USERS CATEGORIZED"
+    switch (user.category) {
+      case "left":
+        categorizedUserHistogram.left += 1;
+        classText = "L";
+        currentChalk = chalk.blue;
+      break;
+      case "right":
+        categorizedUserHistogram.right += 1;
+        classText = "R";
+        currentChalk = chalk.yellow;
+      break;
+      case "neutral":
+        categorizedUserHistogram.neutral += 1;
+        classText = "N";
+        currentChalk = chalk.black;
+      break;
+      case "positive":
+        categorizedUserHistogram.positive += 1;
+        classText = "+";
+        currentChalk = chalk.green;
+      break;
+      case "negative":
+        categorizedUserHistogram.negative += 1;
+        classText = "-";
+        currentChalk = chalk.red;
+      break;
+      default:
+        categorizedUserHistogram.none += 1;
+        classText = "O";
+        currentChalk = chalk.bold.gray;
+    }
+
+    debug(chalkLog("\n==============================\n"));
+    debug(currentChalk("ADD  | U"
+      + " | " + classText
+      + " | " + user.screenName
+      + " | " + user.nodeId
+      + " | " + user.name
+      + " | 3C FOLLOW: " + user.threeceeFollowing
+      + " | FLLWs: " + user.followersCount
+      + " | FRNDs: " + user.friendsCount
+    ));
+
+    statsObj.users.updatedCategorized += 1;
+
+    categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIdsArray.length;
+    categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
+    categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
+    categorizedUsersRemain = (categorizedNodeIdsArray.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
+    categorizedUsersEndMoment = moment();
+    categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
+
+    if ((statsObj.users.notCategorized + statsObj.users.updatedCategorized) % 1000 === 0){
+
+      console.log(chalkLog("GTS"
+        + " | START: " + categorizedUsersStartMoment.format(compactDateTimeFormat)
+        + " | ELAPSED: " + msToTime(categorizedUsersElapsed)
+        + " | REMAIN: " + msToTime(categorizedUsersRemain)
+        + " | ETC: " + categorizedUsersEndMoment.format(compactDateTimeFormat)
+        + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIdsArray.length
+        + " (" + categorizedUsersPercent.toFixed(1) + "%)"
+        + " USERS CATEGORIZED"
       ));
 
       categorizedUserHistogramTotal();
@@ -1833,31 +1672,145 @@ function updateCategorizedUsers(){
         + " | -: " + categorizedUserHistogram.negative
         + " | 0: " + categorizedUserHistogram.none
       ));
+    }
 
-      statsObj.normalization.magnitude.max = maxMagnitude;
-      statsObj.normalization.score.min = minScore;
-      statsObj.normalization.score.max = maxScore;
-      statsObj.normalization.comp.min = minComp;
-      statsObj.normalization.comp.max = maxComp;
+    const updatedUser = await encodeHistogramUrls({user: user});
 
-      console.log(chalkLog("GTS | CL U HIST | NORMALIZATION"
-        + " | MAG " + statsObj.normalization.magnitude.min.toFixed(5) + " MIN / " + statsObj.normalization.magnitude.max.toFixed(5) + " MAX"
-        + " | SCORE " + statsObj.normalization.score.min.toFixed(5) + " MIN / " + statsObj.normalization.score.max.toFixed(5) + " MAX"
-        + " | COMP " + statsObj.normalization.comp.min.toFixed(5) + " MIN / " + statsObj.normalization.comp.max.toFixed(5) + " MAX"
+    const subUser = pick(
+      updatedUser,
+      [
+        "userId", 
+        "screenName", 
+        "nodeId", 
+        "name",
+        "lang",
+        "statusesCount",
+        "followersCount",
+        "friendsCount",
+        "friends",
+        "languageAnalysis", 
+        "category", 
+        "categoryAuto", 
+        "histograms", 
+        "profileHistograms", 
+        "tweetHistograms", 
+        "location", 
+        "ignored", 
+        "following", 
+        "threeceeFollowing"
+      ]);
+    trainingSetUsersArray.push(subUser);
+    return updatedUser;
+  }
+  catch(err){
+    console.error(chalkError("GTS | *** UPDATE CATEGORIZED USER ERROR: " + err));
+    statsObj.errors.users.findOne += 1;
+    throw err;
+  }
+}
+
+async function updateCategorizedUsers(){
+
+  console.log(chalkInfo("GTS | ... UPDATING " + categorizedNodeIdsArray.length + " CATEGORIZED USERS ..."));
+
+  statsObj.status = "UPDATE CATEGORIZED USERS";
+
+  try {
+    await resetMaxInputsHashMap();
+  }
+  catch(err){
+    console.log(chalkError("GTS | *** RESET MAX INPUT HASHMAP ERROR: " + err));
+    throw err;
+  }
+
+  if (configuration.testMode) {
+    categorizedNodeIdsArray.length = Math.min(categorizedNodeIdsArray.length, configuration.maxTestCount);
+    console.log(chalkAlert("GTS | *** TEST MODE *** | CATEGORIZE MAX " + categorizedNodeIdsArray.length + " USERS"));
+  }
+
+  statsObj.normalization.magnitude.max = -Infinity;
+  statsObj.normalization.score.min = 1.0;
+  statsObj.normalization.score.max = -1.0;
+  statsObj.normalization.comp.min = Infinity;
+  statsObj.normalization.comp.max = -Infinity;
+  statsObj.users.updatedCategorized = 0;
+  statsObj.users.notCategorized = 0;
+
+  let userIndex = 0;
+
+  async.eachSeries(categorizedNodeIdsArray, async function(nodeId){
+
+    const user = await updateCategorizedUser({nodeId: nodeId});
+
+    userIndex += 1;
+
+    if (configuration.verbose) {
+      console.log(chalkInfo("GTS | UPDATE CL USR <DB"
+        + " [" + userIndex + "/" + categorizedNodeIdsArray.length + "]"
+        + " | " + user.nodeId
+        + " | @" + user.screenName
       ));
+    }
 
-      resolve();
+  }, function(err){
 
-    });
+    if (err) {
+      if (err === "INTERRUPT") {
+        console.log(chalkAlert("GTS | INTERRUPT"));
+      }
+      else {
+        console.log(chalkError("GTS | UPDATE CATEGORIZED USERS ERROR: " + err));
+      }
 
+      throw err;
+    }
+
+    categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIdsArray.length;
+    categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
+    categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
+    categorizedUsersRemain = (categorizedNodeIdsArray.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
+    categorizedUsersEndMoment = moment();
+    categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
+
+    console.log(chalkBlueBold("\nGTS | END CATEGORIZE USERS ============================================== "
+      + "\nGTS | ==== START:   " + categorizedUsersStartMoment.format(compactDateTimeFormat)
+      + "\nGTS | ==== ELAPSED: " + msToTime(categorizedUsersElapsed)
+      + "\nGTS | ==== REMAIN:  " + msToTime(categorizedUsersRemain)
+      + "\nGTS | ==== ETC:     " + categorizedUsersEndMoment.format(compactDateTimeFormat)
+      + "\nGTS | ==== USERS:   " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIdsArray.length
+      + " (" + categorizedUsersPercent.toFixed(1) + "%)" + " CATEGORIZED"
+    ));
+
+    categorizedUserHistogramTotal();
+
+    console.log(chalkLog("GTS | CL U HIST"
+      + " | TOTAL: " + categorizedUserHistogram.total
+      + " | L: " + categorizedUserHistogram.left 
+      + " | R: " + categorizedUserHistogram.right
+      + " | N: " + categorizedUserHistogram.neutral
+      + " | +: " + categorizedUserHistogram.positive
+      + " | -: " + categorizedUserHistogram.negative
+      + " | 0: " + categorizedUserHistogram.none
+    ));
+
+    console.log(chalkLog("GTS | CL U HIST | NORMALIZATION"
+      + " | MAG " + statsObj.normalization.magnitude.min.toFixed(5) + " MIN / " + statsObj.normalization.magnitude.max.toFixed(5) + " MAX"
+      + " | SCORE " + statsObj.normalization.score.min.toFixed(5) + " MIN / " + statsObj.normalization.score.max.toFixed(5) + " MAX"
+      + " | COMP " + statsObj.normalization.comp.min.toFixed(5) + " MIN / " + statsObj.normalization.comp.max.toFixed(5) + " MAX"
+    ));
+
+    return;
   });
+
 }
 
 function initCategorizedNodeIds(){
 
-  return new Promise(async function(resolve, reject){
+  return new Promise(function(resolve, reject){
 
     statsObj.status = "INIT CATEGORIZED NODE IDS";
+
+    console.log("GTS | ... INIT CATEGORIZED NODE IDs ...");
 
     // const query = (params.query) ? params.query : { $or: [ { "category": { $nin: [ false, null ] } } , { "categoryAuto": { $nin: [ false, null ] } } ] };
 
@@ -1930,7 +1883,7 @@ function initCategorizedNodeIds(){
 
             if (configuration.verbose || (totalCount % 1000 === 0)) {
 
-              console.log(chalkLog("GTS | LOADING CATEGORIZED USERS FROM DB"
+              console.log(chalkLog("GTS | ... LOADING CATEGORIZED USERS FROM DB"
                 + " | TOTAL: " + totalCount
                 + " | " + totalManual + " MAN"
                 + " | " + totalAuto + " AUTO"
@@ -1970,6 +1923,9 @@ function initCategorizedNodeIds(){
           console.log(chalkError("GTS | INIT CATEGORIZED USER HASHMAP ERROR: " + err + "\n" + jsonPrint(err)));
           return reject(err);
         }
+
+        categorizedNodeIdsArray = [...categorizedNodeIdsSet];
+
         resolve();
       }
     );
@@ -1985,7 +1941,7 @@ function archiveUsers(){
       return reject(new Error("ARCHIVE UNDEFINED"));
     }
 
-    console.log(chalkLog("GTS | START ARCHIVE USERS"));
+    console.log(chalkLog("GTS | ... START ARCHIVE USERS ..."));
 
     let usersAppended = 0;
     const totalUsers = trainingSetUsersArray.length;
@@ -2037,53 +1993,53 @@ function archiveUsers(){
   });
 }
 
-function generateGlobalTrainingTestSet(){
+async function generateGlobalTrainingTestSet(){
 
-  return new Promise(async function(resolve, reject){
+  statsObj.status = "GENERATE TRAINING SET";
 
-    statsObj.status = "GENERATE TRAINING SET";
+  console.log(chalkBlueBold("GTS | ==================================================================="));
+  console.log(chalkBlueBold("GTS | GENERATE TRAINING SET | " + getTimeStamp()));
+  console.log(chalkBlueBold("GTS | ==================================================================="));
 
-    console.log(chalkBlueBold("GTS | ==================================================================="));
-    console.log(chalkBlueBold("GTS | GENERATE TRAINING SET | " + getTimeStamp()));
-    console.log(chalkBlueBold("GTS | ==================================================================="));
+  try {
 
-    try {
+    await initCategorizedNodeIds();
+    await updateCategorizedUsers();
 
-      await initCategorizedNodeIds();
-      await updateCategorizedUsers();
+    await initArchiver();
+    await archiveUsers();
 
-      await initArchiver();
-      await archiveUsers();
+    const mihmObj = {};
 
-      const mihmObj = {};
+    mihmObj.maxInputHashMap = {};
+    mihmObj.maxInputHashMap = maxInputHashMap;
 
-      mihmObj.maxInputHashMap = {};
-      mihmObj.maxInputHashMap = maxInputHashMap;
+    mihmObj.normalization = {};
+    mihmObj.normalization = statsObj.normalization;
 
-      mihmObj.normalization = {};
-      mihmObj.normalization = statsObj.normalization;
+    let maxInputHashMapFile = "maxInputHashMap.json";
 
-      console.log(MODULE_ID_PREFIX
-        + " | SAVING MAX INPUT HASHMAP FILE | "
-        + configuration.trainingSetsFolder + "/maxInputHashMap.json"
-      );
+    if (configuration.testMode) { maxInputHashMapFile = "maxInputHashMapFile_test.json"; }
 
-      await saveFile({folder: configuration.trainingSetsFolder, file: "maxInputHashMap.json", obj: mihmObj });
+    console.log(MODULE_ID_PREFIX
+      + " | ... SAVING MAX INPUT HASHMAP FILE | "
+      + configuration.trainingSetsFolder + "/" + maxInputHashMapFile
+    );
 
-      const buf = Buffer.from(JSON.stringify(mihmObj));
+    await saveFile({folder: configuration.trainingSetsFolder, file: maxInputHashMapFile, obj: mihmObj });
 
-      archive.append(buf, { name: "maxInputHashMap.json" });
-      archive.finalize();
+    const buf = Buffer.from(JSON.stringify(mihmObj));
 
-      resolve();
+    archive.append(buf, { name: maxInputHashMapFile });
+    archive.finalize();
 
-    }
-    catch(err){
-      console.log(chalkLog("GTS | *** ARCHIVE ERROR: " + err));
-      reject(err);
-    }
+    return;
 
-  });
+  }
+  catch(err){
+    console.log(chalkLog("GTS | *** ARCHIVE ERROR: " + err));
+    throw err;
+  }
 }
 
 slackText = "\n*GTS START | " + hostname + "*";
@@ -2094,11 +2050,11 @@ slackPostMessage(slackChannel, slackText);
 
 function getFileLock(params){
 
-  return new Promise(async function(resolve, reject){
+  return new Promise(function(resolve, reject){
 
     try {
 
-      console.log(chalkBlue("GTS | GET LOCK FILE | " + params.file));
+      console.log(chalkBlue("GTS | ... GET LOCK FILE | " + params.file));
 
       lockFile.lock(params.file, params.options, function(err){
 
@@ -2133,51 +2089,53 @@ function delay(params){
   });
 }
 
-function releaseFileLock(params){
+async function releaseFileLock(params){
 
-  return new Promise(async function(resolve, reject){
+  const delayPeriod = params.delay || 5;
 
-    const delayPeriod = params.delay || 5;
+  await delay(delayPeriod);
 
-    await delay(delayPeriod);
+  const fileIsLocked = lockFile.checkSync(params.file);
 
-    const fileIsLocked = lockFile.checkSync(params.file);
+  if (!fileIsLocked) {
+    return true;
+  }
 
-    if (!fileIsLocked) {
-      return resolve(true);
+  lockFile.unlock(params.file, function(err){
+
+    if (err) {
+      console.log(chalkError("GTS | *** FILE UNLOCK FAIL: " + params.file + "\n" + err));
+      throw err;
     }
 
-    lockFile.unlock(params.file, function(err){
-
-      if (err) {
-        console.log(chalkError("GTS | *** FILE UNLOCK FAIL: " + params.file + "\n" + err));
-        return reject(err);
-      }
-
-      console.log(chalkLog("GTS | --- FILE UNLOCK: " + params.file));
-      resolve(true);
-
-    });
+    console.log(chalkLog("GTS | --- FILE UNLOCK: " + params.file));
+    return true;
 
   });
 }
 
-configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(){
+configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userArchivePath){
 
   try{
 
-    await delay({message: "WAIT FOR DROPBOX FILE SYNC | " + configuration.userArchivePath, period: ONE_MINUTE});
+    await delay({message: "... WAIT FOR DROPBOX FILE SYNC | " + userArchivePath, period: ONE_MINUTE});
 
-    await releaseFileLock({file: configuration.userArchivePath + ".lock"});
+    await releaseFileLock({file: userArchivePath + ".lock"});
 
-    const stats = fs.statSync(configuration.userArchivePath);
+    const stats = fs.statSync(userArchivePath);
     const fileSizeInBytes = stats.size;
     const savedSize = fileSizeInBytes/ONE_MEGABYTE;
 
-    console.log(chalkLog("GTS | SAVING FLAG FILE" 
+    if (configuration.testMode) {
+      configuration.userArchiveFile = hostname + "_" + getTimeStamp() + "_users_test.zip";
+      configuration.archiveFileUploadCompleteFlagFile = configuration.archiveFileUploadCompleteFlagFile.replace(/\.json/, "_test.json");
+    }
+
+    console.log(chalkLog("GTS | ... SAVING FLAG FILE" 
       + " | " + configuration.userArchiveFolder + "/" + configuration.archiveFileUploadCompleteFlagFile 
       + " | " + fileSizeInBytes + " B | " + savedSize.toFixed(3) + " MB"
     ));
+
 
     const fileSizeObj = {};
     fileSizeObj.file = configuration.userArchiveFile;
@@ -2187,7 +2145,7 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(){
 
     await saveFile({folder: configuration.userArchiveFolder, file: configuration.archiveFileUploadCompleteFlagFile, obj: fileSizeObj });
 
-    await delay({message: "WAIT FOR DROPBOX FLAG FILE SYNC", period: ONE_MINUTE});
+    await delay({message: "... WAIT FOR DROPBOX FLAG FILE SYNC", period: ONE_MINUTE});
 
     quit("DONE");
   }
@@ -2198,167 +2156,153 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(){
 
 });
 
-function initArchiver(params){
+async function initArchiver(params){
 
-  return new Promise(async function(resolve, reject){
+  let userArchivePath = configuration.userArchivePath;
 
-    const userArchivePath = configuration.userArchivePath;
+  if (configuration.testMode) {
+    userArchivePath = configuration.userArchivePath.replace(/\.zip/, "_test.zip");
+  }
 
-    console.log(chalkBlue("GTS | INIT ARCHIVER | " + userArchivePath));
+  console.log(chalkBlue("GTS | ... INIT ARCHIVER | " + userArchivePath));
 
-    if (archive && archive.isOpen) {
-      console.log(chalkAlert("GTS | ARCHIVE ALREADY OPEN | " + userArchivePath));
-      return resolve();
+  if (archive && archive.isOpen) {
+    console.log(chalkAlert("GTS | ARCHIVE ALREADY OPEN | " + userArchivePath));
+    return;
+  }
+
+  try {
+
+    const lockFileName = userArchivePath + ".lock";
+    const archiveFileLocked = await getFileLock({file: lockFileName, options: fileLockOptions});
+
+    if (!archiveFileLocked) {
+
+      console.log(chalkAlert("GTS | *** FILE LOCK FAILED | SKIP INIT ARCHIVE: " + params.outputFile));
+
+      statsObj.archiveOpen = false;
+      return;
     }
 
-    try {
+    // create a file to stream archive data to.
+    const output = fs.createWriteStream(userArchivePath);
 
-      const lockFileName = userArchivePath + ".lock";
-
-      // console.log(chalkAlert("GTS | ARCHIVE LOCK FILE: " + lockFileName));
-
-      const archiveFileLocked = await getFileLock({file: lockFileName, options: fileLockOptions});
-
-      if (!archiveFileLocked) {
-
-        console.log(chalkAlert("GTS | *** FILE LOCK FAILED | SKIP INIT ARCHIVE: " + params.outputFile));
-
-        statsObj.archiveOpen = false;
-        return resolve();
-      }
-
-      // create a file to stream archive data to.
-      const output = fs.createWriteStream(userArchivePath);
-
-      archive = archiver("zip", {
-        zlib: { level: 9 } // Sets the compression level.
-      });
-       
-      output.on("close", function() {
-        const archiveSize = toMegabytes(archive.pointer());
-        console.log(chalkGreen("GTS | ARCHIVE OUTPUT | CLOSED | " + archiveSize.toFixed(2) + " MB"));
-        configEvents.emit("ARCHIVE_OUTPUT_CLOSED", userArchivePath);
-      });
-       
-      output.on("end", function() {
-        const archiveSize = toMegabytes(archive.pointer());
-        console.log(chalkBlueBold("GTS | ARCHIVE OUTPUT | END | " + archiveSize.toFixed(2) + " MB"));
-      });
-       
-      archive.on("warning", function(err) {
-        console.log(chalkAlert("GTS | ARCHIVE | WARNING\n" + jsonPrint(err)));
-        if (err.code !== "ENOENT") {
-          throw err;
-        }
-      });
-       
-      archive.on("progress", function(progress) {
-
-        const progressMbytes = toMegabytes(progress.fs.processedBytes);
-        const totalMbytes = toMegabytes(archive.pointer());
-
-        if (progress.entries.processed % 1000 === 0) {
-          console.log(chalkLog("GTS | ARCHIVE | PROGRESS"
-            + " | " + getTimeStamp()
-            + " | ENTRIES: " + progress.entries.processed + " PROCESSED / " + progress.entries.total + " TOTAL"
-            + " (" + (100*progress.entries.processed/progress.entries.total).toFixed(2) + "%)"
-            + " | SIZE: " + progressMbytes.toFixed(2) + " PROCESSED / " + totalMbytes.toFixed(2) + " MB"
-          ));
-        }
-      });
-       
-      archive.on("close", function() {
-        console.log(chalkBlueBold("GTS | ARCHIVE | CLOSED | " + userArchivePath));
-      });
-       
-      archive.on("finish", function() {
-        console.log(chalkBlueBold("GTS | +++ ARCHIVE | FINISHED | " + userArchivePath));
-      });
-       
-      archive.on("error", function(err) {
-        console.log(chalkError("GTS | ARCHIVE | ERROR\n" + jsonPrint(err)));
+    archive = archiver("zip", {
+      zlib: { level: 9 } // Sets the compression level.
+    });
+     
+    output.on("close", function() {
+      const archiveSize = toMegabytes(archive.pointer());
+      console.log(chalkGreen("GTS | ARCHIVE OUTPUT | CLOSED | " + archiveSize.toFixed(2) + " MB"));
+      configEvents.emit("ARCHIVE_OUTPUT_CLOSED", userArchivePath);
+    });
+     
+    output.on("end", function() {
+      const archiveSize = toMegabytes(archive.pointer());
+      console.log(chalkBlueBold("GTS | ARCHIVE OUTPUT | END | " + archiveSize.toFixed(2) + " MB"));
+    });
+     
+    archive.on("warning", function(err) {
+      console.log(chalkAlert("GTS | ARCHIVE | WARNING\n" + jsonPrint(err)));
+      if (err.code !== "ENOENT") {
         throw err;
-      });
-       
-      archive.pipe(output);
-      statsObj.archiveOpen = true;
+      }
+    });
+     
+    archive.on("progress", function(progress) {
 
-      resolve();
-    }
-    catch(err){
-      console.log(chalkError("GTS | *** INIT ARCHIVE ERROR | " + userArchivePath + " | ERROR: " + err));
-      reject(err);
-    }
+      const progressMbytes = toMegabytes(progress.fs.processedBytes);
+      const totalMbytes = toMegabytes(archive.pointer());
 
-  });
+      if (progress.entries.processed % 1000 === 0) {
+        console.log(chalkLog("GTS | ARCHIVE | PROGRESS"
+          + " | " + getTimeStamp()
+          + " | ENTRIES: " + progress.entries.processed + " PROCESSED / " + progress.entries.total + " TOTAL"
+          + " (" + (100*progress.entries.processed/progress.entries.total).toFixed(2) + "%)"
+          + " | SIZE: " + progressMbytes.toFixed(2) + " PROCESSED / " + totalMbytes.toFixed(2) + " MB"
+        ));
+      }
+    });
+     
+    archive.on("close", function() {
+      console.log(chalkBlueBold("GTS | ARCHIVE | CLOSED | " + userArchivePath));
+    });
+     
+    archive.on("finish", function() {
+      console.log(chalkBlueBold("GTS | +++ ARCHIVE | FINISHED | " + userArchivePath));
+    });
+     
+    archive.on("error", function(err) {
+      console.log(chalkError("GTS | ARCHIVE | ERROR\n" + jsonPrint(err)));
+      throw err;
+    });
+     
+    archive.pipe(output);
+    statsObj.archiveOpen = true;
+
+    return;
+  }
+  catch(err){
+    console.log(chalkError("GTS | *** INIT ARCHIVE ERROR | " + userArchivePath + " | ERROR: " + err));
+    throw err;
+  }
 }
 
-function initialize(cnf){
+async function initialize(cnf){
 
-  return new Promise(async function(resolve, reject){
+  statsObj.status = "INITIALIZE";
 
-    try {
+  debug(chalkBlue("INITIALIZE cnf\n" + jsonPrint(cnf)));
 
-      statsObj.status = "INITIALIZE";
+  if (debug.enabled){
+    console.log("\nGTS | %%%%%%%%%%%%%%\nGTS |  DEBUG ENABLED \nGTS | %%%%%%%%%%%%%%\n");
+  }
 
-      debug(chalkBlue("INITIALIZE cnf\n" + jsonPrint(cnf)));
+  cnf.processName = process.env.GTS_PROCESS_NAME || "node_gts";
+  cnf.runId = process.env.GTS_RUN_ID || statsObj.runId;
 
-      if (debug.enabled){
-        console.log("\nGTS | %%%%%%%%%%%%%%\nGTS |  DEBUG ENABLED \nGTS | %%%%%%%%%%%%%%\n");
-      }
+  cnf.verbose = process.env.GTS_VERBOSE_MODE || false;
+  cnf.quitOnError = process.env.GTS_QUIT_ON_ERROR || false;
+  cnf.enableStdin = process.env.GTS_ENABLE_STDIN || true;
 
-      cnf.processName = process.env.GTS_PROCESS_NAME || "node_gts";
-      cnf.runId = process.env.GTS_RUN_ID || statsObj.runId;
-
-      cnf.verbose = process.env.GTS_VERBOSE_MODE || false;
-      cnf.quitOnError = process.env.GTS_QUIT_ON_ERROR || false;
-      cnf.enableStdin = process.env.GTS_ENABLE_STDIN || true;
-
-      if (process.env.GTS_QUIT_ON_COMPLETE !== undefined) {
-        console.log("GTS | ENV GTS_QUIT_ON_COMPLETE: " + process.env.GTS_QUIT_ON_COMPLETE);
-        if (!process.env.GTS_QUIT_ON_COMPLETE || (process.env.GTS_QUIT_ON_COMPLETE === false) || (process.env.GTS_QUIT_ON_COMPLETE === "false")) {
-          cnf.quitOnComplete = false;
-        }
-        else {
-          cnf.quitOnComplete = true;
-        }
-      }
-
-      cnf.categorizedUsersFile = process.env.GTS_CATEGORIZED_USERS_FILE || categorizedUsersFile;
-      cnf.categorizedUsersFolder = globalCategorizedUsersFolder;
-
-      debug(chalkWarn("dropboxConfigDefaultFolder: " + dropboxConfigDefaultFolder));
-      debug(chalkWarn("dropboxConfigDefaultFile  : " + dropboxConfigDefaultFile));
-
-      await initStdIn();
-      
-      configuration = await loadAllConfigFiles();
-
-      await loadCommandLineArgs();
-      
-      const configArgs = Object.keys(configuration);
-
-      configArgs.forEach(function(arg){
-        if (_.isObject(configuration[arg])) {
-          console.log("GTS | _FINAL CONFIG | " + arg + "\n" + jsonPrint(configuration[arg]));
-        }
-        else {
-          console.log("GTS | _FINAL CONFIG | " + arg + ": " + configuration[arg]);
-        }
-      });
-      
-      statsObj.commandLineArgsLoaded = true;
-
-      global.globalDbConnection = await connectDb();
-
-      resolve(configuration);
-
+  if (process.env.GTS_QUIT_ON_COMPLETE !== undefined) {
+    console.log("GTS | ENV GTS_QUIT_ON_COMPLETE: " + process.env.GTS_QUIT_ON_COMPLETE);
+    if (!process.env.GTS_QUIT_ON_COMPLETE || (process.env.GTS_QUIT_ON_COMPLETE === false) || (process.env.GTS_QUIT_ON_COMPLETE === "false")) {
+      cnf.quitOnComplete = false;
     }
-    catch(err){
-      reject(err);
+    else {
+      cnf.quitOnComplete = true;
     }
+  }
 
+  cnf.categorizedUsersFile = process.env.GTS_CATEGORIZED_USERS_FILE || categorizedUsersFile;
+  cnf.categorizedUsersFolder = globalCategorizedUsersFolder;
+
+  debug(chalkWarn("dropboxConfigDefaultFolder: " + dropboxConfigDefaultFolder));
+  debug(chalkWarn("dropboxConfigDefaultFile  : " + dropboxConfigDefaultFile));
+
+  await initStdIn();
+  
+  configuration = await loadAllConfigFiles();
+
+  await loadCommandLineArgs();
+  
+  const configArgs = Object.keys(configuration);
+
+  configArgs.forEach(function(arg){
+    if (_.isObject(configuration[arg])) {
+      console.log("GTS | _FINAL CONFIG | " + arg + "\n" + jsonPrint(configuration[arg]));
+    }
+    else {
+      console.log("GTS | _FINAL CONFIG | " + arg + ": " + configuration[arg]);
+    }
   });
+  
+  statsObj.commandLineArgsLoaded = true;
+
+  global.globalDbConnection = await connectDb();
+
+  return configuration;
 }
 
 setTimeout(async function(){
