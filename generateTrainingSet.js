@@ -250,7 +250,7 @@ configuration.globalTrainingSetId = GLOBAL_TRAINING_SET_ID;
 configuration.archiveFileUploadCompleteFlagFile = "usersZipUploadComplete.json";
 configuration.trainingSetFile = "trainingSet.json";
 configuration.requiredTrainingSetFile = "requiredTrainingSet.txt";
-configuration.userArchiveFile = hostname + "_" + getTimeStamp() + "_users.zip";
+configuration.userArchiveFile = hostname + "_" + statsObj.startTimeMoment.format(compactDateTimeFormat) + "_users.zip";
 
 const DROPBOX_CONFIG_FOLDER = "/config/utility";
 const DROPBOX_CONFIG_DEFAULT_FOLDER = DROPBOX_CONFIG_FOLDER + "/default";
@@ -2160,7 +2160,7 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userArchivePath){
     const savedSize = fileSizeInBytes/ONE_MEGABYTE;
 
     if (configuration.testMode) {
-      configuration.userArchiveFile = hostname + "_" + getTimeStamp() + "_users_test.zip";
+      configuration.userArchiveFile = configuration.userArchiveFile.replace(/\.zip/, "_test.zip");
       configuration.archiveFileUploadCompleteFlagFile = configuration.archiveFileUploadCompleteFlagFile.replace(/\.json/, "_test.json");
     }
 
