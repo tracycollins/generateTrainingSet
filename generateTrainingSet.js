@@ -2156,7 +2156,7 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userArchivePath){
 
 });
 
-async function initArchiver(params){
+async function initArchiver(){
 
   let userArchivePath = configuration.userArchivePath;
 
@@ -2178,7 +2178,7 @@ async function initArchiver(params){
 
     if (!archiveFileLocked) {
 
-      console.log(chalkAlert("GTS | *** FILE LOCK FAILED | SKIP INIT ARCHIVE: " + params.outputFile));
+      console.log(chalkAlert("GTS | *** FILE LOCK FAILED | SKIP INIT ARCHIVE: " + userArchivePath));
 
       statsObj.archiveOpen = false;
       return;
@@ -2214,7 +2214,7 @@ async function initArchiver(params){
       const progressMbytes = toMegabytes(progress.fs.processedBytes);
       const totalMbytes = toMegabytes(archive.pointer());
 
-      if (progress.entries.processed % 1000 === 0) {
+      if (progress.entries.processed % 1000 === 0 || configuration.testMode) {
         console.log(chalkLog("GTS | ARCHIVE | PROGRESS"
           + " | " + getTimeStamp()
           + " | ENTRIES: " + progress.entries.processed + " PROCESSED / " + progress.entries.total + " TOTAL"
