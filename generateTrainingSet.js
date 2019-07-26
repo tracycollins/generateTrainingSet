@@ -652,7 +652,6 @@ function showStats(options){
       + " | -: " + categorizedUserHistogram.negative
       + " | 0: " + categorizedUserHistogram.none
     ));
-
   }
 }
 
@@ -1805,7 +1804,7 @@ function initCategorizedNodeIdsQueue(params){
           else{
             userIndex += 1;
             if (configuration.verbose || configuration.testMode) {
-              console.log(chalkInfo("GTS | UPDATE CL USR <DB"
+              console.log(chalkInfo("GTS | -<- UPDATE CL USR <DB"
                 + " [ USERS: " + userIndex + " / ERRORS: " + errorCount + "]"
                 + " | " + user.nodeId
                 + " | @" + user.screenName
@@ -1914,9 +1913,7 @@ function initCategorizedNodeIds(){
 
     statsObj.status = "INIT CATEGORIZED NODE IDS";
 
-    console.log("GTS | ... INIT CATEGORIZED NODE IDs ...");
-
-    // const query = (params.query) ? params.query : { $or: [ { "category": { $nin: [ false, null ] } } , { "categoryAuto": { $nin: [ false, null ] } } ] };
+    console.log(chalkInfo("GTS | ... INIT CATEGORIZED NODE IDs ..."));
 
     const p = {};
 
@@ -1951,7 +1948,7 @@ function initCategorizedNodeIds(){
 
             more = false;
 
-            console.log(chalkLog("GTS | +++ LOADED CATEGORIZED USERS FROM DB"
+            console.log(chalkInfo("GTS | +++ LOADED CATEGORIZED USERS FROM DB"
               + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
               + " | TOTAL CATEGORIZED: " + totalCount
               + " | LIMIT: " + p.limit
@@ -1989,7 +1986,7 @@ function initCategorizedNodeIds(){
 
             if (configuration.verbose || (totalCount % 1000 === 0)) {
 
-              console.log(chalkLog("GTS | ... LOADING CATEGORIZED USERS FROM DB"
+              console.log(chalkInfo("GTS | ... LOADING CATEGORIZED USERS FROM DB"
                 + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
                 + " | TOTAL: " + totalCount
                 + " | " + totalManual + " MAN"
@@ -2009,7 +2006,7 @@ function initCategorizedNodeIds(){
 
             more = false;
 
-            console.log(chalkLog("GTS | ... LOADING CATEGORIZED USERS FROM DB"
+            console.log(chalkInfo("GTS | ... LOADING CATEGORIZED USERS FROM DB"
               + " | TOTAL: " + totalCount
               + " | " + totalManual + " MAN"
               + " | " + totalAuto + " AUTO"
@@ -2113,17 +2110,13 @@ async function generateGlobalTrainingTestSet(){
   console.log(chalkBlue("GTS | CATEGORIZED USERS IN DB: " + statsObj.categorizedUsersTotal))
 
   await initArchiver();
-  console.log("================== initArchiver ===================");
+  // console.log("================== initArchiver ===================");
   await initCategorizedNodeIdsQueue({interval: configuration.categorizedNodeIdsQueueInterval});
-  console.log("================== initCategorizedNodeIdsQueue ===================");
+  // console.log("================== initCategorizedNodeIdsQueue ===================");
   await initCategorizedNodeIds();
-  console.log("================== initCategorizedNodeIds ===================");
+  // console.log("================== initCategorizedNodeIds ===================");
   await endArchiveUsers();
-  console.log("================== endArchiveUsers ===================");
-
-  // await archiveUsers();
-
-  console.log("generateGlobalTrainingTestSet | after archiveUsers");
+  // console.log("================== endArchiveUsers ===================");
 
   const mihmObj = {};
 
@@ -2304,17 +2297,17 @@ function initArchiver(){
        
       output.on("close", function() {
         const archiveSize = toMegabytes(archive.pointer());
-        console.log(chalkGreen("GTS | ARCHIVE OUTPUT | CLOSED | " + archiveSize.toFixed(2) + " MB"));
+        console.log(chalkGreen("GTS | XXX ARCHIVE OUTPUT | CLOSED | " + archiveSize.toFixed(2) + " MB"));
         configEvents.emit("ARCHIVE_OUTPUT_CLOSED", userArchivePath);
       });
        
       output.on("end", function() {
         const archiveSize = toMegabytes(archive.pointer());
-        console.log(chalkBlueBold("GTS | ARCHIVE OUTPUT | END | " + archiveSize.toFixed(2) + " MB"));
+        console.log(chalkBlueBold("GTS | XXX ARCHIVE OUTPUT | END | " + archiveSize.toFixed(2) + " MB"));
       });
        
       archive.on("warning", function(err) {
-        console.log(chalkAlert("GTS | ARCHIVE | WARNING\n" + jsonPrint(err)));
+        console.log(chalkAlert("GTS | !!! ARCHIVE | WARNING\n" + jsonPrint(err)));
         if (err.code !== "ENOENT") {
           throw err;
         }
@@ -2327,19 +2320,26 @@ function initArchiver(){
         statsObj.progressMbytes = toMegabytes(progress.fs.processedBytes);
         statsObj.totalMbytes = toMegabytes(archive.pointer());
 
-        if ((statsObj.progress.entries.processed % 1000 === 0) || configuration.verbose || configuration.testMode) {
-          console.log(chalkInfo("GTS | ARCHIVE | PROGRESS"
+        if ((statsObj.progress.entries.processed % 100 === 0) || configuration.verbose || configuration.testMode) {
+          console.log(chalkInfo("GTS | >+- ARCHIVE | PROGRESS"
             + " | TEST MODE: " + configuration.testMode
             + " | " + getTimeStamp()
-            + " | ENTRIES: " + statsObj.progress.entries.processed + " PROCESSED / " + statsObj.progress.entries.total + " TOTAL"
-            + " (" + (100*statsObj.progress.entries.processed/statsObj.progress.entries.total).toFixed(2) + "%)"
+            + " | ENTRIES: " + statsObj.progress.entries.processed + " PROCESSED / " + statsObj.categorizedUsersTotal + " TOTAL"
+            + " (" + (100*statsObj.progress.entries.processed/statsObj.categorizedUsersTotal).toFixed(2) + "%)"
             + " | SIZE: " + statsObj.totalMbytes.toFixed(2) + " MB"
           ));
         }
       });
        
+      archive.on("entry", function(entryData) {
+        console.log(chalkLog("GTS | >-- ARCHIVE | ENTRY"
+          + " [ " + statsObj.usersArchived + " ARCHIVED ]"
+          + " | " + entryData.name
+        ));
+      });
+       
       archive.on("close", function() {
-        console.log(chalkBlueBold("GTS | ARCHIVE | CLOSED | " + userArchivePath));
+        console.log(chalkBlueBold("GTS | XXX ARCHIVE | CLOSED | " + userArchivePath));
       });
        
       archive.on("finish", function() {
@@ -2347,14 +2347,14 @@ function initArchiver(){
         console.log(chalkBlueBold("GTS | +++ ARCHIVE | FINISHED | " + getTimeStamp()
           + "\nGTS | +++ ARCHIVE | FINISHED | TEST MODE: " + configuration.testMode
           + "\nGTS | +++ ARCHIVE | FINISHED | ARCHIVE:   " + userArchivePath
-          + "\nGTS | +++ ARCHIVE | FINISHED | ENTRIES:   " + statsObj.progress.entries.processed + " PROCESSED / " + statsObj.progress.entries.total + " TOTAL"
-          + " (" + (100*statsObj.progress.entries.processed/statsObj.progress.entries.total).toFixed(2) + "%)"
+          + "\nGTS | +++ ARCHIVE | FINISHED | ENTRIES:   " + statsObj.progress.entries.processed + " PROCESSED / " + statsObj.categorizedUsersTotal + " TOTAL"
+          + " (" + (100*statsObj.progress.entries.processed/statsObj.categorizedUsersTotal).toFixed(2) + "%)"
           + " | SIZE:      " + statsObj.totalMbytes.toFixed(2) + " MB"
         ));
       });
        
       archive.on("error", function(err) {
-        console.log(chalkError("GTS | ARCHIVE | ERROR\n" + jsonPrint(err)));
+        console.log(chalkError("GTS | *** ARCHIVE | ERROR\n" + jsonPrint(err)));
         throw err;
       });
        
@@ -2433,7 +2433,7 @@ setTimeout(function(){
     then(function(configuration){
       generateGlobalTrainingTestSet().
       then(function(){
-        console.log(chalkAlert("GTS | *** END *** "));
+        debug(chalkAlert("GTS | *** END *** "));
       });
     });
 
