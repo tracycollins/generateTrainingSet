@@ -2063,107 +2063,19 @@ function archiveUser(params){
     }
 
     statsObj.usersArchived += 1;
-    console.log(chalkLog("GTS | >-- ARCHIVE USER"
-      + " [" + statsObj.usersArchived + "]"
-      + " | @" + params.user.screenName
-    ));
 
-    if (configuration.verbose || (statsObj.usersArchived % 1000 === 0)) {
-      console.log(chalkLog("GTS | ARCHIVED USERS: " + statsObj.usersArchived));
+
+    if (configuration.verbose || (statsObj.usersArchived % 100 === 0)) {
+      console.log(chalkLog("GTS | >-- ARCHIVE USER"
+        + " [" + statsObj.usersArchived + "]"
+        + " | @" + params.user.screenName
+      ));
     }
 
     resolve();
 
   });
 }
-
-// function archiveUsers(){
-
-//   return new Promise(function(resolve, reject){
-
-//     if (archive === undefined) { 
-//       return reject(new Error("ARCHIVE UNDEFINED"));
-//     }
-
-//     let usersAppended = 0;
-//     const totalUsers = trainingSetUsersArray.length;
-//     let percentAppended = 0;
-
-//     console.log(chalkLog("GTS | ... START ARCHIVE " + totalUsers + " USERS ..."));
-
-//     async.eachSeries(trainingSetUsersArray, function(user, cb){
-
-//       const userFile = "user_" + user.userId + ".json";
-//       const userBuffer = Buffer.from(JSON.stringify(user));
-
-//       archive.append(userBuffer, { name: userFile });
-
-//       usersAppended += 1;
-//       percentAppended = 100 * usersAppended/totalUsers;
-
-//       if (configuration.verbose || (usersAppended % 1000 === 0)) {
-
-//         console.log(chalkLog("GTS | ARCHIVE"
-//           + " | " + usersAppended 
-//           + "/" + trainingSetUsersArray.length
-//           + " (" + percentAppended.toFixed(2) + "%) USERS APPENDED"
-//         ));
-//       }
-
-//       cb();
-
-//     }, function(err){
-//         if (err) {
-//           return reject(err);
-//         }
-//         resolve();
-//     });
-
-//     // async.whilst(
-
-//     //   function test(cbTest) { cbTest(null, more); },
-
-//     //   function(cb){
-
-//     //     const user = trainingSetUsersArray.shift();
-
-//     //     more = (trainingSetUsersArray.length > 0);
-
-//     //     const userFile = "user_" + user.userId + ".json";
-//     //     const userBuffer = Buffer.from(JSON.stringify(user));
-
-//     //     archive.append(userBuffer, { name: userFile });
-
-//     //     usersAppended += 1;
-//     //     percentAppended = 100 * usersAppended/totalUsers;
-
-//     //     if (configuration.verbose || (usersAppended % 1000 === 0)) {
-
-//     //       console.log(chalkLog("GTS | ARCHIVE"
-//     //         + " | " + usersAppended 
-//     //         + "/" + trainingSetUsersArray.length
-//     //         + " (" + percentAppended.toFixed(2) + "%) USERS APPENDED"
-//     //       ));
-
-//     //     }
-
-//     //     // async.setImmediate(function() {
-//     //       cb();
-//     //     // });
-
-//     //   }, 
-
-//     //   function(err){
-//     //     if (err) {
-//     //       return reject(err);
-//     //     }
-//     //     resolve();
-//     //   }
-//     // );
-
-
-//   });
-// }
 
 let endArchiveUsersInterval;
 
