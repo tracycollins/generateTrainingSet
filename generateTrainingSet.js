@@ -56,7 +56,7 @@ const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 
 const DEFAULT_SERVER_MODE = false;
 
-const DEFAULT_FIND_CAT_USER_CURSOR_LIMIT = 50;
+const DEFAULT_FIND_CAT_USER_CURSOR_LIMIT = 100;
 const DEFAULT_CURSOR_BATCH_SIZE = process.env.DEFAULT_CURSOR_BATCH_SIZE || 100;
 
 const DEFAULT_WAIT_UNLOCK_INTERVAL = 15*ONE_SECOND;
@@ -1952,6 +1952,7 @@ function initCategorizedNodeIds(){
             more = false;
 
             console.log(chalkLog("GTS | +++ LOADED CATEGORIZED USERS FROM DB"
+              + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
               + " | TOTAL CATEGORIZED: " + totalCount
               + " | LIMIT: " + p.limit
               + " | SKIP: " + p.skip
@@ -1989,6 +1990,7 @@ function initCategorizedNodeIds(){
             if (configuration.verbose || (totalCount % 1000 === 0)) {
 
               console.log(chalkLog("GTS | ... LOADING CATEGORIZED USERS FROM DB"
+                + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
                 + " | TOTAL: " + totalCount
                 + " | " + totalManual + " MAN"
                 + " | " + totalAuto + " AUTO"
