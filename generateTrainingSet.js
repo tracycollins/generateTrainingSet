@@ -1756,7 +1756,7 @@ function updateCategorizedUsers(){
             + " | @" + user.screenName
           ));
         }
-        cb();
+        async.setImmediate(function() { cb(); });
       })
       .catch(function(err){
         return cb(err);
