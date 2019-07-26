@@ -50,7 +50,7 @@ const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 
 const DEFAULT_SERVER_MODE = false;
 
-const DEFAULT_FIND_CAT_USER_CURSOR_LIMIT = 100;
+const DEFAULT_FIND_CAT_USER_CURSOR_LIMIT = 50;
 const DEFAULT_CURSOR_BATCH_SIZE = process.env.DEFAULT_CURSOR_BATCH_SIZE || 100;
 
 const DEFAULT_WAIT_UNLOCK_INTERVAL = 15*ONE_SECOND;
@@ -1474,55 +1474,66 @@ function encodeHistogramUrls(params){
   });
 }
 
-function resetMaxInputsHashMap(){
-  return new Promise(function(resolve){
+// function resetMaxInputsHashMap(){
+//   return new Promise(function(resolve){
 
-    console.log(chalkInfo("GTS | RESET MAX INPUT HASHMAP"));
+//     console.log(chalkInfo("GTS | RESET MAX INPUT HASHMAP"));
 
-    DEFAULT_INPUT_TYPES.forEach(function(type){
-      maxInputHashMap[type] = {};
+//     DEFAULT_INPUT_TYPES.forEach(function(type){
+//       maxInputHashMap[type] = {};
+//     });
+
+//     resolve();
+
+//   });
+// }
+
+function updateMaxInputHashMap(params){
+
+  return new Promise(function(resolve, reject){
+
+    // const mergedHistograms = await mergeHistograms.merge({ histogramA: params.user.profileHistograms, histogramB: params.user.tweetHistograms });
+    mergeHistograms.merge({ histogramA: params.user.profileHistograms, histogramB: params.user.tweetHistograms })
+    .then(function(mergedHistograms){
+      const histogramTypes = Object.keys(mergedHistograms);
+
+      async.each(histogramTypes, function(type, cb0){
+
+        if (type === "sentiment") { return cb0(); }
+
+        if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
+
+        const histogramTypeEntities = Object.keys(mergedHistograms[type]);
+
+        async.each(histogramTypeEntities, function(entity, cb1){
+
+          if (mergedHistograms[type][entity] === undefined){
+            return cb1();
+          }
+
+          if (maxInputHashMap[type][entity] === undefined){
+            maxInputHashMap[type][entity] = Math.max(1, mergedHistograms[type][entity]);
+            return cb1();
+          }
+
+          maxInputHashMap[type][entity] = Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
+          cb1();
+
+        }, function(err){
+          if (err) {  return cb0(err); }
+          cb0();
+        });
+
+      }, function(err){
+        if (err) { return reject(err); }
+        resolve();
+      });
+      
+    })
+    .catch(function(err){
+      reject(err);
     });
 
-    resolve();
-
-  });
-}
-
-async function updateMaxInputHashMap(params){
-
-  const mergedHistograms = await mergeHistograms.merge({ histogramA: params.user.profileHistograms, histogramB: params.user.tweetHistograms });
-  const histogramTypes = Object.keys(mergedHistograms);
-
-  async.each(histogramTypes, function(type, cb0){
-
-    if (type === "sentiment") { return cb0(); }
-
-    if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
-
-    const histogramTypeEntities = Object.keys(mergedHistograms[type]);
-
-    async.each(histogramTypeEntities, function(entity, cb1){
-
-      if (mergedHistograms[type][entity] === undefined){
-        return cb1();
-      }
-
-      if (maxInputHashMap[type][entity] === undefined){
-        maxInputHashMap[type][entity] = Math.max(1, mergedHistograms[type][entity]);
-        return cb1();
-      }
-
-      maxInputHashMap[type][entity] = Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
-      cb1();
-
-    }, function(err){
-      if (err) { throw err; }
-      cb0();
-    });
-
-  }, function(err){
-    if (err) { throw err; }
-    return;
   });
 }
 
@@ -1541,20 +1552,23 @@ async function updateCategorizedUser(params){
       console.log(chalkLog("GTS | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + params.nodeId));
       statsObj.users.notFound += 1;
       statsObj.users.notCategorized += 1;
-      throw new Error("USER NOT FOUND | NODE ID: " + params.nodeId);
+      // throw new Error("USER NOT FOUND | NODE ID: " + params.nodeId);
+      return;
     }
 
     if (!user.category || user.category === undefined) {
-      console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED\n" + jsonPrint(user)));
+      console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED | UID: " + user.nodeId));
       statsObj.users.notCategorized += 1;
-      throw new Error("USER NOT CATEGORIZED | NODE ID: " + params.nodeId);
+      // throw new Error("USER NOT CATEGORIZED | NODE ID: " + params.nodeId);
+      return;
     }
 
     if (user.screenName === undefined) {
-      console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
+      console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED | UID: " + user.nodeId));
       statsObj.users.screenNameUndefined += 1;
       statsObj.users.notCategorized += 1;
-      throw new Error("USER SCREENNAME UNDEFINED | NODE ID: " + params.nodeId);
+      // throw new Error("USER SCREENNAME UNDEFINED | NODE ID: " + params.nodeId);
+      return;
     }
 
     await updateMaxInputHashMap({user: user});
@@ -1742,25 +1756,37 @@ function updateCategorizedUsers(){
     statsObj.users.notCategorized = 0;
 
     let userIndex = 0;
+    let errorCount = 0;
 
     async.eachSeries(categorizedNodeIdsArray, function(nodeId, cb){
 
       updateCategorizedUser({nodeId: nodeId})
       .then(function(user){
+
+        if (!user) {
+          errorCount += 1;
+          return cb();
+        }
+
         userIndex += 1;
 
         if (configuration.verbose || configuration.testMode) {
           console.log(chalkInfo("GTS | UPDATE CL USR <DB"
-            + " [" + userIndex + "/" + categorizedNodeIdsArray.length + "]"
+            + " [ USERS: " + userIndex + "/ ERR: " + errorCount + "/ TOT: " + categorizedNodeIdsArray.length + "]"
             + " | " + user.nodeId
             + " | @" + user.screenName
           ));
         }
-        async.setImmediate(function() { cb(); });
+
+        setTimeout(function(){
+          cb();
+        }, 100);
+
       })
       .catch(function(err){
         return cb(err);
       });
+
     }, function(err){
 
       if (err) {
@@ -1808,7 +1834,8 @@ function updateCategorizedUsers(){
         + " | COMP " + statsObj.normalization.comp.min.toFixed(5) + " MIN / " + statsObj.normalization.comp.max.toFixed(5) + " MAX"
       ));
 
-      resolve();
+      return resolve();
+
     });
 
   });
@@ -1913,7 +1940,7 @@ function initCategorizedNodeIds(){
 
             more = false;
 
-            console.log(chalkLog("GTS | LOADING CATEGORIZED USERS FROM DB"
+            console.log(chalkLog("GTS | ... LOADING CATEGORIZED USERS FROM DB"
               + " | TOTAL: " + totalCount
               + " | " + totalManual + " MAN"
               + " | " + totalAuto + " AUTO"
