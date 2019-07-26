@@ -2,6 +2,12 @@
 /*jshint sub:true*/
 
 const TEST_MODE_LENGTH = 100;
+const DEFAULT_INTERVAL = 50;
+
+const catUsersQuery = { 
+  "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
+};
+
 
 const os = require("os");
 let hostname = os.hostname();
@@ -135,7 +141,8 @@ DEFAULT_INPUT_TYPES.forEach(function(type){
   maxInputHashMap[type] = {};
 });
 
-const trainingSetUsersArray = [];
+// const trainingSetUsersArray = [];
+// const trainingSetUsersQueue = [];
 
 const statsObj = {};
 let statsObjSmall = {};
@@ -145,6 +152,9 @@ statsObj.hostname = hostname;
 statsObj.pid = process.pid;
 statsObj.cpus = os.cpus().length;
 statsObj.commandLineArgsLoaded = false;
+statsObj.usersArchived = 0;
+statsObj.categorizedUsersTotal = 0;
+statsObj.endArchiveUsersFlag = false;
 
 statsObj.archiveOpen = false;
 statsObj.archiveModifiedMoment = moment("2010-01-01");
@@ -227,7 +237,7 @@ let slackText = "";
 let initMainInterval;
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
-// configuration.normalization = null;
+configuration.categorizedNodeIdsQueueInterval = DEFAULT_INTERVAL;
 configuration.verbose = false;
 configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
@@ -1399,6 +1409,7 @@ configEvents.once("INIT_MONGODB", function(){
 });
 
 function encodeHistogramUrls(params){
+
   return new Promise(function(resolve, reject){
 
     const user = params.user;
@@ -1493,8 +1504,8 @@ function updateMaxInputHashMap(params){
   return new Promise(function(resolve, reject){
 
     // const mergedHistograms = await mergeHistograms.merge({ histogramA: params.user.profileHistograms, histogramB: params.user.tweetHistograms });
-    mergeHistograms.merge({ histogramA: params.user.profileHistograms, histogramB: params.user.tweetHistograms })
-    .then(function(mergedHistograms){
+    mergeHistograms.merge({ histogramA: params.user.profileHistograms, histogramB: params.user.tweetHistograms }).
+    then(function(mergedHistograms){
       const histogramTypes = Object.keys(mergedHistograms);
 
       async.each(histogramTypes, function(type, cb0){
@@ -1520,7 +1531,7 @@ function updateMaxInputHashMap(params){
           cb1();
 
         }, function(err){
-          if (err) {  return cb0(err); }
+          if (err) { return cb0(err); }
           cb0();
         });
 
@@ -1529,8 +1540,8 @@ function updateMaxInputHashMap(params){
         resolve();
       });
       
-    })
-    .catch(function(err){
+    }).
+    catch(function(err){
       reject(err);
     });
 
@@ -1656,21 +1667,23 @@ async function updateCategorizedUser(params){
 
     statsObj.users.updatedCategorized += 1;
 
-    categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIdsArray.length;
+    categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/statsObj.categorizedUsersTotal;
     categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
     categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
-    categorizedUsersRemain = (categorizedNodeIdsArray.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
+    categorizedUsersRemain = (statsObj.categorizedUsersTotal - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
     categorizedUsersEndMoment = moment();
     categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
 
-    if ((statsObj.users.notCategorized + statsObj.users.updatedCategorized) % 1000 === 0){
+    if (configuration.verbose 
+      || configuration.testMode 
+      || ((statsObj.users.notCategorized + statsObj.users.updatedCategorized) % 1000 === 0)){
 
       console.log(chalkLog("GTS"
         + " | START: " + categorizedUsersStartMoment.format(compactDateTimeFormat)
         + " | ELAPSED: " + msToTime(categorizedUsersElapsed)
         + " | REMAIN: " + msToTime(categorizedUsersRemain)
         + " | ETC: " + categorizedUsersEndMoment.format(compactDateTimeFormat)
-        + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIdsArray.length
+        + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + statsObj.categorizedUsersTotal
         + " (" + categorizedUsersPercent.toFixed(1) + "%)"
         + " USERS CATEGORIZED"
       ));
@@ -1715,7 +1728,10 @@ async function updateCategorizedUser(params){
       ]
     );
 
-    trainingSetUsersArray.push(subUser);
+    await archiveUser({user: subUser});
+
+    // trainingSetUsersQueue.push(subUser);
+    // trainingSetUsersArray.push(subUser);
 
     return updatedUser;
   }
@@ -1726,11 +1742,17 @@ async function updateCategorizedUser(params){
   }
 }
 
-function updateCategorizedUsers(){
+let categorizedNodeIdsQueueInterval;
+const categorizedNodeIdsQueue = [];
+let categorizedNodeIdsQueueReady = false;
+
+function initCategorizedNodeIdsQueue(params){
 
   return new Promise(function(resolve, reject){
 
-    console.log(chalkInfo("GTS | ... UPDATING " + categorizedNodeIdsArray.length + " CATEGORIZED USERS ..."));
+    const interval = params.interval || 20;
+
+    console.log(chalkInfo("GTS | ... UPDATING " + statsObj.categorizedUsersTotal + " CATEGORIZED USERS ..."));
 
     statsObj.status = "UPDATE CATEGORIZED USERS";
 
@@ -1743,8 +1765,8 @@ function updateCategorizedUsers(){
     // }
 
     if (configuration.testMode) {
-      categorizedNodeIdsArray.length = Math.min(categorizedNodeIdsArray.length, configuration.maxTestCount);
-      console.log(chalkAlert("GTS | *** TEST MODE *** | CATEGORIZE MAX " + categorizedNodeIdsArray.length + " USERS"));
+      statsObj.categorizedUsersTotal = Math.min(statsObj.categorizedUsersTotal, configuration.maxTestCount);
+      console.log(chalkAlert("GTS | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.categorizedUsersTotal + " USERS"));
     }
 
     statsObj.normalization.magnitude.max = -Infinity;
@@ -1758,85 +1780,129 @@ function updateCategorizedUsers(){
     let userIndex = 0;
     let errorCount = 0;
 
-    async.eachSeries(categorizedNodeIdsArray, function(nodeId, cb){
+    categorizedNodeIdsQueueReady = true;
 
-      updateCategorizedUser({nodeId: nodeId})
-      .then(function(user){
+    categorizedNodeIdsQueueInterval = setInterval(async function(){
 
-        if (!user) {
-          errorCount += 1;
-          return cb();
+      if (categorizedNodeIdsQueueReady && (categorizedNodeIdsQueue.length > 0)){
+
+        categorizedNodeIdsQueueReady = false;
+
+        const nodeId = categorizedNodeIdsQueue.shift();
+
+        try{
+          const user = await updateCategorizedUser({nodeId: nodeId});
+
+          if (!user) {
+            errorCount += 1;
+            console.log(chalkAlert("GTS | *** UPDATE CL USR NOT FOUND: "
+              + " [ USERS: " + userIndex + " / ERRORS: " + errorCount + " ]"
+              + " | USER ID: " + nodeId
+              + " | @" + user.screenName
+            ));
+            categorizedNodeIdsQueueReady = true;
+          }
+          else{
+            userIndex += 1;
+            if (configuration.verbose || configuration.testMode) {
+              console.log(chalkInfo("GTS | UPDATE CL USR <DB"
+                + " [ USERS: " + userIndex + " / ERRORS: " + errorCount + "]"
+                + " | " + user.nodeId
+                + " | @" + user.screenName
+              ));
+            }
+            categorizedNodeIdsQueueReady = true;
+          }
         }
-
-        userIndex += 1;
-
-        if (configuration.verbose || configuration.testMode) {
-          console.log(chalkInfo("GTS | UPDATE CL USR <DB"
-            + " [ USERS: " + userIndex + "/ ERR: " + errorCount + "/ TOT: " + categorizedNodeIdsArray.length + "]"
-            + " | " + user.nodeId
-            + " | @" + user.screenName
-          ));
+        catch(err){
+          console.log(chalkError("GTS | *** UPDATE CATEGORIZED USER ERROR | USER ID: " + nodeId + " | ERROR: " + err));
+          categorizedNodeIdsQueueReady = true;
         }
-
-        setTimeout(function(){
-          cb();
-        }, 100);
-
-      })
-      .catch(function(err){
-        return cb(err);
-      });
-
-    }, function(err){
-
-      if (err) {
-        if (err === "INTERRUPT") {
-          console.log(chalkAlert("GTS | INTERRUPT"));
-        }
-        else {
-          console.log(chalkError("GTS | UPDATE CATEGORIZED USERS ERROR: " + err));
-        }
-
-        return reject(err);
       }
 
-      categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIdsArray.length;
-      categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
-      categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
-      categorizedUsersRemain = (categorizedNodeIdsArray.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
-      categorizedUsersEndMoment = moment();
-      categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
+    }, interval);
 
-      console.log(chalkBlueBold("\nGTS | END CATEGORIZE USERS ============================================== "
-        + "\nGTS | ==== START:   " + categorizedUsersStartMoment.format(compactDateTimeFormat)
-        + "\nGTS | ==== ELAPSED: " + msToTime(categorizedUsersElapsed)
-        + "\nGTS | ==== REMAIN:  " + msToTime(categorizedUsersRemain)
-        + "\nGTS | ==== ETC:     " + categorizedUsersEndMoment.format(compactDateTimeFormat)
-        + "\nGTS | ==== USERS:   " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIdsArray.length
-        + " (" + categorizedUsersPercent.toFixed(1) + "%)" + " CATEGORIZED"
-      ));
+    resolve();
 
-      categorizedUserHistogramTotal();
+    // async.eachSeries(categorizedNodeIdsArray, function(nodeId, cb){
 
-      console.log(chalkLog("GTS | CL U HIST"
-        + " | TOTAL: " + categorizedUserHistogram.total
-        + " | L: " + categorizedUserHistogram.left 
-        + " | R: " + categorizedUserHistogram.right
-        + " | N: " + categorizedUserHistogram.neutral
-        + " | +: " + categorizedUserHistogram.positive
-        + " | -: " + categorizedUserHistogram.negative
-        + " | 0: " + categorizedUserHistogram.none
-      ));
+    //   updateCategorizedUser({nodeId: nodeId})
+    //   .then(function(user){
 
-      console.log(chalkLog("GTS | CL U HIST | NORMALIZATION"
-        + " | MAG " + statsObj.normalization.magnitude.min.toFixed(5) + " MIN / " + statsObj.normalization.magnitude.max.toFixed(5) + " MAX"
-        + " | SCORE " + statsObj.normalization.score.min.toFixed(5) + " MIN / " + statsObj.normalization.score.max.toFixed(5) + " MAX"
-        + " | COMP " + statsObj.normalization.comp.min.toFixed(5) + " MIN / " + statsObj.normalization.comp.max.toFixed(5) + " MAX"
-      ));
+    //     if (!user) {
+    //       errorCount += 1;
+    //       return cb();
+    //     }
 
-      return resolve();
+    //     userIndex += 1;
 
-    });
+    //     if (configuration.verbose || configuration.testMode) {
+    //       console.log(chalkInfo("GTS | UPDATE CL USR <DB"
+    //         + " [ USERS: " + userIndex + "/ ERR: " + errorCount + "/ TOT: " + categorizedNodeIdsArray.length + "]"
+    //         + " | " + user.nodeId
+    //         + " | @" + user.screenName
+    //       ));
+    //     }
+
+    //     setTimeout(function(){
+    //       cb();
+    //     }, 100);
+
+    //   })
+    //   .catch(function(err){
+    //     return cb(err);
+    //   });
+
+    // }, function(err){
+
+    //   if (err) {
+    //     if (err === "INTERRUPT") {
+    //       console.log(chalkAlert("GTS | INTERRUPT"));
+    //     }
+    //     else {
+    //       console.log(chalkError("GTS | UPDATE CATEGORIZED USERS ERROR: " + err));
+    //     }
+
+    //     return reject(err);
+    //   }
+
+    //   categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/categorizedNodeIdsArray.length;
+    //   categorizedUsersElapsed = (moment().valueOf() - categorizedUsersStartMoment.valueOf()); // mseconds
+    //   categorizedUsersRate = categorizedUsersElapsed/statsObj.users.updatedCategorized; // msecs/userCategorized
+    //   categorizedUsersRemain = (categorizedNodeIdsArray.length - (statsObj.users.notCategorized + statsObj.users.updatedCategorized)) * categorizedUsersRate; // mseconds
+    //   categorizedUsersEndMoment = moment();
+    //   categorizedUsersEndMoment.add(categorizedUsersRemain, "ms");
+
+    //   console.log(chalkBlueBold("\nGTS | END CATEGORIZE USERS ============================================== "
+    //     + "\nGTS | ==== START:   " + categorizedUsersStartMoment.format(compactDateTimeFormat)
+    //     + "\nGTS | ==== ELAPSED: " + msToTime(categorizedUsersElapsed)
+    //     + "\nGTS | ==== REMAIN:  " + msToTime(categorizedUsersRemain)
+    //     + "\nGTS | ==== ETC:     " + categorizedUsersEndMoment.format(compactDateTimeFormat)
+    //     + "\nGTS | ==== USERS:   " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + categorizedNodeIdsArray.length
+    //     + " (" + categorizedUsersPercent.toFixed(1) + "%)" + " CATEGORIZED"
+    //   ));
+
+    //   categorizedUserHistogramTotal();
+
+    //   console.log(chalkLog("GTS | CL U HIST"
+    //     + " | TOTAL: " + categorizedUserHistogram.total
+    //     + " | L: " + categorizedUserHistogram.left 
+    //     + " | R: " + categorizedUserHistogram.right
+    //     + " | N: " + categorizedUserHistogram.neutral
+    //     + " | +: " + categorizedUserHistogram.positive
+    //     + " | -: " + categorizedUserHistogram.negative
+    //     + " | 0: " + categorizedUserHistogram.none
+    //   ));
+
+    //   console.log(chalkLog("GTS | CL U HIST | NORMALIZATION"
+    //     + " | MAG " + statsObj.normalization.magnitude.min.toFixed(5) + " MIN / " + statsObj.normalization.magnitude.max.toFixed(5) + " MAX"
+    //     + " | SCORE " + statsObj.normalization.score.min.toFixed(5) + " MIN / " + statsObj.normalization.score.max.toFixed(5) + " MAX"
+    //     + " | COMP " + statsObj.normalization.comp.min.toFixed(5) + " MIN / " + statsObj.normalization.comp.max.toFixed(5) + " MAX"
+    //   ));
+
+    //   return resolve();
+
+    // });
 
   });
 
@@ -1912,7 +1978,8 @@ function initCategorizedNodeIds(){
             Object.keys(results.obj).forEach(function(nodeId){
               if (results.obj[nodeId].category) { 
                 // categorizedUserHashmap.set(nodeId, results.obj[nodeId]);
-                categorizedNodeIdsSet.add(nodeId);
+                // categorizedNodeIdsSet.add(nodeId);
+                categorizedNodeIdsQueue.push(nodeId);
               }
               else {
                 console.log(chalkAlert("GTS | ??? UNCATEGORIZED USER FROM DB\n" + jsonPrint(results.obj[nodeId])));
@@ -1971,7 +2038,7 @@ function initCategorizedNodeIds(){
   });
 }
 
-function archiveUsers(){
+function archiveUser(params){
 
   return new Promise(function(resolve, reject){
 
@@ -1979,84 +2046,144 @@ function archiveUsers(){
       return reject(new Error("ARCHIVE UNDEFINED"));
     }
 
-    let usersAppended = 0;
-    const totalUsers = trainingSetUsersArray.length;
-    let percentAppended = 0;
 
-    console.log(chalkLog("GTS | ... START ARCHIVE " + totalUsers + " USERS ..."));
+    const fileName = "user_" + params.user.userId + ".json";
+    const userBuffer = Buffer.from(JSON.stringify(params.user));
 
-    async.eachSeries(trainingSetUsersArray, function(user, cb){
+    try{
+      archive.append(userBuffer, { name: fileName});
+    }
+    catch(err){
+      console.log(chalkError("GTS | *** ARCHIVE USER ERROR"
+        + " [" + statsObj.usersArchived + "]"
+        + " | @" + params.user.screenName
+        + " | ERR: " + err
+      ));
+      return reject(err);
+    }
 
-      const userFile = "user_" + user.userId + ".json";
-      const userBuffer = Buffer.from(JSON.stringify(user));
+    statsObj.usersArchived += 1;
+    console.log(chalkLog("GTS | >-- ARCHIVE USER"
+      + " [" + statsObj.usersArchived + "]"
+      + " | @" + params.user.screenName
+    ));
 
-      archive.append(userBuffer, { name: userFile });
+    if (configuration.verbose || (statsObj.usersArchived % 1000 === 0)) {
+      console.log(chalkLog("GTS | ARCHIVED USERS: " + statsObj.usersArchived));
+    }
 
-      usersAppended += 1;
-      percentAppended = 100 * usersAppended/totalUsers;
-
-      if (configuration.verbose || (usersAppended % 1000 === 0)) {
-
-        console.log(chalkLog("GTS | ARCHIVE"
-          + " | " + usersAppended 
-          + "/" + trainingSetUsersArray.length
-          + " (" + percentAppended.toFixed(2) + "%) USERS APPENDED"
-        ));
-      }
-
-      cb();
-
-    }, function(err){
-        if (err) {
-          return reject(err);
-        }
-        resolve();
-    });
-
-    // async.whilst(
-
-    //   function test(cbTest) { cbTest(null, more); },
-
-    //   function(cb){
-
-    //     const user = trainingSetUsersArray.shift();
-
-    //     more = (trainingSetUsersArray.length > 0);
-
-    //     const userFile = "user_" + user.userId + ".json";
-    //     const userBuffer = Buffer.from(JSON.stringify(user));
-
-    //     archive.append(userBuffer, { name: userFile });
-
-    //     usersAppended += 1;
-    //     percentAppended = 100 * usersAppended/totalUsers;
-
-    //     if (configuration.verbose || (usersAppended % 1000 === 0)) {
-
-    //       console.log(chalkLog("GTS | ARCHIVE"
-    //         + " | " + usersAppended 
-    //         + "/" + trainingSetUsersArray.length
-    //         + " (" + percentAppended.toFixed(2) + "%) USERS APPENDED"
-    //       ));
-
-    //     }
-
-    //     // async.setImmediate(function() {
-    //       cb();
-    //     // });
-
-    //   }, 
-
-    //   function(err){
-    //     if (err) {
-    //       return reject(err);
-    //     }
-    //     resolve();
-    //   }
-    // );
-
+    resolve();
 
   });
+}
+
+// function archiveUsers(){
+
+//   return new Promise(function(resolve, reject){
+
+//     if (archive === undefined) { 
+//       return reject(new Error("ARCHIVE UNDEFINED"));
+//     }
+
+//     let usersAppended = 0;
+//     const totalUsers = trainingSetUsersArray.length;
+//     let percentAppended = 0;
+
+//     console.log(chalkLog("GTS | ... START ARCHIVE " + totalUsers + " USERS ..."));
+
+//     async.eachSeries(trainingSetUsersArray, function(user, cb){
+
+//       const userFile = "user_" + user.userId + ".json";
+//       const userBuffer = Buffer.from(JSON.stringify(user));
+
+//       archive.append(userBuffer, { name: userFile });
+
+//       usersAppended += 1;
+//       percentAppended = 100 * usersAppended/totalUsers;
+
+//       if (configuration.verbose || (usersAppended % 1000 === 0)) {
+
+//         console.log(chalkLog("GTS | ARCHIVE"
+//           + " | " + usersAppended 
+//           + "/" + trainingSetUsersArray.length
+//           + " (" + percentAppended.toFixed(2) + "%) USERS APPENDED"
+//         ));
+//       }
+
+//       cb();
+
+//     }, function(err){
+//         if (err) {
+//           return reject(err);
+//         }
+//         resolve();
+//     });
+
+//     // async.whilst(
+
+//     //   function test(cbTest) { cbTest(null, more); },
+
+//     //   function(cb){
+
+//     //     const user = trainingSetUsersArray.shift();
+
+//     //     more = (trainingSetUsersArray.length > 0);
+
+//     //     const userFile = "user_" + user.userId + ".json";
+//     //     const userBuffer = Buffer.from(JSON.stringify(user));
+
+//     //     archive.append(userBuffer, { name: userFile });
+
+//     //     usersAppended += 1;
+//     //     percentAppended = 100 * usersAppended/totalUsers;
+
+//     //     if (configuration.verbose || (usersAppended % 1000 === 0)) {
+
+//     //       console.log(chalkLog("GTS | ARCHIVE"
+//     //         + " | " + usersAppended 
+//     //         + "/" + trainingSetUsersArray.length
+//     //         + " (" + percentAppended.toFixed(2) + "%) USERS APPENDED"
+//     //       ));
+
+//     //     }
+
+//     //     // async.setImmediate(function() {
+//     //       cb();
+//     //     // });
+
+//     //   }, 
+
+//     //   function(err){
+//     //     if (err) {
+//     //       return reject(err);
+//     //     }
+//     //     resolve();
+//     //   }
+//     // );
+
+
+//   });
+// }
+
+let endArchiveUsersInterval;
+
+function endArchiveUsers(){
+
+  return new Promise(function(resolve, reject){
+
+    endArchiveUsersInterval = setInterval(function(){
+
+      if ((categorizedNodeIdsQueue.length === 0) && (categorizedNodeIdsQueueReady)){
+        console.log(chalkAlert("\nGTS | XXX END ARCHIVE USERS XXX\n"));
+        clearInterval(endArchiveUsersInterval);
+        statsObj.endArchiveUsersFlag = true;
+        return resolve();
+      }
+
+    }, 10*ONE_SECOND);
+
+  });
+
 }
 
 async function generateGlobalTrainingTestSet(){
@@ -2067,11 +2194,20 @@ async function generateGlobalTrainingTestSet(){
   console.log(chalkBlueBold("GTS | GENERATE TRAINING SET | " + getTimeStamp()));
   console.log(chalkBlueBold("GTS | ==================================================================="));
 
-  await initCategorizedNodeIds();
-  await updateCategorizedUsers();
+  statsObj.categorizedUsersTotal = await global.globalUser.find(catUsersQuery).countDocuments();
+
+  console.log(chalkBlue("GTS | CATEGORIZED USERS IN DB: " + statsObj.categorizedUsersTotal))
 
   await initArchiver();
-  await archiveUsers();
+  console.log("================== initArchiver ===================");
+  await initCategorizedNodeIdsQueue({interval: configuration.categorizedNodeIdsQueueInterval});
+  console.log("================== initCategorizedNodeIdsQueue ===================");
+  await initCategorizedNodeIds();
+  console.log("================== initCategorizedNodeIds ===================");
+  await endArchiveUsers();
+  console.log("================== endArchiveUsers ===================");
+
+  // await archiveUsers();
 
   console.log("generateGlobalTrainingTestSet | after archiveUsers");
 
@@ -2236,8 +2372,8 @@ function initArchiver(){
     const lockFileName = userArchivePath + ".lock";
     // const archiveFileLocked = await getFileLock({file: lockFileName, options: fileLockOptions});
 
-    getFileLock({file: lockFileName, options: fileLockOptions})
-    .then(function(archiveFileLocked){
+    getFileLock({file: lockFileName, options: fileLockOptions}).
+    then(function(archiveFileLocked){
 
       if (!archiveFileLocked) {
         console.log(chalkAlert("GTS | *** FILE LOCK FAILED | SKIP INIT ARCHIVE: " + userArchivePath));
@@ -2277,8 +2413,8 @@ function initArchiver(){
         statsObj.progressMbytes = toMegabytes(progress.fs.processedBytes);
         statsObj.totalMbytes = toMegabytes(archive.pointer());
 
-        if ((statsObj.progress.entries.processed % 1000 === 0) || configuration.testMode) {
-          console.log(chalkLog("GTS | ARCHIVE | PROGRESS"
+        if ((statsObj.progress.entries.processed % 1000 === 0) || configuration.verbose || configuration.testMode) {
+          console.log(chalkInfo("GTS | ARCHIVE | PROGRESS"
             + " | TEST MODE: " + configuration.testMode
             + " | " + getTimeStamp()
             + " | ENTRIES: " + statsObj.progress.entries.processed + " PROCESSED / " + statsObj.progress.entries.total + " TOTAL"
@@ -2313,8 +2449,8 @@ function initArchiver(){
       
       resolve();
 
-    })
-    .catch(function(err){
+    }).
+    catch(function(err){
       reject(err);
     });
 
@@ -2378,14 +2514,13 @@ async function initialize(cnf){
   return configuration;
 }
 
-setTimeout(async function(){
-
-  try{
-    configuration = await initialize(configuration);
-    await generateGlobalTrainingTestSet();
-  }
-  catch(err){
-    console.log(chalkError("GTS | *** INITIALIZE ERROR: " + err));
-  }
+setTimeout(function(){
+    initialize(configuration).
+    then(function(configuration){
+      generateGlobalTrainingTestSet().
+      then(function(){
+        console.log(chalkAlert("GTS | *** END *** "));
+      });
+    });
 
 }, 1000);
