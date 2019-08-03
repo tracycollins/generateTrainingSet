@@ -9,6 +9,10 @@ const catUsersQuery = {
 };
 
 const ignoredUrls =[
+  "buff.ly",
+  "trib.al",
+  "ti.me",
+  "amp.twimg.com",
   "twitter.com",
   "qoo.ly",
   "pbs.twimg.com",
