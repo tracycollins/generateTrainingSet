@@ -8,23 +8,7 @@ const catUsersQuery = {
   "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
 };
 
-const ignoredUrls =[
-  "buff.ly",
-  "trib.al",
-  "ti.me",
-  "amp.twimg.com",
-  "twitter.com",
-  "qoo.ly",
-  "pbs.twimg.com",
-  "bit.ly",
-  "youtu.be",
-  "m.youtube.com",
-  "instagram.com",
-  "ow.ly"
-];
-
 const path = require("path");
-const deepcopy = require("deep-copy");
 
 const os = require("os");
 let hostname = os.hostname();
@@ -95,10 +79,6 @@ const merge = require("deepmerge");
 const treeify = require("treeify");
 const archiver = require("archiver");
 const fs = require("fs");
-const atob = require("atob");
-const btoa = require("btoa");
-const objectPath = require("object-path");
-const isUrl = require("is-url-superb");
 const MergeHistograms = require("@threeceelabs/mergehistograms");
 const mergeHistograms = new MergeHistograms();
 
@@ -1027,10 +1007,6 @@ async function loadAllConfigFiles(cnf){
 
   console.log("tempConfig\n" + jsonPrint(tempConfig));
 
-  // configuration = deepcopy(tempConfig);
-
-  // console.log("configuration\n" + jsonPrint(configuration));
-
   tempConfig.twitterUsers = _.uniq(tempConfig.twitterUsers);
 
   return tempConfig;
@@ -1041,147 +1017,6 @@ configEvents.once("INIT_MONGODB", function(){
   console.log(chalkLog("GTS | INIT_MONGODB"));
 });
 
-function encodeUrl(params){
-
-  const url = params.url;
-
-  if (isUrl(url)){
-    console.log(chalkLog("VALID URL: " + url + " --> btoa(url): " + btoa(url)));
-    return btoa(url);
-  }
-
-  if (url === "url") {
-    return;
-  }
-
-  const trialDecodedUrl = atob(url);
-
-  if (ignoredUrls.includes(trialDecodedUrl)){
-    console.log(chalkBlue("GTS | ... SKIP URL: " + trialDecodedUrl));
-    return;
-  }
-
-  if (isUrl(trialDecodedUrl)) {
-    if (configuration.verbose) { console.log(chalkLog("GTS | OK ENCODED URL: " + url + " | DECODED: " + trialDecodedUrl)); }
-    return url;
-  }
-  else if (isUrl("https://" + trialDecodedUrl)) {
-    console.log(chalkBlueBold("GTS | RE-ENCODE DOMAIN WITH https: https://" + trialDecodedUrl));
-    return btoa("https://" + trialDecodedUrl);
-  }
-
-  if (configuration.verbose){
-    console.log(chalkAlert("GTS | XXX BAD ENCODEDED URL: " + url + " | DECODED ???: " + trialDecodedUrl));
-  }
-  statsObj.url.errors += 1;
-  return;
-
-}
-
-function encodeHistogramUrls(params){
-
-  return new Promise(function(resolve, reject){
-
-    const user = params.user;
-
-    async.eachSeries(["histograms", "profileHistograms", "tweetHistograms"], function(histogram, cb0){
-
-      const urls = objectPath.get(user, [histogram, "urls"]);
-
-      if (urls && Object.keys(urls).length > 0) {
-
-        debug("URLS\n" + jsonPrint(urls));
-
-        async.eachSeries(Object.keys(urls), function(url, cb1){
-
-          const urlEncoded = encodeUrl({url: url});
-
-          if (urlEncoded) {
-            debug(chalkAlert("HISTOGRAM " + histogram + ".urls | " + url + " -> " + urlEncoded));
-            urls[urlEncoded] = urls[url];
-          }
-
-          delete urls[url];
-          cb1();
-
-        }, function(err){
-          if (err) {
-            return cb0(err);
-          }
-          if (Object.keys(urls).length > 0){
-            debug("CONVERTED URLS | @" + user.screenName + "\n" + jsonPrint(urls));
-          }
-          user[histogram].urls = urls;
-          cb0();
-        });
-
-      }
-      else {
-        cb0();
-      }
-
-    }, function(err){
-      if (err) {
-        return reject(err);
-      }
-      resolve(user);
-    });
-
-  });
-}
-
-// function updateMaxInputHashMap(params){
-
-//   return new Promise(function(resolve, reject){
-
-//     mergeHistograms.merge({ histogramA: params.user.profileHistograms, histogramB: params.user.tweetHistograms }).
-//     then(function(mergedHistograms){
-
-//       const histogramTypes = Object.keys(mergedHistograms);
-
-//       async.each(histogramTypes, function(type, cb0){
-
-//         if (type === "sentiment") { return cb0(); }
-
-//         if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
-
-//         const histogramTypeEntities = Object.keys(mergedHistograms[type]);
-
-//         if (histogramTypeEntities.length === 0) {
-//           return cb0();
-//         }
-
-//         async.each(histogramTypeEntities, function(entity, cb1){
-
-//           if (mergedHistograms[type][entity] === undefined){
-//             return cb1();
-//           }
-
-//           if (maxInputHashMap[type][entity] === undefined){
-//             maxInputHashMap[type][entity] = Math.max(1, mergedHistograms[type][entity]);
-//             return cb1();
-//           }
-
-//           maxInputHashMap[type][entity] = Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
-//           cb1();
-
-//         }, function(err){
-//           if (err) { return cb0(err); }
-//           cb0();
-//         });
-
-//       }, function(err){
-//         if (err) { return reject(err); }
-//         return resolve();
-//       });
-      
-//     }).
-//     catch(function(err){
-//       reject(err);
-//     });
-
-//   });
-// }
 
 async function updateMaxInputHashMap(params){
 
@@ -1361,7 +1196,7 @@ exec();
       ));
     }
 
-    const updatedUser = await encodeHistogramUrls({user: user});
+    const updatedUser = await tcUtils.encodeHistogramUrls({user: user});
 
     const subUser = pick(
       updatedUser,
