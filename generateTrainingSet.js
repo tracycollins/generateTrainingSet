@@ -19,8 +19,9 @@ const ignoredUrls =[
   "ow.ly"
 ];
 
-
 const path = require("path");
+const deepcopy = require("deep-copy");
+
 const os = require("os");
 let hostname = os.hostname();
 hostname = hostname.replace(/.tld/g, ""); // amtrak wifi
@@ -109,13 +110,9 @@ const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 const DEFAULT_QUIT_ON_COMPLETE = false;
 const DEFAULT_TEST_RATIO = 0.20;
 
-const JSONParse = require("json-parse-safe");
 const util = require("util");
 const _ = require("lodash");
-const writeJsonFile = require("write-json-file");
 const sizeof = require("object-sizeof");
-const fetch = require("isomorphic-fetch"); // or another library of choice.
-const Dropbox = require("dropbox").Dropbox;
 const pick = require("object.pick");
 const Slack = require("slack-node");
 const EventEmitter3 = require("eventemitter3");
@@ -135,10 +132,6 @@ const chalkInfo = chalk.black;
 const debug = require("debug")("gts");
 const commandLineArgs = require("command-line-args");
 
-let prevHostConfigFileModifiedMoment = moment("2010-01-01");
-let prevDefaultConfigFileModifiedMoment = moment("2010-01-01");
-let prevConfigFileModifiedMoment = moment("2010-01-01");
-
 let categorizedUsersPercent = 0;
 
 const maxInputHashMap = {};
@@ -148,9 +141,6 @@ DEFAULT_INPUT_TYPES.forEach(function(type){
   globalhistograms[type] = {};
   maxInputHashMap[type] = {};
 });
-
-// const trainingSetUsersArray = [];
-// const trainingSetUsersQueue = [];
 
 const statsObj = {};
 let statsObjSmall = {};
@@ -280,40 +270,34 @@ configuration.trainingSetFile = "trainingSet.json";
 configuration.requiredTrainingSetFile = "requiredTrainingSet.txt";
 configuration.userArchiveFile = hostname + "_" + statsObj.startTimeMoment.format(compactDateTimeFormat) + "_users.zip";
 
-const DROPBOX_CONFIG_FOLDER = "/config/utility";
-const DROPBOX_CONFIG_DEFAULT_FOLDER = DROPBOX_CONFIG_FOLDER + "/default";
-const DROPBOX_CONFIG_HOST_FOLDER = DROPBOX_CONFIG_FOLDER + "/" + hostname;
-
-const DROPBOX_LIST_FOLDER_LIMIT = 50;
-
-configuration.local = {};
-configuration.local.trainingSetsFolder = DROPBOX_CONFIG_HOST_FOLDER + "/trainingSets";
-configuration.local.histogramsFolder = DROPBOX_CONFIG_HOST_FOLDER + "/histograms";
-configuration.local.userArchiveFolder = DROPBOX_CONFIG_HOST_FOLDER + "/trainingSets/users";
-configuration.local.userArchivePath = configuration.local.userArchiveFolder + "/" + configuration.userArchiveFile;
-
-configuration.default = {};
-configuration.default.trainingSetsFolder = DROPBOX_CONFIG_DEFAULT_FOLDER + "/trainingSets";
-configuration.default.histogramsFolder = DROPBOX_CONFIG_DEFAULT_FOLDER + "/histograms";
-configuration.default.userArchiveFolder = DROPBOX_CONFIG_DEFAULT_FOLDER + "/trainingSets/users";
-configuration.default.userArchivePath = configuration.default.userArchiveFolder + "/" + configuration.userArchiveFile;
-
-configuration.trainingSetsFolder = configuration[HOST].trainingSetsFolder;
-configuration.archiveFileUploadCompleteFlagFolder = configuration[HOST].trainingSetsFolder + "/users";
-configuration.histogramsFolder = configuration[HOST].histogramsFolder;
-configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
-configuration.userArchivePath = DROPBOX_ROOT_FOLDER + configuration[HOST].userArchivePath;
-
 configuration.DROPBOX = {};
-configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN = process.env.DROPBOX_WORD_ASSO_ACCESS_TOKEN;
-configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_KEY = process.env.DROPBOX_WORD_ASSO_APP_KEY;
-configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_SECRET = process.env.DROPBOX_WORD_ASSO_APP_SECRET;
-configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE = process.env.DROPBOX_GTS_CONFIG_FILE || "generateTrainingSetConfig.json";
+
+configuration.DROPBOX.DROPBOX_CONFIG_FILE = process.env.DROPBOX_GTS_CONFIG_FILE || "generateTrainingSetConfig.json";
 configuration.DROPBOX.DROPBOX_GTS_STATS_FILE = process.env.DROPBOX_GTS_STATS_FILE || "generateTrainingSetStats.json";
 
-const drbx = require("@davvo/drbx")({
-  token: configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN
-});
+const configDefaultFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility/default");
+const configHostFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility", hostname);
+
+const configDefaultFile = "default_" + configuration.DROPBOX.DROPBOX_CONFIG_FILE;
+const configHostFile = hostname + "_" + configuration.DROPBOX.DROPBOX_CONFIG_FILE;
+
+configuration.local = {};
+configuration.local.trainingSetsFolder = path.join(configHostFolder, "trainingSets");
+configuration.local.histogramsFolder = path.join(configHostFolder, "histograms");
+configuration.local.userArchiveFolder = path.join(configHostFolder, "trainingSets/users");
+configuration.local.userArchivePath = path.join(configHostFolder, configuration.userArchiveFile);
+
+configuration.default = {};
+configuration.default.trainingSetsFolder = path.join(configDefaultFolder, "trainingSets");
+configuration.default.histogramsFolder = path.join(configDefaultFolder, "histograms");
+configuration.default.userArchiveFolder = path.join(configDefaultFolder, "trainingSets/users");
+configuration.default.userArchivePath = path.join(configDefaultFolder, configuration.userArchiveFile);
+
+configuration.trainingSetsFolder = configuration[HOST].trainingSetsFolder;
+configuration.archiveFileUploadCompleteFlagFolder = path.join(configuration[HOST].trainingSetsFolder, "users");
+configuration.histogramsFolder = configuration[HOST].histogramsFolder;
+configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
+configuration.userArchivePath = configuration[HOST].userArchivePath;
 
 
 const slackOAuthAccessToken = "xoxp-3708084981-3708084993-206468961315-ec62db5792cd55071a51c544acf0da55";
@@ -391,7 +375,9 @@ const slack = new Slack(slackOAuthAccessToken);
 
 function slackPostMessage(channel, text, callback){
 
-  if (configuration.offlineMode) {
+  const offlineMode = configuration.offlineMode || false;
+
+  if (offlineMode) {
     console.log(chalkAlert("GTS | SLACK DISABLED"
       + " | OFFLINE_MODE: " + configuration.offlineMode
       + " | SERVER CONNECTED: " + statsObj.serverConnected
@@ -543,100 +529,8 @@ global.globalWordAssoDb = require("@threeceelabs/mongoose-twitter");
 const UserServerController = require("@threeceelabs/user-server-controller");
 let userServerController;
 
-const dropboxRemoteClient = new Dropbox({ 
-  accessToken: configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN,
-  fetch: fetch
-});
-
-const dropboxLocalClient = { // offline mode
-  filesListFolder: filesListFolderLocal,
-  filesUpload: function(){},
-  filesDownload: function(){},
-  filesGetMetadata: filesGetMetadataLocal,
-  filesDelete: function(){}
-};
-
-function filesGetMetadataLocal(options){
-
-  return new Promise(function(resolve, reject) {
-
-    console.log("filesGetMetadataLocal options\n" + jsonPrint(options));
-
-    const fullPath = DROPBOX_ROOT_FOLDER + options.path;
-
-    fs.stat(fullPath, function(err, stats){
-      if (err) {
-        reject(err);
-      }
-      else {
-        const response = {
-          client_modified: stats.mtimeMs
-        };
-        
-        resolve(response);
-      }
-    });
-  });
-}
-
-function filesListFolderLocal(options){
-  return new Promise(function(resolve, reject) {
-
-    debug("filesListFolderLocal options\n" + jsonPrint(options));
-
-    const fullPath = DROPBOX_ROOT_FOLDER + options.path;
-
-    fs.readdir(fullPath, function(err, items){
-      if (err) {
-        reject(err);
-      }
-      else {
-
-        const itemArray = [];
-
-        async.each(items, function(item, cb){
-
-          itemArray.push(
-            {
-              name: item, 
-              client_modified: false,
-              content_hash: false,
-              path_display: fullPath + "/" + item
-            }
-          );
-          cb();
-
-        }, function(err){
-
-          if (err){
-            return reject(err);
-          }
-
-          const response = {
-            cursor: false,
-            has_more: false,
-            entries: itemArray
-          };
-
-          resolve(response);
-        });
-        }
-    });
-  });
-}
-
-let dropboxClient;
-
-if (configuration.offlineMode) {
-  dropboxClient = dropboxLocalClient;
-}
-else {
-  dropboxClient = dropboxRemoteClient;
-}
-
 const globalCategorizedUsersFolder = dropboxConfigDefaultFolder + "/categorizedUsers";
 const categorizedUsersFile = "categorizedUsers_manual.json";
-
 
 function showStats(options){
 
@@ -788,198 +682,6 @@ function connectDb(){
   });
 }
 
-async function loadFileRetry(params){
-
-  const maxRetries = params.maxRetries || 5;
-  let i;
-
-  for (i = 0;i < maxRetries;++i) {
-    try {
-      
-      if (i > 0) { console.log(chalkAlert("TNN | FILE LOAD RETRY: " + i + " OF " + maxRetries)); }
-
-      const fileObj = await loadFile(params);
-      return fileObj;
-    } 
-    catch(err) {
-      console.log(chalkAlert("TNN | *** FILE LOAD FAILED | RETRY: " + i + " OF " + maxRetries));
-      throw err;
-    }
-  }
-
-  throw new Error("FILE LOAD ERROR | RETRIES " + maxRetries);
-}
-
-function loadFile(params) {
-
-  return new Promise(function(resolve, reject){
-
-    let fullPath = params.folder + "/" + params.file
-
-    debug(chalkInfo("LOAD FOLDER " + params.folder));
-    debug(chalkInfo("LOAD FILE " + params.file));
-    debug(chalkInfo("FULL PATH " + fullPath));
-
-
-    if (configuration.offlineMode || params.loadLocalFile) {
-
-      if (hostname === PRIMARY_HOST) {
-        fullPath = DROPBOX_ROOT_FOLDER + fullPath;
-        console.log(chalkInfo("OFFLINE_MODE: FULL PATH " + fullPath));
-      }
-
-      if ((hostname === "mbp3") || (hostname === "mbp2")) {
-        fullPath = DROPBOX_ROOT_FOLDER + fullPath;
-        console.log(chalkInfo("OFFLINE_MODE: FULL PATH " + fullPath));
-      }
-
-      fs.readFile(fullPath, "utf8", function(err, data) {
-
-        if (err) {
-          console.log(chalkError("fs readFile ERROR: " + err));
-          return reject(err);
-        }
-
-        console.log(chalkInfo(getTimeStamp()
-          + " | LOADING FILE FROM DROPBOX"
-          + " | " + fullPath
-        ));
-
-        if (params.file.match(/\.json$/gi)) {
-
-          const fileObj = JSONParse(data);
-
-          if (fileObj.value) {
-
-            const fileObjSizeMbytes = sizeof(fileObj)/ONE_MEGABYTE;
-
-            console.log(chalkInfo(getTimeStamp()
-              + " | LOADED FILE FROM DROPBOX"
-              + " | " + fileObjSizeMbytes.toFixed(2) + " MB"
-              + " | " + fullPath
-            ));
-
-            return resolve(fileObj.value);
-          }
-
-          console.log(chalkError(getTimeStamp()
-            + " | *** LOAD FILE FROM DROPBOX ERROR"
-            + " | " + fullPath
-            + " | " + fileObj.error
-          ));
-
-          return reject(fileObj.error);
-
-        }
-
-        console.log(chalkError(getTimeStamp()
-          + " | ... SKIP LOAD FILE FROM DROPBOX"
-          + " | " + fullPath
-        ));
-        resolve();
-
-      });
-
-     }
-    else {
-
-      dropboxClient.filesDownload({path: fullPath}).
-      then(function(data) {
-
-        debug(chalkLog(getTimeStamp()
-          + " | LOADING FILE FROM DROPBOX FILE: " + fullPath
-        ));
-
-        if (params.file.match(/\.json$/gi)) {
-
-          const payload = data.fileBinary;
-
-          if (!payload || (payload === undefined)) {
-            return reject(new Error("GTS LOAD FILE PAYLOAD UNDEFINED"));
-          }
-
-          const fileObj = JSONParse(payload);
-
-          if (fileObj.value) {
-            return resolve(fileObj.value);
-          }
-
-          console.log(chalkError("GTS | DROPBOX loadFile ERROR: " + fullPath));
-          return reject(fileObj.error);
-        }
-        else {
-          resolve();
-        }
-      }).
-      catch(function(error) {
-
-        console.log(chalkError("GTS | DROPBOX loadFile ERROR: " + fullPath));
-        
-        if ((error.status === 409) || (error.status === 404)) {
-          console.log(chalkError("GTS | !!! DROPBOX READ FILE " + fullPath + " NOT FOUND"
-            + " ... SKIPPING ...")
-          );
-          return reject(error);
-        }
-        
-        if (error.status === 0) {
-          console.log(chalkError("GTS | !!! DROPBOX NO RESPONSE"
-            + " ... NO INTERNET CONNECTION? ... SKIPPING ..."));
-          return reject(error);
-        }
-
-        reject(error);
-
-      });
-    }
-  });
-}
-
-function getFileMetadata(params) {
-
-  return new Promise(function(resolve, reject){
-
-    const fullPath = params.folder + "/" + params.file;
-
-    debug(chalkInfo("FOLDER " + params.folder));
-    debug(chalkInfo("FILE " + params.file));
-    debug(chalkInfo("getFileMetadata FULL PATH: " + fullPath));
-
-    if (configuration.offlineMode) {
-      dropboxClient = dropboxLocalClient;
-    }
-    else {
-      dropboxClient = dropboxRemoteClient;
-    }
-
-    dropboxClient.filesGetMetadata({path: fullPath}).
-      then(function(response) {
-        debug(chalkInfo("FILE META\n" + jsonPrint(response)));
-        return resolve(response);
-      }).
-      catch(function(err) {
-
-        console.log(chalkError("GTS | DROPBOX getFileMetadata ERROR: " + fullPath));
-        console.log(chalkError("GTS | !!! DROPBOX READ " + fullPath + " ERROR"));
-
-        if ((err.status === 404) || (err.status === 409)) {
-          console.error(chalkError("GTS | !!! DROPBOX READ FILE " + fullPath + " NOT FOUND"));
-          if (params.skipOnNotFound) {
-            return resolve(false);
-          }
-          return reject(err);
-        }
-
-        if (err.status === 0) {
-          console.error(chalkError("GTS | !!! DROPBOX NO RESPONSE"
-            + " ... NO INTERNET CONNECTION? ... SKIPPING ..."));
-        }
-        
-        return reject(err);
-      });
-
-  });
-}
 
 function initStdIn(){
 
@@ -1049,66 +751,186 @@ function loadCommandLineArgs(){
   });
 }
 
+// async function loadConfigFile(params) {
+
+//   if (params.file === dropboxConfigDefaultFile) {
+//     prevConfigFileModifiedMoment = moment(prevDefaultConfigFileModifiedMoment);
+//   }
+//   else {
+//     prevConfigFileModifiedMoment = moment(prevHostConfigFileModifiedMoment);
+//   }
+
+//   if (configuration.offlineMode) {
+//     await loadCommandLineArgs();
+//     return;
+//   }
+
+//   const fullPath = params.folder + "/" + params.file;
+
+//   const response = await getFileMetadata(params);
+
+//   let fileModifiedMoment;
+    
+//   if (response) {
+
+//     fileModifiedMoment = moment(new Date(response.client_modified));
+
+//     if (fileModifiedMoment.isSameOrBefore(prevConfigFileModifiedMoment)){
+
+//       console.log(chalkLog("GTS | CONFIG FILE BEFORE OR EQUAL"
+//         + " | " + fullPath
+//         + " | PREV: " + prevConfigFileModifiedMoment.format(compactDateTimeFormat)
+//         + " | " + fileModifiedMoment.format(compactDateTimeFormat)
+//       ));
+//       return;
+//     }
+
+//     console.log(chalkAlert("GTS | +++ CONFIG FILE AFTER ... LOADING"
+//       + " | " + fullPath
+//       + " | PREV: " + prevConfigFileModifiedMoment.format(compactDateTimeFormat)
+//       + " | " + fileModifiedMoment.format(compactDateTimeFormat)
+//     ));
+
+//     prevConfigFileModifiedMoment = moment(fileModifiedMoment);
+
+//     if (params.file === dropboxConfigDefaultFile) {
+//       prevDefaultConfigFileModifiedMoment = moment(fileModifiedMoment);
+//     }
+//     else {
+//       prevHostConfigFileModifiedMoment = moment(fileModifiedMoment);
+//     }
+
+//     const loadedConfigObj = await loadFileRetry(params);
+
+//     if ((loadedConfigObj === undefined) || !loadedConfigObj) {
+//       console.log(chalkError("GTS | DROPBOX CONFIG LOAD FILE ERROR | JSON UNDEFINED ??? "));
+//       throw new Error("LOAD FILE JSON UNDEFINED: " + params.file);
+//     }
+
+//     console.log(chalkInfo("GTS | LOADED CONFIG FILE: " + fullPath + "\n" + jsonPrint(loadedConfigObj)));
+
+//     const newConfiguration = {};
+//     newConfiguration.evolve = {};
+
+//     if (loadedConfigObj.GTS_TEST_MODE !== undefined){
+//       console.log("GTS | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE);
+
+//       if ((loadedConfigObj.GTS_TEST_MODE === true) || (loadedConfigObj.GTS_TEST_MODE === "true")) {
+//         newConfiguration.testMode = true;
+//       }
+//       else if ((loadedConfigObj.GTS_TEST_MODE === false) || (loadedConfigObj.GTS_TEST_MODE === "false")) {
+//         newConfiguration.testMode = false;
+//       }
+//       else {
+//         newConfiguration.testMode = false;
+//       }
+
+//       console.log("GTS | LOADED newConfiguration.testMode: " + newConfiguration.testMode);
+//     }
+
+
+//     if (loadedConfigObj.GTS_OFFLINE_MODE !== undefined){
+//       console.log("GTS | LOADED GTS_OFFLINE_MODE: " + loadedConfigObj.GTS_OFFLINE_MODE);
+
+//       if ((loadedConfigObj.GTS_OFFLINE_MODE === false) || (loadedConfigObj.GTS_OFFLINE_MODE === "false")) {
+//         newConfiguration.offlineMode = false;
+//       }
+//       else if ((loadedConfigObj.GTS_OFFLINE_MODE === true) || (loadedConfigObj.GTS_OFFLINE_MODE === "true")) {
+//         newConfiguration.offlineMode = true;
+//       }
+//       else {
+//         newConfiguration.offlineMode = false;
+//       }
+//     }
+
+//     if (loadedConfigObj.GTS_QUIT_ON_COMPLETE !== undefined) {
+//       console.log("GTS | LOADED GTS_QUIT_ON_COMPLETE: " + loadedConfigObj.GTS_QUIT_ON_COMPLETE);
+//       if (!loadedConfigObj.GTS_QUIT_ON_COMPLETE || (loadedConfigObj.GTS_QUIT_ON_COMPLETE === "false")) {
+//         newConfiguration.quitOnComplete = false;
+//       }
+//       else {
+//         newConfiguration.quitOnComplete = true;
+//       }
+//     }
+
+//     if (loadedConfigObj.GTS_VERBOSE_MODE !== undefined){
+//       console.log("GTS | LOADED GTS_VERBOSE_MODE: " + loadedConfigObj.GTS_VERBOSE_MODE);
+//       newConfiguration.verbose = loadedConfigObj.GTS_VERBOSE_MODE;
+//     }
+
+//     if (loadedConfigObj.GTS_ENABLE_STDIN !== undefined){
+//       console.log("GTS | LOADED GTS_ENABLE_STDIN: " + loadedConfigObj.GTS_ENABLE_STDIN);
+//       newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
+//     }
+
+//     return newConfiguration;
+//   }
+
+//   console.log(chalkAlert("GTS | ??? CONFIG FILE NOT FOUND ... SKIPPING | " + fullPath ));
+//   return false;
+// }
+
+// async function loadAllConfigFiles(){
+
+//   statsObj.status = "LOAD CONFIG";
+
+//   console.log(chalkLog("GTS | LOAD ALL CONFIG FILES"));
+
+//   const defaultConfig = await loadConfigFile({folder: dropboxConfigDefaultFolder, file: dropboxConfigDefaultFile, skipOnNotFound: true});
+
+//   if (defaultConfig) {
+//     defaultConfiguration = defaultConfig;
+//     console.log(chalkAlert("GTS | +++ LOADED DEFAULT CONFIG " + dropboxConfigDefaultFolder + "/" + dropboxConfigDefaultFile));
+//   }
+
+//   const hostConfig = await loadConfigFile({folder: dropboxConfigHostFolder, file: dropboxConfigHostFile, skipOnNotFound: true});
+
+//   if (hostConfig) {
+//     hostConfiguration = hostConfig;
+//     console.log(chalkAlert("GTS | +++ LOADED HOST CONFIG " + dropboxConfigHostFolder + "/" + dropboxConfigHostFile));
+//   }
+
+//   const defaultAndHostConfig = merge(defaultConfiguration, hostConfiguration); // host settings override defaults
+//   console.log("defaultAndHostConfig.testMode: " + defaultAndHostConfig.testMode);
+//   const tempConfig = merge(configuration, defaultAndHostConfig); // any new settings override existing config
+//   console.log("tempConfig.testMode: " + tempConfig.testMode);
+
+//   return tempConfig;
+// }
+
+
 async function loadConfigFile(params) {
 
-  if (params.file === dropboxConfigDefaultFile) {
-    prevConfigFileModifiedMoment = moment(prevDefaultConfigFileModifiedMoment);
-  }
-  else {
-    prevConfigFileModifiedMoment = moment(prevHostConfigFileModifiedMoment);
-  }
+  const fullPath = path.join(params.folder, params.file);
 
-  if (configuration.offlineMode) {
-    await loadCommandLineArgs();
-    return;
-  }
+  try {
 
-  const fullPath = params.folder + "/" + params.file;
-
-  const response = await getFileMetadata(params);
-
-  let fileModifiedMoment;
-    
-  if (response) {
-
-    fileModifiedMoment = moment(new Date(response.client_modified));
-
-    if (fileModifiedMoment.isSameOrBefore(prevConfigFileModifiedMoment)){
-
-      console.log(chalkLog("GTS | CONFIG FILE BEFORE OR EQUAL"
-        + " | " + fullPath
-        + " | PREV: " + prevConfigFileModifiedMoment.format(compactDateTimeFormat)
-        + " | " + fileModifiedMoment.format(compactDateTimeFormat)
-      ));
+    if (configuration.offlineMode) {
+      await loadCommandLineArgs();
       return;
     }
 
-    console.log(chalkAlert("GTS | +++ CONFIG FILE AFTER ... LOADING"
-      + " | " + fullPath
-      + " | PREV: " + prevConfigFileModifiedMoment.format(compactDateTimeFormat)
-      + " | " + fileModifiedMoment.format(compactDateTimeFormat)
-    ));
-
-    prevConfigFileModifiedMoment = moment(fileModifiedMoment);
-
-    if (params.file === dropboxConfigDefaultFile) {
-      prevDefaultConfigFileModifiedMoment = moment(fileModifiedMoment);
-    }
-    else {
-      prevHostConfigFileModifiedMoment = moment(fileModifiedMoment);
-    }
-
-    const loadedConfigObj = await loadFileRetry(params);
-
-    if ((loadedConfigObj === undefined) || !loadedConfigObj) {
-      console.log(chalkError("GTS | DROPBOX CONFIG LOAD FILE ERROR | JSON UNDEFINED ??? "));
-      throw new Error("LOAD FILE JSON UNDEFINED: " + params.file);
-    }
-
-    console.log(chalkInfo("GTS | LOADED CONFIG FILE: " + fullPath + "\n" + jsonPrint(loadedConfigObj)));
-
     const newConfiguration = {};
     newConfiguration.evolve = {};
+
+    const loadedConfigObj = await tcUtils.loadFile({folder: params.folder, file: params.file, noErrorNotFound: params.noErrorNotFound });
+
+    if (loadedConfigObj === undefined) {
+      if (params.noErrorNotFound) {
+        console.log(chalkAlert(MODULE_ID_PREFIX + " | ... SKIP LOAD CONFIG FILE: " + params.folder + "/" + params.file));
+        return newConfiguration;
+      }
+      else {
+        console.log(chalkError(MODULE_ID_PREFIX + " | *** CONFIG LOAD FILE ERROR | JSON UNDEFINED ??? "));
+        throw new Error("JSON UNDEFINED");
+      }
+    }
+
+    if (loadedConfigObj instanceof Error) {
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** CONFIG LOAD FILE ERROR: " + loadedConfigObj));
+    }
+
+    console.log(chalkInfo(MODULE_ID_PREFIX + " | LOADED CONFIG FILE: " + params.file + "\n" + jsonPrint(loadedConfigObj)));
 
     if (loadedConfigObj.GTS_TEST_MODE !== undefined){
       console.log("GTS | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE);
@@ -1163,35 +985,49 @@ async function loadConfigFile(params) {
 
     return newConfiguration;
   }
-
-  console.log(chalkAlert("GTS | ??? CONFIG FILE NOT FOUND ... SKIPPING | " + fullPath ));
-  return false;
+  catch(err){
+    console.error(chalkError(MODULE_ID_PREFIX + " | ERROR LOAD CONFIG: " + fullPath
+      + "\n" + jsonPrint(err)
+    ));
+    throw err;
+  }
 }
 
-async function loadAllConfigFiles(){
+async function loadAllConfigFiles(cnf){
 
   statsObj.status = "LOAD CONFIG";
 
-  console.log(chalkLog("GTS | LOAD ALL CONFIG FILES"));
-
-  const defaultConfig = await loadConfigFile({folder: dropboxConfigDefaultFolder, file: dropboxConfigDefaultFile, skipOnNotFound: true});
+  const defaultConfig = await loadConfigFile({folder: configDefaultFolder, file: configDefaultFile});
 
   if (defaultConfig) {
     defaultConfiguration = defaultConfig;
-    console.log(chalkAlert("GTS | +++ LOADED DEFAULT CONFIG " + dropboxConfigDefaultFolder + "/" + dropboxConfigDefaultFile));
+    console.log(chalkInfo(MODULE_ID_PREFIX + " | <<< LOADED DEFAULT CONFIG " + configDefaultFolder + "/" + configDefaultFile));
   }
-
-  const hostConfig = await loadConfigFile({folder: dropboxConfigHostFolder, file: dropboxConfigHostFile, skipOnNotFound: true});
+  
+  const hostConfig = await loadConfigFile({folder: configHostFolder, file: configHostFile, noErrorNotFound: true});
 
   if (hostConfig) {
     hostConfiguration = hostConfig;
-    console.log(chalkAlert("GTS | +++ LOADED HOST CONFIG " + dropboxConfigHostFolder + "/" + dropboxConfigHostFile));
+    console.log(chalkInfo(MODULE_ID_PREFIX + " | <<< LOADED HOST CONFIG " + configHostFolder + "/" + configHostFile));
   }
+  
+  console.log("hostConfiguration\n" + jsonPrint(hostConfiguration));
+  console.log("defaultConfiguration\n" + jsonPrint(defaultConfiguration));
 
   const defaultAndHostConfig = merge(defaultConfiguration, hostConfiguration); // host settings override defaults
-  console.log("defaultAndHostConfig.testMode: " + defaultAndHostConfig.testMode);
-  const tempConfig = merge(configuration, defaultAndHostConfig); // any new settings override existing config
-  console.log("tempConfig.testMode: " + tempConfig.testMode);
+
+  console.log("defaultAndHostConfig\n" + jsonPrint(defaultAndHostConfig));
+  console.log("cnf\n" + jsonPrint(cnf));
+
+  const tempConfig = merge(cnf, defaultAndHostConfig); // any new settings override existing config
+
+  console.log("tempConfig\n" + jsonPrint(tempConfig));
+
+  // configuration = deepcopy(tempConfig);
+
+  // console.log("configuration\n" + jsonPrint(configuration));
+
+  tempConfig.twitterUsers = _.uniq(tempConfig.twitterUsers);
 
   return tempConfig;
 }
@@ -1392,7 +1228,8 @@ async function updateCategorizedUser(params){
   }
 
   try {
-    const user = await global.globalUser.findOne({ nodeId: params.nodeId }).lean().exec();
+    const user = await global.globalUser.findOne({ nodeId: params.nodeId }).lean().
+exec();
 
     if (!user || user === undefined){
       console.log(chalkLog("GTS | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + params.nodeId));
@@ -1561,7 +1398,6 @@ async function updateCategorizedUser(params){
 
 const categorizedNodeIdsQueue = [];
 let categorizedNodeIdsQueueReady = false;
-let categorizedNodeIdsQueueInterval;
 
 function initCategorizedNodeIdsQueue(params){
 
@@ -1585,7 +1421,7 @@ function initCategorizedNodeIdsQueue(params){
 
     categorizedNodeIdsQueueReady = true;
 
-    categorizedNodeIdsQueueInterval = setInterval(async function(){
+    setInterval(async function(){
 
       if (categorizedNodeIdsQueueReady && (categorizedNodeIdsQueue.length > 0)){
 
@@ -2099,7 +1935,7 @@ async function initialize(cnf){
 
   await initStdIn();
   
-  configuration = await loadAllConfigFiles();
+  configuration = await loadAllConfigFiles(configuration);
 
   await loadCommandLineArgs();
   
@@ -2137,7 +1973,8 @@ async function generateGlobalTrainingTestSet(){
   console.log(chalkBlueBold("GTS | GENERATE TRAINING SET | " + getTimeStamp()));
   console.log(chalkBlueBold("GTS | ==================================================================="));
 
-  statsObj.totalCategorizedUsersInDB = await global.globalUser.find(catUsersQuery).countDocuments().exec();
+  statsObj.totalCategorizedUsersInDB = await global.globalUser.find(catUsersQuery).countDocuments().
+exec();
   statsObj.archiveTotal = statsObj.totalCategorizedUsersInDB;
 
   console.log(chalkBlue("GTS | CATEGORIZED USERS IN DB: " + statsObj.totalCategorizedUsersInDB));
@@ -2170,7 +2007,7 @@ async function generateGlobalTrainingTestSet(){
     + " | " + configuration.trainingSetsFolder + "/" + maxInputHashMapFile
   );
 
-  await tcUtils.saveFile({localFlag: true, folder: configuration.trainingSetsFolder, file: maxInputHashMapFile, obj: mihmObj });
+  await tcUtils.saveFile({folder: configuration.trainingSetsFolder, file: maxInputHashMapFile, obj: mihmObj });
 
   const buf = Buffer.from(JSON.stringify(mihmObj));
 

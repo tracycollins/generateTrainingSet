@@ -11,6 +11,7 @@ module.exports = {
     },
     "rules": {
         "no-console": "off",
+        "require-atomic-updates": "off",
         "accessor-pairs": "error",
         "array-bracket-spacing": [
             "error",
