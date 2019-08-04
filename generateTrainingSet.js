@@ -269,13 +269,13 @@ configuration.local = {};
 configuration.local.trainingSetsFolder = path.join(configHostFolder, "trainingSets");
 configuration.local.histogramsFolder = path.join(configHostFolder, "histograms");
 configuration.local.userArchiveFolder = path.join(configHostFolder, "trainingSets/users");
-configuration.local.userArchivePath = path.join(configHostFolder, configuration.userArchiveFile);
+configuration.local.userArchivePath = path.join(configuration.local.userArchiveFolder, configuration.userArchiveFile);
 
 configuration.default = {};
 configuration.default.trainingSetsFolder = path.join(configDefaultFolder, "trainingSets");
 configuration.default.histogramsFolder = path.join(configDefaultFolder, "histograms");
 configuration.default.userArchiveFolder = path.join(configDefaultFolder, "trainingSets/users");
-configuration.default.userArchivePath = path.join(configDefaultFolder, configuration.userArchiveFile);
+configuration.default.userArchivePath = path.join(configuration.default.userArchiveFolder, configuration.userArchiveFile);
 
 configuration.trainingSetsFolder = configuration[HOST].trainingSetsFolder;
 configuration.archiveFileUploadCompleteFlagFolder = path.join(configuration[HOST].trainingSetsFolder, "users");
