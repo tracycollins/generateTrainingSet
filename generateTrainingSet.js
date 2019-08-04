@@ -1024,7 +1024,8 @@ async function updateMaxInputHashMap(params){
 
   const histogramTypes = Object.keys(histograms);
 
-  histogramTypes.forEach(function(type){
+  // histogramTypes.forEach(function(type){
+  for (const type of histogramTypes){
 
     if (type !== "sentiment") {
 
@@ -1034,7 +1035,8 @@ async function updateMaxInputHashMap(params){
 
       if (histogramTypeEntities.length > 0) {
 
-        histogramTypeEntities.forEach(function(entity){
+        // histogramTypeEntities.forEach(function(entity){
+        for (const entity of histogramTypeEntities){
 
           if (histograms[type][entity] !== undefined){
 
@@ -1046,13 +1048,13 @@ async function updateMaxInputHashMap(params){
             }
           }
 
-        });
+        }
 
       }
 
     }
 
-  });
+  }
 
   return;
 }
@@ -1363,14 +1365,15 @@ function categoryCursor(params){
 
             totalMatchRate = 100*(totalMatched/totalCount);
 
-            Object.keys(results.obj).forEach(function(nodeId){
+            // Object.keys(results.obj).forEach(function(nodeId){
+            for (const nodeId of Object.keys(results.obj)){
               if (results.obj[nodeId].category) { 
                 categorizedNodeIdsQueue.push(nodeId);
               }
               else {
                 console.log(chalkAlert("GTS | ??? UNCATEGORIZED USER FROM DB\n" + jsonPrint(results.obj[nodeId])));
               }
-            });
+            }
 
             if (configuration.verbose || (totalCount % 1000 === 0)) {
 
