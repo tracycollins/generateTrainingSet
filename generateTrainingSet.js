@@ -1069,8 +1069,7 @@ async function updateCategorizedUser(params){
   }
 
   try {
-    const user = await global.globalUser.findOne({ nodeId: params.nodeId }).lean().
-exec();
+    const user = await global.globalUser.findOne({ nodeId: params.nodeId }).lean().exec();
 
     if (!user || user === undefined){
       console.log(chalkLog("GTS | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + params.nodeId));
@@ -1092,11 +1091,11 @@ exec();
       return;
     }
 
-    await updateMaxInputHashMap({user: user});
-
     if (!user.profileHistograms || (user.profileHistograms === undefined)){
       user.profileHistograms = {};
     }
+
+    await updateMaxInputHashMap({user: user});
 
     if (user.profileHistograms.sentiment && (user.profileHistograms.sentiment !== undefined)) {
 
