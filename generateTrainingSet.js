@@ -78,7 +78,6 @@ const path = require("path");
 const moment = require("moment");
 const lockFile = require("lockfile");
 const merge = require("deepmerge");
-const treeify = require("treeify");
 const archiver = require("archiver");
 const fs = require("fs");
 const MergeHistograms = require("@threeceelabs/mergehistograms");
@@ -854,7 +853,6 @@ async function updateMaxInputHashMap(params){
 
   const histogramTypes = Object.keys(histograms);
 
-  // histogramTypes.forEach(function(type){
   for (const type of histogramTypes){
 
     if (type !== "sentiment") {
@@ -865,7 +863,6 @@ async function updateMaxInputHashMap(params){
 
       if (histogramTypeEntities.length > 0) {
 
-        // histogramTypeEntities.forEach(function(entity){
         for (const entity of histogramTypeEntities){
 
           if (histograms[type][entity] !== undefined){
