@@ -8,8 +8,6 @@ const catUsersQuery = {
   "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
 };
 
-const path = require("path");
-
 const os = require("os");
 let hostname = os.hostname();
 hostname = hostname.replace(/.tld/g, ""); // amtrak wifi
@@ -56,15 +54,18 @@ const ONE_MEGABYTE = 1024 * ONE_KILOBYTE;
 const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 
 const DEFAULT_SERVER_MODE = false;
-
 const DEFAULT_FIND_CAT_USER_CURSOR_LIMIT = 100;
 const DEFAULT_CURSOR_BATCH_SIZE = process.env.DEFAULT_CURSOR_BATCH_SIZE || 100;
-
 const DEFAULT_WAIT_UNLOCK_INTERVAL = 15*ONE_SECOND;
 const DEFAULT_WAIT_UNLOCK_TIMEOUT = 10*ONE_MINUTE;
 const DEFAULT_FILELOCK_RETRY_WAIT = DEFAULT_WAIT_UNLOCK_INTERVAL;
 const DEFAULT_FILELOCK_STALE = 2*DEFAULT_WAIT_UNLOCK_TIMEOUT;
 const DEFAULT_FILELOCK_WAIT = DEFAULT_WAIT_UNLOCK_TIMEOUT;
+const DEFAULT_QUIT_ON_COMPLETE = false;
+const DEFAULT_TEST_RATIO = 0.20;
+const MODULE_ID_PREFIX = "GTS";
+const MODULE_ID = MODULE_ID_PREFIX + "_node_" + hostname;
+const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
 const fileLockOptions = { 
   retries: DEFAULT_FILELOCK_WAIT,
@@ -73,6 +74,7 @@ const fileLockOptions = {
   wait: DEFAULT_FILELOCK_WAIT
 };
 
+const path = require("path");
 const moment = require("moment");
 const lockFile = require("lockfile");
 const merge = require("deepmerge");
@@ -81,19 +83,6 @@ const archiver = require("archiver");
 const fs = require("fs");
 const MergeHistograms = require("@threeceelabs/mergehistograms");
 const mergeHistograms = new MergeHistograms();
-
-const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
-const tcUtils = new ThreeceeUtilities("GTS_TCU");
-
-let archive;
-
-const MODULE_ID_PREFIX = "GTS";
-const MODULE_ID = MODULE_ID_PREFIX + "_node_" + hostname;
-const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
-
-const DEFAULT_QUIT_ON_COMPLETE = false;
-const DEFAULT_TEST_RATIO = 0.20;
-
 const util = require("util");
 const _ = require("lodash");
 const sizeof = require("object-sizeof");
@@ -101,6 +90,12 @@ const pick = require("object.pick");
 const Slack = require("slack-node");
 const EventEmitter3 = require("eventemitter3");
 const async = require("async");
+const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
+const tcUtils = new ThreeceeUtilities("GTS_TCU");
+const debug = require("debug")("gts");
+const commandLineArgs = require("command-line-args");
+
+let archive;
 
 const chalk = require("chalk");
 const chalkAlert = chalk.red;
@@ -112,9 +107,6 @@ const chalkError = chalk.bold.red;
 const chalkWarn = chalk.red;
 const chalkLog = chalk.gray;
 const chalkInfo = chalk.black;
-
-const debug = require("debug")("gts");
-const commandLineArgs = require("command-line-args");
 
 let categorizedUsersPercent = 0;
 
@@ -169,7 +161,6 @@ statsObj.errors = {};
 statsObj.errors.users = {};
 statsObj.errors.users.findOne = 0;
 
-
 const statsPickArray = [
   "pid", 
   "startTime", 
@@ -189,15 +180,6 @@ process.on("unhandledRejection", function(err, promise) {
   console.trace("Unhandled rejection (promise: ", promise, ", reason: ", err, ").");
   process.exit();
 });
-
-function jsonPrint(obj) {
-  if (obj) {
-    return treeify.asTree(obj, true, true);
-  } 
-  else {
-    return obj;
-  }
-}
 
 function getTimeStamp(inputTime) {
   let currentTimeStamp;
@@ -411,11 +393,11 @@ const optionDefinitions = [
 ];
 
 const commandLineConfig = commandLineArgs(optionDefinitions);
-console.log(chalkInfo("GTS | COMMAND LINE CONFIG\nGTS | " + jsonPrint(commandLineConfig)));
-console.log("GTS | COMMAND LINE OPTIONS\nGTS | " + jsonPrint(commandLineConfig));
+console.log(chalkInfo("GTS | COMMAND LINE CONFIG\nGTS | " + tcUtils.jsonPrint(commandLineConfig)));
+console.log("GTS | COMMAND LINE OPTIONS\nGTS | " + tcUtils.jsonPrint(commandLineConfig));
 
 if (Object.keys(commandLineConfig).includes("help")) {
-  console.log("GTS |optionDefinitions\n" + jsonPrint(optionDefinitions));
+  console.log("GTS |optionDefinitions\n" + tcUtils.jsonPrint(optionDefinitions));
   quit("help");
 }
 
@@ -429,7 +411,7 @@ process.on("message", function(msg) {
     }, 1500);
   }
   else {
-    console.log("GTS | R<\n" + jsonPrint(msg));
+    console.log("GTS | R<\n" + tcUtils.jsonPrint(msg));
   }
 });
 
@@ -524,7 +506,7 @@ function showStats(options){
 
 
   if (options) {
-    console.log("GTS | STATS\nGTS | " + jsonPrint(statsObjSmall));
+    console.log("GTS | STATS\nGTS | " + tcUtils.jsonPrint(statsObjSmall));
   }
   else {
     console.log(chalkLog("GTS | ============================================================"
@@ -598,7 +580,6 @@ process.on("exit", function() {
   quit("SIGINT");
 });
 
-
 function connectDb(){
 
   return new Promise(function(resolve, reject){
@@ -665,7 +646,6 @@ function connectDb(){
     }
   });
 }
-
 
 function initStdIn(){
 
@@ -735,154 +715,6 @@ function loadCommandLineArgs(){
   });
 }
 
-// async function loadConfigFile(params) {
-
-//   if (params.file === dropboxConfigDefaultFile) {
-//     prevConfigFileModifiedMoment = moment(prevDefaultConfigFileModifiedMoment);
-//   }
-//   else {
-//     prevConfigFileModifiedMoment = moment(prevHostConfigFileModifiedMoment);
-//   }
-
-//   if (configuration.offlineMode) {
-//     await loadCommandLineArgs();
-//     return;
-//   }
-
-//   const fullPath = params.folder + "/" + params.file;
-
-//   const response = await getFileMetadata(params);
-
-//   let fileModifiedMoment;
-    
-//   if (response) {
-
-//     fileModifiedMoment = moment(new Date(response.client_modified));
-
-//     if (fileModifiedMoment.isSameOrBefore(prevConfigFileModifiedMoment)){
-
-//       console.log(chalkLog("GTS | CONFIG FILE BEFORE OR EQUAL"
-//         + " | " + fullPath
-//         + " | PREV: " + prevConfigFileModifiedMoment.format(compactDateTimeFormat)
-//         + " | " + fileModifiedMoment.format(compactDateTimeFormat)
-//       ));
-//       return;
-//     }
-
-//     console.log(chalkAlert("GTS | +++ CONFIG FILE AFTER ... LOADING"
-//       + " | " + fullPath
-//       + " | PREV: " + prevConfigFileModifiedMoment.format(compactDateTimeFormat)
-//       + " | " + fileModifiedMoment.format(compactDateTimeFormat)
-//     ));
-
-//     prevConfigFileModifiedMoment = moment(fileModifiedMoment);
-
-//     if (params.file === dropboxConfigDefaultFile) {
-//       prevDefaultConfigFileModifiedMoment = moment(fileModifiedMoment);
-//     }
-//     else {
-//       prevHostConfigFileModifiedMoment = moment(fileModifiedMoment);
-//     }
-
-//     const loadedConfigObj = await loadFileRetry(params);
-
-//     if ((loadedConfigObj === undefined) || !loadedConfigObj) {
-//       console.log(chalkError("GTS | DROPBOX CONFIG LOAD FILE ERROR | JSON UNDEFINED ??? "));
-//       throw new Error("LOAD FILE JSON UNDEFINED: " + params.file);
-//     }
-
-//     console.log(chalkInfo("GTS | LOADED CONFIG FILE: " + fullPath + "\n" + jsonPrint(loadedConfigObj)));
-
-//     const newConfiguration = {};
-//     newConfiguration.evolve = {};
-
-//     if (loadedConfigObj.GTS_TEST_MODE !== undefined){
-//       console.log("GTS | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE);
-
-//       if ((loadedConfigObj.GTS_TEST_MODE === true) || (loadedConfigObj.GTS_TEST_MODE === "true")) {
-//         newConfiguration.testMode = true;
-//       }
-//       else if ((loadedConfigObj.GTS_TEST_MODE === false) || (loadedConfigObj.GTS_TEST_MODE === "false")) {
-//         newConfiguration.testMode = false;
-//       }
-//       else {
-//         newConfiguration.testMode = false;
-//       }
-
-//       console.log("GTS | LOADED newConfiguration.testMode: " + newConfiguration.testMode);
-//     }
-
-
-//     if (loadedConfigObj.GTS_OFFLINE_MODE !== undefined){
-//       console.log("GTS | LOADED GTS_OFFLINE_MODE: " + loadedConfigObj.GTS_OFFLINE_MODE);
-
-//       if ((loadedConfigObj.GTS_OFFLINE_MODE === false) || (loadedConfigObj.GTS_OFFLINE_MODE === "false")) {
-//         newConfiguration.offlineMode = false;
-//       }
-//       else if ((loadedConfigObj.GTS_OFFLINE_MODE === true) || (loadedConfigObj.GTS_OFFLINE_MODE === "true")) {
-//         newConfiguration.offlineMode = true;
-//       }
-//       else {
-//         newConfiguration.offlineMode = false;
-//       }
-//     }
-
-//     if (loadedConfigObj.GTS_QUIT_ON_COMPLETE !== undefined) {
-//       console.log("GTS | LOADED GTS_QUIT_ON_COMPLETE: " + loadedConfigObj.GTS_QUIT_ON_COMPLETE);
-//       if (!loadedConfigObj.GTS_QUIT_ON_COMPLETE || (loadedConfigObj.GTS_QUIT_ON_COMPLETE === "false")) {
-//         newConfiguration.quitOnComplete = false;
-//       }
-//       else {
-//         newConfiguration.quitOnComplete = true;
-//       }
-//     }
-
-//     if (loadedConfigObj.GTS_VERBOSE_MODE !== undefined){
-//       console.log("GTS | LOADED GTS_VERBOSE_MODE: " + loadedConfigObj.GTS_VERBOSE_MODE);
-//       newConfiguration.verbose = loadedConfigObj.GTS_VERBOSE_MODE;
-//     }
-
-//     if (loadedConfigObj.GTS_ENABLE_STDIN !== undefined){
-//       console.log("GTS | LOADED GTS_ENABLE_STDIN: " + loadedConfigObj.GTS_ENABLE_STDIN);
-//       newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
-//     }
-
-//     return newConfiguration;
-//   }
-
-//   console.log(chalkAlert("GTS | ??? CONFIG FILE NOT FOUND ... SKIPPING | " + fullPath ));
-//   return false;
-// }
-
-// async function loadAllConfigFiles(){
-
-//   statsObj.status = "LOAD CONFIG";
-
-//   console.log(chalkLog("GTS | LOAD ALL CONFIG FILES"));
-
-//   const defaultConfig = await loadConfigFile({folder: dropboxConfigDefaultFolder, file: dropboxConfigDefaultFile, skipOnNotFound: true});
-
-//   if (defaultConfig) {
-//     defaultConfiguration = defaultConfig;
-//     console.log(chalkAlert("GTS | +++ LOADED DEFAULT CONFIG " + dropboxConfigDefaultFolder + "/" + dropboxConfigDefaultFile));
-//   }
-
-//   const hostConfig = await loadConfigFile({folder: dropboxConfigHostFolder, file: dropboxConfigHostFile, skipOnNotFound: true});
-
-//   if (hostConfig) {
-//     hostConfiguration = hostConfig;
-//     console.log(chalkAlert("GTS | +++ LOADED HOST CONFIG " + dropboxConfigHostFolder + "/" + dropboxConfigHostFile));
-//   }
-
-//   const defaultAndHostConfig = merge(defaultConfiguration, hostConfiguration); // host settings override defaults
-//   console.log("defaultAndHostConfig.testMode: " + defaultAndHostConfig.testMode);
-//   const tempConfig = merge(configuration, defaultAndHostConfig); // any new settings override existing config
-//   console.log("tempConfig.testMode: " + tempConfig.testMode);
-
-//   return tempConfig;
-// }
-
-
 async function loadConfigFile(params) {
 
   const fullPath = path.join(params.folder, params.file);
@@ -914,7 +746,7 @@ async function loadConfigFile(params) {
       console.log(chalkError(MODULE_ID_PREFIX + " | *** CONFIG LOAD FILE ERROR: " + loadedConfigObj));
     }
 
-    console.log(chalkInfo(MODULE_ID_PREFIX + " | LOADED CONFIG FILE: " + params.file + "\n" + jsonPrint(loadedConfigObj)));
+    console.log(chalkInfo(MODULE_ID_PREFIX + " | LOADED CONFIG FILE: " + params.file + "\n" + tcUtils.jsonPrint(loadedConfigObj)));
 
     if (loadedConfigObj.GTS_TEST_MODE !== undefined){
       console.log("GTS | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE);
@@ -971,7 +803,7 @@ async function loadConfigFile(params) {
   }
   catch(err){
     console.error(chalkError(MODULE_ID_PREFIX + " | ERROR LOAD CONFIG: " + fullPath
-      + "\n" + jsonPrint(err)
+      + "\n" + tcUtils.jsonPrint(err)
     ));
     throw err;
   }
@@ -995,28 +827,26 @@ async function loadAllConfigFiles(cnf){
     console.log(chalkInfo(MODULE_ID_PREFIX + " | <<< LOADED HOST CONFIG " + configHostFolder + "/" + configHostFile));
   }
   
-  console.log("hostConfiguration\n" + jsonPrint(hostConfiguration));
-  console.log("defaultConfiguration\n" + jsonPrint(defaultConfiguration));
+  console.log("hostConfiguration\n" + tcUtils.jsonPrint(hostConfiguration));
+  console.log("defaultConfiguration\n" + tcUtils.jsonPrint(defaultConfiguration));
 
   const defaultAndHostConfig = merge(defaultConfiguration, hostConfiguration); // host settings override defaults
 
-  console.log("defaultAndHostConfig\n" + jsonPrint(defaultAndHostConfig));
-  console.log("cnf\n" + jsonPrint(cnf));
+  console.log("defaultAndHostConfig\n" + tcUtils.jsonPrint(defaultAndHostConfig));
+  console.log("cnf\n" + tcUtils.jsonPrint(cnf));
 
   const tempConfig = merge(cnf, defaultAndHostConfig); // any new settings override existing config
 
-  console.log("tempConfig\n" + jsonPrint(tempConfig));
+  console.log("tempConfig\n" + tcUtils.jsonPrint(tempConfig));
 
   tempConfig.twitterUsers = _.uniq(tempConfig.twitterUsers);
 
   return tempConfig;
 }
 
-
 configEvents.once("INIT_MONGODB", function(){
   console.log(chalkLog("GTS | INIT_MONGODB"));
 });
-
 
 async function updateMaxInputHashMap(params){
 
@@ -1058,7 +888,6 @@ async function updateMaxInputHashMap(params){
 
   return;
 }
-
 
 async function updateCategorizedUser(params){
 
@@ -1370,7 +1199,7 @@ function categoryCursor(params){
                 categorizedNodeIdsQueue.push(nodeId);
               }
               else {
-                console.log(chalkAlert("GTS | ??? UNCATEGORIZED USER FROM DB\n" + jsonPrint(results.obj[nodeId])));
+                console.log(chalkAlert("GTS | ??? UNCATEGORIZED USER FROM DB\n" + tcUtils.jsonPrint(results.obj[nodeId])));
               }
             }
 
@@ -1416,7 +1245,7 @@ function categoryCursor(params){
 
       function(err){
         if (err) {
-          console.log(chalkError("GTS | INIT CATEGORIZED USER HASHMAP ERROR: " + err + "\n" + jsonPrint(err)));
+          console.log(chalkError("GTS | INIT CATEGORIZED USER HASHMAP ERROR: " + err + "\n" + tcUtils.jsonPrint(err)));
           return reject(err);
         }
 
@@ -1447,9 +1276,7 @@ async function initCategorizedNodeIds(){
   await categoryCursor(p);
 
   return;
-
 }
-
 
 async function archiveUser(params){
 
@@ -1481,7 +1308,6 @@ async function archiveUser(params){
       + " | @" + params.user.screenName
     ));
   }
-
 }
 
 let endArchiveUsersInterval;
@@ -1491,7 +1317,7 @@ function endAppendUsers(){
 
     endArchiveUsersInterval = setInterval(function(){
 
-      if ((statsObj.usersAppendedToArchive > 0) && (statsObj.archiveRemainUsers === 0)){
+      if ((statsObj.usersAppendedToArchive > 0) && (statsObj.archiveRemainUsers <= 0)){
         console.log(chalkAlert("GTS | XXX END APPEND"
           + " | " + statsObj.archiveTotal + " USERS"
           + " | " + statsObj.usersAppendedToArchive + " APPENDED"
@@ -1665,7 +1491,7 @@ async function initArchiver(){
   });
    
   archive.on("warning", function(err) {
-    console.log(chalkAlert("GTS | !!! ARCHIVE | WARNING\n" + jsonPrint(err)));
+    console.log(chalkAlert("GTS | !!! ARCHIVE | WARNING\n" + tcUtils.jsonPrint(err)));
     if (err.code !== "ENOENT") {
       throw err;
     }
@@ -1692,7 +1518,7 @@ async function initArchiver(){
         + " | TEST MODE: " + configuration.testMode
         + " | " + getTimeStamp()
         + " | APPENDED: " + statsObj.usersAppendedToArchive
-        + " | ENTRIES: " + statsObj.usersProcessed + " PROCESSED / " + statsObj.archiveTotal + " TOTAL"
+        + " | ENTRIES PROCESSED/REMAIN/TOTAL: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
         + " | SIZE: " + statsObj.totalMbytes.toFixed(2) + " MB"
         + " (" + (100*statsObj.usersProcessed/statsObj.archiveTotal).toFixed(2) + "%)"
         + " S: " + statsObj.archiveStartMoment.format(compactDateTimeFormat)
@@ -1731,7 +1557,7 @@ async function initArchiver(){
   });
    
   archive.on("error", function(err) {
-    console.log(chalkError("GTS | *** ARCHIVE | ERROR\n" + jsonPrint(err)));
+    console.log(chalkError("GTS | *** ARCHIVE | ERROR\n" + tcUtils.jsonPrint(err)));
     throw err;
   });
    
@@ -1745,7 +1571,7 @@ async function initialize(cnf){
 
   statsObj.status = "INITIALIZE";
 
-  debug(chalkBlue("INITIALIZE cnf\n" + jsonPrint(cnf)));
+  debug(chalkBlue("INITIALIZE cnf\n" + tcUtils.jsonPrint(cnf)));
 
   if (debug.enabled){
     console.log("\nGTS | %%%%%%%%%%%%%%\nGTS |  DEBUG ENABLED \nGTS | %%%%%%%%%%%%%%\n");
@@ -1784,7 +1610,7 @@ async function initialize(cnf){
 
   configArgs.forEach(function(arg){
     if (_.isObject(configuration[arg])) {
-      console.log("GTS | _FINAL CONFIG | " + arg + "\n" + jsonPrint(configuration[arg]));
+      console.log("GTS | _FINAL CONFIG | " + arg + "\n" + tcUtils.jsonPrint(configuration[arg]));
     }
     else {
       console.log("GTS | _FINAL CONFIG | " + arg + ": " + configuration[arg]);
