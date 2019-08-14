@@ -1618,14 +1618,6 @@ async function initialize(cnf){
 
   global.globalDbConnection = await connectDb();
 
-  // connectDb()
-  // .then(function(db){
-  //   global.globalDbConnection = db;
-  // })
-  // .catch(function(err){
-  //   throw err;
-  // });
-
   return configuration;
 }
 
