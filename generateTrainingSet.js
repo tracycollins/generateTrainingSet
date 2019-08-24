@@ -1512,11 +1512,11 @@ async function initArchiver(){
 
     if ((statsObj.usersProcessed % 1000 === 0) || configuration.verbose || configuration.testMode) {
       console.log(chalkInfo("GTS | >+- ARCHIVE | PROGRESS"
-        + " | TEST MODE: " + configuration.testMode
+        + " | TEST: " + configuration.testMode
         + " | " + getTimeStamp()
-        + " | APPENDED: " + statsObj.usersAppendedToArchive
-        + " | ENTRIES PROCESSED/REMAIN/TOTAL: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
-        + " | SIZE: " + statsObj.totalMbytes.toFixed(2) + " MB"
+        + " | APPNDD: " + statsObj.usersAppendedToArchive
+        + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
+        + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
         + " (" + (100*statsObj.usersProcessed/statsObj.archiveTotal).toFixed(2) + "%)"
         + " S: " + statsObj.archiveStartMoment.format(compactDateTimeFormat)
         + " E: " + msToTime(statsObj.archiveElapsed)
