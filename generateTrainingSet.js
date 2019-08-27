@@ -488,7 +488,7 @@ function showStats(options){
       + "\nGTS | >+- ARCHIVE | PROGRESS"
       + " | TEST: " + configuration.testMode
       + " | " + tcUtils.getTimeStamp()
-      + " | AUQ: " + archiveUserQueue.length
+      // + " | AUQ: " + archiveUserQueue.length
       + " | APPNDD: " + statsObj.usersAppendedToArchive
       + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
       + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
@@ -1048,8 +1048,6 @@ async function updateCategorizedUser(params){
 //   });
 // }
 
-
-
 let categorizedNodeIdsQueueInterval;
 const categorizedNodeIdsQueue = [];
 let categorizedNodeIdsQueueReady = false;
@@ -1549,7 +1547,7 @@ async function initArchiver(){
       console.log(chalkInfo("GTS | >+- ARCHIVE | PROGRESS"
         + " | TEST: " + configuration.testMode
         + " | " + tcUtils.getTimeStamp()
-        + " | AUQ: " + archiveUserQueue.length
+        // + " | AUQ: " + archiveUserQueue.length
         + " | APPNDD: " + statsObj.usersAppendedToArchive
         + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
         + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
@@ -1712,12 +1710,12 @@ async function generateGlobalTrainingTestSet(){
 setTimeout(async function(){
   try{
 
-    const statsInterval = setInterval(function(){
+    setInterval(function(){
       showStats();
     }, ONE_MINUTE);
 
     configuration = await initialize(configuration);
-    await initArchiveUserQueue();
+    // await initArchiveUserQueue();
     await tcUtils.initSaveFileQueue();
     await tcUtils.redisFlush();
     await generateGlobalTrainingTestSet();

@@ -10,6 +10,7 @@ module.exports = {
         "sourceType": "module"
     },
     "rules": {
+        "max-depth": "off",
         "no-console": "off",
         "require-atomic-updates": "off",
         "accessor-pairs": "error",
@@ -75,7 +76,6 @@ module.exports = {
             "unix"
         ],
         "lines-around-comment": "error",
-        "max-depth": "error",
         "max-len": "off",
         "max-lines": "off",
         "max-nested-callbacks": "error",
