@@ -2,7 +2,7 @@
 /*jshint sub:true*/
 
 const TEST_MODE_LENGTH = 25;
-const DEFAULT_INTERVAL = 1;
+const DEFAULT_INTERVAL = 5;
 
 const catUsersQuery = { 
   "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
