@@ -1715,11 +1715,10 @@ setTimeout(async function(){
     }, ONE_MINUTE);
 
     configuration = await initialize(configuration);
-    // await initArchiveUserQueue();
     await tcUtils.initSaveFileQueue();
     await tcUtils.redisFlush();
     await generateGlobalTrainingTestSet();
-    await tcUtils.saveGlobalHistograms({rootFolder: configuration.userArchiveFolder});
+    await tcUtils.saveGlobalHistograms({rootFolder: configuration.userArchiveFolder, pruneFlag: true});
     tcUtils.redisFlush();
     tcUtils.redisQuit();
     clearInterval(categorizedNodeIdsQueueInterval);
