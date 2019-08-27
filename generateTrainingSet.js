@@ -1,8 +1,8 @@
 /*jslint node: true */
 /*jshint sub:true*/
 
-const TEST_MODE_LENGTH = 25;
-const DEFAULT_INTERVAL = 5;
+const TEST_MODE_LENGTH = 100;
+const DEFAULT_INTERVAL = 1;
 
 const catUsersQuery = { 
   "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
@@ -141,7 +141,7 @@ statsObj.archiveRemainUsers = Infinity;
 statsObj.archiveRemainMS = 0;
 statsObj.archiveStartMoment = 0;
 statsObj.archiveEndMoment = moment();
-
+statsObj.totalMbytes = 0;
 statsObj.serverConnected = false;
 
 statsObj.startTimeMoment = moment();
@@ -179,30 +179,6 @@ process.on("unhandledRejection", function(err, promise) {
   console.trace("Unhandled rejection (promise: ", promise, ", reason: ", err, ").");
   process.exit();
 });
-
-function getTimeStamp(inputTime) {
-  let currentTimeStamp;
-
-  if (inputTime === undefined) {
-    currentTimeStamp = moment().format(compactDateTimeFormat);
-    return currentTimeStamp;
-  }
-  else if (moment.isMoment(inputTime)) {
-    currentTimeStamp = moment(inputTime).format(compactDateTimeFormat);
-    return currentTimeStamp;
-  }
-  else if (moment.isDate(new Date(inputTime)) && moment(new Date(inputTime)).isValid()) {
-    currentTimeStamp = moment(new Date(inputTime)).format(compactDateTimeFormat);
-    return currentTimeStamp;
-  }
-  else if (Number.isInteger(inputTime)) {
-    currentTimeStamp = moment(parseInt(inputTime)).format(compactDateTimeFormat);
-    return currentTimeStamp;
-  }
-  else {
-    return "NOT VALID TIMESTAMP: " + inputTime;
-  }
-}
 
 const slackChannel = "#gts";
 let slackText = "";
@@ -269,29 +245,6 @@ const slackOAuthAccessToken = "xoxp-3708084981-3708084993-206468961315-ec62db579
 
 function toMegabytes(sizeInBytes) {
   return sizeInBytes/ONE_MEGABYTE;
-}
-
-function msToTime(d) {
-
-  let duration = d;
-  let sign = 1;
-
-  if (duration < 0) {
-    sign = -1;
-    duration = -duration;
-  }
-
-  let seconds = parseInt((duration / 1000) % 60);
-  let minutes = parseInt((duration / (1000 * 60)) % 60);
-  let hours = parseInt((duration / (1000 * 60 * 60)) % 24);
-  let days = parseInt(duration / (1000 * 60 * 60 * 24));
-  days = (days < 10) ? "0" + days : days;
-  hours = (hours < 10) ? "0" + hours : hours;
-  minutes = (minutes < 10) ? "0" + minutes : minutes;
-  seconds = (seconds < 10) ? "0" + seconds : seconds;
-
-  if (sign > 0) return days + ":" + hours + ":" + minutes + ":" + seconds;
-  return "- " + days + ":" + hours + ":" + minutes + ":" + seconds;
 }
 
 const DEFAULT_RUN_ID = hostname + "_" + process.pid + "_" + statsObj.startTimeMoment.format(compactDateTimeFormat);
@@ -513,7 +466,7 @@ function showStats(options){
       + " | STATUS: " + statsObj.status
       + " | CPUs: " + statsObj.cpus
       + " | " + testObj.testRunId
-      + " | RUN " + msToTime(statsObj.elapsed)
+      + " | RUN " + tcUtils.msToTime(statsObj.elapsed)
       + " | NOW " + moment().format(compactDateTimeFormat)
       + " | STRT " + moment(parseInt(statsObj.startTime)).format(compactDateTimeFormat)
       + "\nGTS | ============================================================"
@@ -529,6 +482,21 @@ function showStats(options){
       + " | +: " + categorizedUserHistogram.positive
       + " | -: " + categorizedUserHistogram.negative
       + " | 0: " + categorizedUserHistogram.none
+    ));
+
+    console.log(chalkInfo("GTS | ============================================================"
+      + "\nGTS | >+- ARCHIVE | PROGRESS"
+      + " | TEST: " + configuration.testMode
+      + " | " + tcUtils.getTimeStamp()
+      + " | APPNDD: " + statsObj.usersAppendedToArchive
+      + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
+      + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
+      + " (" + (100*statsObj.usersProcessed/statsObj.archiveTotal).toFixed(2) + "%)"
+      + " [ RATE: " + (statsObj.archiveRate/1000).toFixed(3) + " SEC/USER ]"
+      + " S: " + tcUtils.getTimeStamp(statsObj.archiveStartMoment)
+      + " E: " + tcUtils.msToTime(statsObj.archiveElapsed)
+      + " | ETC: " + tcUtils.msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
+      + "\nGTS | ============================================================"
     ));
   }
 }
@@ -548,11 +516,9 @@ function quit(options){
     }
     else {
       slackText = "\n*" + statsObj.runId + "*";
-      slackText = slackText + " | RUN " + msToTime(statsObj.elapsed);
+      slackText = slackText + " | RUN " + tcUtils.msToTime(statsObj.elapsed);
       slackText = slackText + " | QUIT CAUSE: " + options;
-
       debug("GTS | SLACK TEXT: " + slackText);
-
       slackPostMessage(slackChannel, slackText);
     }
   }
@@ -560,14 +526,12 @@ function quit(options){
   showStats();
 
   setTimeout(function(){
-    // global.globalDbConnection.close(function () {
-      console.log(chalkBlueBold(
-            "GTS | ================"
-        + "\nGTS | *** QUIT GTS ***"
-        + "\nGTS | ================"
-      ));
-      process.exit();
-    // });
+    console.log(chalkBlueBold(
+          "GTS | ================"
+      + "\nGTS | *** QUIT GTS ***"
+      + "\nGTS | ================"
+    ));
+    process.exit();
   }, 1000);
 }
 
@@ -1051,7 +1015,7 @@ function initCategorizedNodeIdsQueue(params){
 
     console.log(chalkInfo("GTS | INIT CATEGORIZE NODE IDS QUEUE"
       + " | " + statsObj.archiveTotal + " CATEGORIZED USERS"
-      + " | INTERVAL: " + msToTime(interval)
+      + " | INTERVAL: " + interval + " MS"
     ));
 
     statsObj.status = "UPDATE CATEGORIZED USERS";
@@ -1356,7 +1320,7 @@ function endAppendUsers(){
 }
 
 slackText = "\n*GTS START | " + hostname + "*";
-slackText = slackText + "\n" + getTimeStamp();
+slackText = slackText + "\n" + tcUtils.getTimeStamp();
 
 slackPostMessage(slackChannel, slackText);
 
@@ -1393,7 +1357,7 @@ function delay(params){
   return new Promise(function(resolve){
 
     if (params.message) {
-      console.log(chalkLog("GTS | " + params.message + " | PERIOD: " + msToTime(params.period)));
+      console.log(chalkLog("GTS | " + params.message + " | PERIOD: " + tcUtils.msToTime(params.period)));
     }
     setTimeout(function(){
       resolve(true);
@@ -1533,18 +1497,18 @@ async function initArchiver(){
     statsObj.archiveEndMoment = moment();
     statsObj.archiveEndMoment.add(statsObj.archiveRemainMS, "ms");
 
-    if ((statsObj.usersProcessed % 1000 === 0) || configuration.verbose || configuration.testMode) {
+    if ((statsObj.usersProcessed % 100 === 0) || configuration.verbose || configuration.testMode) {
       console.log(chalkInfo("GTS | >+- ARCHIVE | PROGRESS"
         + " | TEST: " + configuration.testMode
-        + " | " + getTimeStamp()
+        + " | " + tcUtils.getTimeStamp()
         + " | APPNDD: " + statsObj.usersAppendedToArchive
         + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
         + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
         + " (" + (100*statsObj.usersProcessed/statsObj.archiveTotal).toFixed(2) + "%)"
         + " [ RATE: " + (statsObj.archiveRate/1000).toFixed(3) + " SEC/USER ]"
-        + " S: " + statsObj.archiveStartMoment.format(compactDateTimeFormat)
-        + " E: " + msToTime(statsObj.archiveElapsed)
-        + " | ETC: " + msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
+        + " S: " + tcUtils.getTimeStamp(statsObj.archiveStartMoment)
+        + " E: " + tcUtils.msToTime(statsObj.archiveElapsed)
+        + " | ETC: " + tcUtils.msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
       ));
     }
   });
@@ -1568,7 +1532,7 @@ async function initArchiver(){
    
   archive.on("finish", function() {
 
-    console.log(chalkBlueBold("GTS | +++ ARCHIVE | FINISHED | " + getTimeStamp()
+    console.log(chalkBlueBold("GTS | +++ ARCHIVE | FINISHED | " + tcUtils.getTimeStamp()
       + "\nGTS | +++ ARCHIVE | FINISHED | TEST MODE: " + configuration.testMode
       + "\nGTS | +++ ARCHIVE | FINISHED | ARCHIVE:   " + userArchivePath
       + "\nGTS | +++ ARCHIVE | FINISHED | ENTRIES:   " + statsObj.usersAppendedToArchive + "/" + statsObj.archiveTotal + " APPENDED"
@@ -1650,7 +1614,7 @@ async function generateGlobalTrainingTestSet(){
   statsObj.status = "GENERATE TRAINING SET";
 
   console.log(chalkBlueBold("GTS | ==================================================================="));
-  console.log(chalkBlueBold("GTS | GENERATE TRAINING SET | " + getTimeStamp()));
+  console.log(chalkBlueBold("GTS | GENERATE TRAINING SET | " + tcUtils.getTimeStamp()));
   console.log(chalkBlueBold("GTS | ==================================================================="));
 
   statsObj.totalCategorizedUsersInDB = await global.globalUser.find(catUsersQuery).countDocuments().exec();
@@ -1698,6 +1662,9 @@ async function generateGlobalTrainingTestSet(){
 
 setTimeout(async function(){
   try{
+    const statsInterval = setInterval(function(){
+      showStats();
+    }, ONE_MINUTE);
     configuration = await initialize(configuration);
     await tcUtils.initSaveFileQueue();
     await tcUtils.redisFlush();
