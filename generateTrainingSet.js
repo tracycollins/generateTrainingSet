@@ -2,7 +2,7 @@
 /*jshint sub:true*/
 
 const TEST_MODE_LENGTH = 100;
-const DEFAULT_INTERVAL = 1;
+const DEFAULT_INTERVAL = 0.5;
 
 const catUsersQuery = { 
   "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
@@ -488,6 +488,7 @@ function showStats(options){
       + "\nGTS | >+- ARCHIVE | PROGRESS"
       + " | TEST: " + configuration.testMode
       + " | " + tcUtils.getTimeStamp()
+      + " | AUQ: " + archiveUserQueue.length
       + " | APPNDD: " + statsObj.usersAppendedToArchive
       + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
       + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
@@ -859,35 +860,37 @@ async function updateCategorizedUser(params){
   }
 
   try {
-    const user = await global.globalUser.findOne({ nodeId: params.nodeId }).lean().exec();
+    const dbUser = await global.globalUser.findOne({ nodeId: params.nodeId }).lean().exec();
 
-    if (!user || user === undefined){
+    if (!dbUser || dbUser === undefined){
       console.log(chalkLog("GTS | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + params.nodeId));
       statsObj.users.notFound += 1;
       statsObj.users.notCategorized += 1;
       return;
     }
 
-    if (!user.category || user.category === undefined) {
-      console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED | UID: " + user.nodeId));
+    if (!dbUser.category || dbUser.category === undefined) {
+      console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED | UID: " + dbUser.nodeId));
       statsObj.users.notCategorized += 1;
       return;
     }
 
-    if (user.screenName === undefined) {
-      console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED | UID: " + user.nodeId));
+    if (dbUser.screenName === undefined) {
+      console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED | UID: " + dbUser.nodeId));
       statsObj.users.screenNameUndefined += 1;
       statsObj.users.notCategorized += 1;
       return;
     }
 
-    if (!user.profileHistograms || (user.profileHistograms === undefined)){
-      user.profileHistograms = {};
+    if (!dbUser.profileHistograms || (dbUser.profileHistograms === undefined)){
+      dbUser.profileHistograms = {};
     }
 
-    if (user.friends && (user.friends.length > 5000)){
-      user.friends = _.slice(user.friends, 0,5000);
+    if (dbUser.friends && (dbUser.friends.length > 5000)){
+      dbUser.friends = _.slice(dbUser.friends, 0,5000);
     }
+
+    const user = await tcUtils.encodeHistogramUrls({user: dbUser});
 
     await updateMaxInputHashMap({user: user});
 
@@ -991,9 +994,7 @@ async function updateCategorizedUser(params){
       ));
     }
 
-    const updatedUser = await tcUtils.encodeHistogramUrls({user: user});
-
-    return updatedUser;
+    return user;
 
   }
   catch(err){
@@ -1002,6 +1003,52 @@ async function updateCategorizedUser(params){
     throw err;
   }
 }
+
+// let archiveUserQueueInterval;
+// const archiveUserQueue = [];
+// let archiveUserQueueReady = false;
+
+// function initArchiveUserQueue(i){
+
+//   return new Promise(function(resolve){
+
+//     const interval = i || 20;
+
+//     console.log(chalkInfo("GTS | INIT ARCHIVE USER QUEUE"
+//       + " | INTERVAL: " + interval + " MS"
+//     ));
+
+//     statsObj.status = "ARCHIVE USERS";
+
+//     archiveUserQueueReady = true;
+
+//     archiveUserQueueInterval = setInterval(async function(){
+
+//       if (archiveUserQueueReady && (archiveUserQueue.length > 0)){
+
+//         archiveUserQueueReady = false;
+
+//         const subUser = archiveUserQueue.shift();
+
+//         try{
+//           await archiveUser({user: subUser});
+//           archiveUserQueueReady = true;
+//         }
+//         catch(err){
+//           console.log(chalkError("GTS | *** ARCHIVE USER ERROR | @" + subUser.screenName + " | ERROR: " + err));
+//           archiveUserQueueReady = true;
+//         }
+
+//       }
+
+//     }, interval);
+
+//     resolve();
+
+//   });
+// }
+
+
 
 let categorizedNodeIdsQueueInterval;
 const categorizedNodeIdsQueue = [];
@@ -1098,6 +1145,7 @@ function initCategorizedNodeIdsQueue(params){
 
             if (statsObj.archiveStartMoment === 0) { statsObj.archiveStartMoment = moment(); }
 
+            // archiveUserQueue.push(subUser);
             await archiveUser({user: subUser});
 
             categorizedNodeIdsQueueReady = true;
@@ -1501,6 +1549,7 @@ async function initArchiver(){
       console.log(chalkInfo("GTS | >+- ARCHIVE | PROGRESS"
         + " | TEST: " + configuration.testMode
         + " | " + tcUtils.getTimeStamp()
+        + " | AUQ: " + archiveUserQueue.length
         + " | APPNDD: " + statsObj.usersAppendedToArchive
         + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
         + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
@@ -1662,10 +1711,13 @@ async function generateGlobalTrainingTestSet(){
 
 setTimeout(async function(){
   try{
+
     const statsInterval = setInterval(function(){
       showStats();
     }, ONE_MINUTE);
+
     configuration = await initialize(configuration);
+    await initArchiveUserQueue();
     await tcUtils.initSaveFileQueue();
     await tcUtils.redisFlush();
     await generateGlobalTrainingTestSet();
