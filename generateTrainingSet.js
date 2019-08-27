@@ -1719,6 +1719,7 @@ setTimeout(async function(){
     }, ONE_MINUTE);
 
     configuration = await initialize(configuration);
+    await tcUtils.redisInit();
     await tcUtils.initSaveFileQueue();
     await tcUtils.redisFlush();
     await generateGlobalTrainingTestSet();
