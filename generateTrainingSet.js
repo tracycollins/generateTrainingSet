@@ -206,11 +206,6 @@ configuration.enableRequiredTrainingSet = false;
 configuration.quitOnComplete = DEFAULT_QUIT_ON_COMPLETE;
 configuration.globalTrainingSetId = GLOBAL_TRAINING_SET_ID;
 
-configuration.archiveFileUploadCompleteFlagFile = "usersZipUploadComplete.json";
-configuration.trainingSetFile = "trainingSet.json";
-configuration.requiredTrainingSetFile = "requiredTrainingSet.txt";
-configuration.userArchiveFile = hostname + "_" + statsObj.startTimeMoment.format(compactDateTimeFormat) + "_users.zip";
-
 configuration.DROPBOX = {};
 
 configuration.DROPBOX.DROPBOX_CONFIG_FILE = process.env.DROPBOX_GTS_CONFIG_FILE || "generateTrainingSetConfig.json";
@@ -219,8 +214,17 @@ configuration.DROPBOX.DROPBOX_GTS_STATS_FILE = process.env.DROPBOX_GTS_STATS_FIL
 const configDefaultFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility/default");
 const configHostFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility", hostname);
 
+const localHistogramsFolder = configHostFolder + "/histograms";
+const defaultHistogramsFolder = configDefaultFolder + "/histograms";
+
 const configDefaultFile = "default_" + configuration.DROPBOX.DROPBOX_CONFIG_FILE;
 const configHostFile = hostname + "_" + configuration.DROPBOX.DROPBOX_CONFIG_FILE;
+
+configuration.archiveFileUploadCompleteFlagFile = "usersZipUploadComplete.json";
+configuration.trainingSetFile = "trainingSet.json";
+configuration.requiredTrainingSetFile = "requiredTrainingSet.txt";
+configuration.userArchiveFile = hostname + "_" + statsObj.startTimeMoment.format(compactDateTimeFormat) + "_users.zip";
+
 
 configuration.local = {};
 configuration.local.trainingSetsFolder = path.join(configHostFolder, "trainingSets");
@@ -1718,7 +1722,25 @@ setTimeout(async function(){
     await tcUtils.initSaveFileQueue();
     await tcUtils.redisFlush();
     await generateGlobalTrainingTestSet();
-    await tcUtils.saveGlobalHistograms({rootFolder: configuration.userArchiveFolder, pruneFlag: true});
+
+    let rootFolder;
+
+    if (configuration.testMode) {
+      rootFolder = (hostname == PRIMARY_HOST) 
+      ? defaultHistogramsFolder + "_test/types/" 
+      : localHistogramsFolder + "_test/types/";
+    }
+    else {
+      rootFolder = (hostname == PRIMARY_HOST) 
+      ? defaultHistogramsFolder + "/types/" 
+      : localHistogramsFolder + "/types/";
+    }
+
+    console.log(chalkInfo("TFE | ... SAVING HISTOGRAMS"));
+
+    await tcUtils.saveGlobalHistograms({rootFolder: rootFolder});
+
+    await tcUtils.saveGlobalHistograms({rootFolder: rootFolder, pruneFlag: true});
     tcUtils.redisFlush();
     tcUtils.redisQuit();
     clearInterval(categorizedNodeIdsQueueInterval);
