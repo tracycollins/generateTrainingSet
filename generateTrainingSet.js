@@ -1039,6 +1039,7 @@ async function updateCategorizedUser(params){
   }
 }
 
+let categorizedNodeIdsQueueInterval;
 const categorizedNodeIdsQueue = [];
 let categorizedNodeIdsQueueReady = false;
 
@@ -1048,7 +1049,10 @@ function initCategorizedNodeIdsQueue(params){
 
     const interval = params.interval || 20;
 
-    console.log(chalkInfo("GTS | ... UPDATING " + statsObj.archiveTotal + " CATEGORIZED USERS ..."));
+    console.log(chalkInfo("GTS | INIT CATEGORIZE NODE IDS QUEUE"
+      + " | " + statsObj.archiveTotal + " CATEGORIZED USERS"
+      + " | INTERVAL: " + msToTime(interval)
+    ));
 
     statsObj.status = "UPDATE CATEGORIZED USERS";
 
@@ -1064,7 +1068,7 @@ function initCategorizedNodeIdsQueue(params){
 
     categorizedNodeIdsQueueReady = true;
 
-    setInterval(async function(){
+    categorizedNodeIdsQueueInterval = setInterval(async function(){
 
       if (categorizedNodeIdsQueueReady && (categorizedNodeIdsQueue.length > 0)){
 
@@ -1084,7 +1088,6 @@ function initCategorizedNodeIdsQueue(params){
               + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
               + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + " ]"
               + " | USER ID: " + nodeId
-              // + " | @" + user.screenName
             ));
 
             categorizedNodeIdsQueueReady = true;
@@ -1151,7 +1154,6 @@ function initCategorizedNodeIdsQueue(params){
 }
 
 function categoryCursor(params){
-
   return new Promise(function(resolve, reject){
 
     let more = true;
@@ -1207,13 +1209,17 @@ function categoryCursor(params){
 
             // Object.keys(results.obj).forEach(function(nodeId){
             for (const nodeId of Object.keys(results.obj)){
+
               if (results.obj[nodeId].category) { 
+
                 totalQueued += 1;
                 categorizedNodeIdsQueue.push(nodeId);
+
                 if (configuration.testMode && totalQueued >= configuration.maxTestCount) {
                   console.log(chalkAlert("GTS | *** TEST MODE | MAX TEST QUEUED: " + totalQueued));
                   break;
                 }
+
               }
               else {
                 console.log(chalkAlert("GTS | ??? UNCATEGORIZED USER FROM DB\n" + tcUtils.jsonPrint(results.obj[nodeId])));
@@ -1231,7 +1237,6 @@ function categoryCursor(params){
                 + " / " + totalMismatched + " MISMATCHED"
                 + " | " + totalMatchRate.toFixed(2) + "% MATCHRATE"
               ));
-
             }
 
             params.skip += results.count;
@@ -1265,13 +1270,10 @@ function categoryCursor(params){
           console.log(chalkError("GTS | INIT CATEGORIZED USER HASHMAP ERROR: " + err + "\n" + tcUtils.jsonPrint(err)));
           return reject(err);
         }
-
         console.log(chalkBlueBold("GTS | INIT CATEGORIZED USERS: " + totalCount));
-
         resolve();
       }
     );
-
   });
 }
 
@@ -1703,6 +1705,7 @@ setTimeout(async function(){
     await tcUtils.saveGlobalHistograms({rootFolder: configuration.userArchiveFolder});
     tcUtils.redisFlush();
     tcUtils.redisQuit();
+    clearInterval(categorizedNodeIdsQueueInterval);
     console.log(chalkBlueBold("GTS | XXX MAIN END XXX "));
   }
   catch(err){
