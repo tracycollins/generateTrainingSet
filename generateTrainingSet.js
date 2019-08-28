@@ -1,8 +1,8 @@
 /*jslint node: true */
 /*jshint sub:true*/
 
+const DEFAULT_PROMISE_POOL_CONCURRENCY = 10;
 const TEST_MODE_LENGTH = 100;
-const DEFAULT_INTERVAL = 0.5;
 
 const catUsersQuery = { 
   "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
@@ -74,6 +74,8 @@ const fileLockOptions = {
   wait: DEFAULT_FILELOCK_WAIT
 };
 
+const PromisePool = require("es6-promise-pool");
+
 const path = require("path");
 const moment = require("moment");
 const lockFile = require("lockfile");
@@ -133,6 +135,8 @@ statsObj.archiveOpen = false;
 statsObj.archiveModifiedMoment = moment("2010-01-01");
 statsObj.endAppendUsersFlag = false;
 
+statsObj.initCategorizedNodeIdsQueueFlag = false;
+
 statsObj.archiveEntries = 0;
 statsObj.archiveTotal = 0;
 statsObj.archiveElapsed = 0;
@@ -186,7 +190,6 @@ let slackText = "";
 let initMainInterval;
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
-configuration.categorizedNodeIdsQueueInterval = DEFAULT_INTERVAL;
 configuration.verbose = false;
 configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
@@ -197,7 +200,7 @@ let hostConfiguration = {}; // host-specific configuration for GTS
 
 configuration.serverMode = DEFAULT_SERVER_MODE;
 
-console.log(chalkLog("GTS | SERVER MODE: " + configuration.serverMode));
+console.log(chalkLog(MODULE_ID_PREFIX + " | SERVER MODE: " + configuration.serverMode));
 
 configuration.processName = process.env.GTS_PROCESS_NAME || "node_gts";
 
@@ -255,11 +258,11 @@ const DEFAULT_RUN_ID = hostname + "_" + process.pid + "_" + statsObj.startTimeMo
 
 if (process.env.GTS_RUN_ID !== undefined) {
   statsObj.runId = process.env.GTS_RUN_ID;
-  console.log(chalkLog("GTS | ENV RUN ID: " + statsObj.runId));
+  console.log(chalkLog(MODULE_ID_PREFIX + " | ENV RUN ID: " + statsObj.runId));
 }
 else {
   statsObj.runId = DEFAULT_RUN_ID;
-  console.log(chalkLog("GTS | DEFAULT RUN ID: " + statsObj.runId));
+  console.log(chalkLog(MODULE_ID_PREFIX + " | DEFAULT RUN ID: " + statsObj.runId));
 }
 
 const categorizedUserHistogram = {};
@@ -300,7 +303,7 @@ function slackPostMessage(channel, text, callback){
   const offlineMode = configuration.offlineMode || false;
 
   if (offlineMode) {
-    console.log(chalkAlert("GTS | SLACK DISABLED"
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | SLACK DISABLED"
       + " | OFFLINE_MODE: " + configuration.offlineMode
       + " | SERVER CONNECTED: " + statsObj.serverConnected
     ));
@@ -317,7 +320,7 @@ function slackPostMessage(channel, text, callback){
     channel: channel
   }, function(err, response){
     if (err){
-      console.error(chalkError("GTS | *** SLACK POST MESSAGE ERROR"
+      console.error(chalkError(MODULE_ID_PREFIX + " | *** SLACK POST MESSAGE ERROR"
         + " | CH: " + channel
         + "\nGTS | TEXT: " + text
         + "\nGTS | ERROR: " + err
@@ -349,11 +352,11 @@ const optionDefinitions = [
 ];
 
 const commandLineConfig = commandLineArgs(optionDefinitions);
-console.log(chalkInfo("GTS | COMMAND LINE CONFIG\nGTS | " + tcUtils.jsonPrint(commandLineConfig)));
-console.log("GTS | COMMAND LINE OPTIONS\nGTS | " + tcUtils.jsonPrint(commandLineConfig));
+console.log(chalkInfo(MODULE_ID_PREFIX + " | COMMAND LINE CONFIG\nGTS | " + tcUtils.jsonPrint(commandLineConfig)));
+console.log(MODULE_ID_PREFIX + " | COMMAND LINE OPTIONS\nGTS | " + tcUtils.jsonPrint(commandLineConfig));
 
 if (Object.keys(commandLineConfig).includes("help")) {
-  console.log("GTS |optionDefinitions\n" + tcUtils.jsonPrint(optionDefinitions));
+  console.log(MODULE_ID_PREFIX + " |optionDefinitions\n" + tcUtils.jsonPrint(optionDefinitions));
   quit("help");
 }
 
@@ -361,13 +364,13 @@ process.on("message", function(msg) {
   if (msg === "shutdown") {
     console.log("\n\nGTS | !!!!! RECEIVED PM2 SHUTDOWN !!!!!\n\n***** Closing all connections *****\n\n");
     setTimeout(function() {
-      console.log("GTS | **** Finished closing connections ****"
-        + "\n\n GTS | ***** RELOADING generateTrainingSet.js NOW *****\n\n");
+      console.log(MODULE_ID_PREFIX + " | **** Finished closing connections ****"
+        + "\n\n" + MODULE_ID_PREFIX + " | ***** RELOADING generateTrainingSet.js NOW *****\n\n");
       process.exit(0);
     }, 1500);
   }
   else {
-    console.log("GTS | R<\n" + tcUtils.jsonPrint(msg));
+    console.log(MODULE_ID_PREFIX + " | R<\n" + tcUtils.jsonPrint(msg));
   }
 });
 
@@ -395,12 +398,12 @@ testObj.testSet = [];
 
 process.title = "node_gts";
 console.log("\n\nGTS | =================================");
-console.log("GTS | HOST:          " + hostname);
-console.log("GTS | PROCESS TITLE: " + process.title);
-console.log("GTS | PROCESS ID:    " + process.pid);
-console.log("GTS | RUN ID:        " + statsObj.runId);
-console.log("GTS | PROCESS ARGS:  " + util.inspect(process.argv, {showHidden: false, depth: 1}));
-console.log("GTS | =================================");
+console.log(MODULE_ID_PREFIX + " | HOST:          " + hostname);
+console.log(MODULE_ID_PREFIX + " | PROCESS TITLE: " + process.title);
+console.log(MODULE_ID_PREFIX + " | PROCESS ID:    " + process.pid);
+console.log(MODULE_ID_PREFIX + " | RUN ID:        " + statsObj.runId);
+console.log(MODULE_ID_PREFIX + " | PROCESS ARGS:  " + util.inspect(process.argv, {showHidden: false, depth: 1}));
+console.log(MODULE_ID_PREFIX + " | =================================");
 
 // ==================================================================
 // DROPBOX
@@ -419,17 +422,17 @@ const statsFile = "generateTrainingSetStats_" + statsObj.runId + ".json";
 debug("statsFolder : " + statsFolder);
 debug("statsFile : " + statsFile);
 
-console.log("GTS | DROPBOX_GTS_CONFIG_FILE: " + configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE);
-console.log("GTS | DROPBOX_GTS_STATS_FILE : " + configuration.DROPBOX.DROPBOX_GTS_STATS_FILE);
+console.log(MODULE_ID_PREFIX + " | DROPBOX_GTS_CONFIG_FILE: " + configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE);
+console.log(MODULE_ID_PREFIX + " | DROPBOX_GTS_STATS_FILE : " + configuration.DROPBOX.DROPBOX_GTS_STATS_FILE);
 
 debug("dropboxConfigFolder : " + dropboxConfigFolder);
 debug("dropboxConfigHostFolder : " + dropboxConfigHostFolder);
 debug("dropboxConfigDefaultFile : " + dropboxConfigDefaultFile);
 debug("dropboxConfigHostFile : " + dropboxConfigHostFile);
 
-debug("GTS | DROPBOX_WORD_ASSO_ACCESS_TOKEN :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN);
-debug("GTS | DROPBOX_WORD_ASSO_APP_KEY :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_KEY);
-debug("GTS | DROPBOX_WORD_ASSO_APP_SECRET :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_SECRET);
+debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_ACCESS_TOKEN :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN);
+debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_KEY :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_KEY);
+debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_SECRET :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_SECRET);
 
 global.globalDbConnection = false;
 const mongoose = require("mongoose");
@@ -462,10 +465,10 @@ function showStats(options){
 
 
   if (options) {
-    console.log("GTS | STATS\nGTS | " + tcUtils.jsonPrint(statsObjSmall));
+    console.log(MODULE_ID_PREFIX + " | STATS\nGTS | " + tcUtils.jsonPrint(statsObjSmall));
   }
   else {
-    console.log(chalkLog("GTS | ============================================================"
+    console.log(chalkLog(MODULE_ID_PREFIX + " | ============================================================"
       + "\nGTS | S"
       + " | STATUS: " + statsObj.status
       + " | CPUs: " + statsObj.cpus
@@ -478,7 +481,7 @@ function showStats(options){
 
     categorizedUserHistogramTotal();
 
-    console.log(chalkLog("GTS | CL U HIST"
+    console.log(chalkLog(MODULE_ID_PREFIX + " | CL U HIST"
       + " | TOTAL: " + categorizedUserHistogram.total
       + " | L: " + categorizedUserHistogram.left
       + " | R: " + categorizedUserHistogram.right
@@ -488,9 +491,8 @@ function showStats(options){
       + " | 0: " + categorizedUserHistogram.none
     ));
 
-    console.log(chalkInfo("GTS | ============================================================"
+    console.log(chalkInfo(MODULE_ID_PREFIX + " | ============================================================"
       + "\nGTS | >+- ARCHIVE | PROGRESS"
-      + " | TEST: " + configuration.testMode
       + " | " + tcUtils.getTimeStamp()
       + " | APPNDD: " + statsObj.usersAppendedToArchive
       + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
@@ -507,7 +509,7 @@ function showStats(options){
 
 function quit(options){
 
-  console.log(chalkAlert("GTS | QUITTING ..." ));
+  console.log(chalkAlert(MODULE_ID_PREFIX + " | QUITTING ..." ));
 
   clearInterval(initMainInterval);
 
@@ -522,7 +524,7 @@ function quit(options){
       slackText = "\n*" + statsObj.runId + "*";
       slackText = slackText + " | RUN " + tcUtils.msToTime(statsObj.elapsed);
       slackText = slackText + " | QUIT CAUSE: " + options;
-      debug("GTS | SLACK TEXT: " + slackText);
+      debug(MODULE_ID_PREFIX + " | SLACK TEXT: " + slackText);
       slackPostMessage(slackChannel, slackText);
     }
   }
@@ -531,9 +533,9 @@ function quit(options){
 
   setTimeout(function(){
     console.log(chalkBlueBold(
-          "GTS | ================"
-      + "\nGTS | *** QUIT GTS ***"
-      + "\nGTS | ================"
+               MODULE_ID_PREFIX + " | =================================="
+      + "\n" + MODULE_ID_PREFIX + " | *** QUIT GENERATE TRAINING SET ***"
+      + "\n" + MODULE_ID_PREFIX + " | =================================="
     ));
     process.exit();
   }, 1000);
@@ -618,7 +620,7 @@ function initStdIn(){
 
   return new Promise(function(resolve){
 
-    console.log("GTS | STDIN ENABLED");
+    console.log(MODULE_ID_PREFIX + " | STDIN ENABLED");
 
     stdin = process.stdin;
     if(stdin.setRawMode !== undefined) {
@@ -634,7 +636,7 @@ function initStdIn(){
         break;
         case "v":
           configuration.verbose = !configuration.verbose;
-          console.log(chalkRedBold("GTS | VERBOSE: " + configuration.verbose));
+          console.log(chalkRedBold(MODULE_ID_PREFIX + " | VERBOSE: " + configuration.verbose));
         break;
         case "q":
           quit();
@@ -673,7 +675,7 @@ function loadCommandLineArgs(){
 
     commandLineConfigKeys.forEach(function(arg){
       configuration[arg] = commandLineConfig[arg];
-      console.log("GTS | --> COMMAND LINE CONFIG | " + arg + ": " + configuration[arg]);
+      console.log(MODULE_ID_PREFIX + " | --> COMMAND LINE CONFIG | " + arg + ": " + configuration[arg]);
     });
 
     statsObj.commandLineArgsLoaded = true;
@@ -716,7 +718,7 @@ async function loadConfigFile(params) {
     console.log(chalkInfo(MODULE_ID_PREFIX + " | LOADED CONFIG FILE: " + params.file + "\n" + tcUtils.jsonPrint(loadedConfigObj)));
 
     if (loadedConfigObj.GTS_TEST_MODE !== undefined){
-      console.log("GTS | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE);
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE);
 
       if ((loadedConfigObj.GTS_TEST_MODE === true) || (loadedConfigObj.GTS_TEST_MODE === "true")) {
         newConfiguration.testMode = true;
@@ -728,12 +730,12 @@ async function loadConfigFile(params) {
         newConfiguration.testMode = false;
       }
 
-      console.log("GTS | LOADED newConfiguration.testMode: " + newConfiguration.testMode);
+      console.log(MODULE_ID_PREFIX + " | LOADED newConfiguration.testMode: " + newConfiguration.testMode);
     }
 
 
     if (loadedConfigObj.GTS_OFFLINE_MODE !== undefined){
-      console.log("GTS | LOADED GTS_OFFLINE_MODE: " + loadedConfigObj.GTS_OFFLINE_MODE);
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_OFFLINE_MODE: " + loadedConfigObj.GTS_OFFLINE_MODE);
 
       if ((loadedConfigObj.GTS_OFFLINE_MODE === false) || (loadedConfigObj.GTS_OFFLINE_MODE === "false")) {
         newConfiguration.offlineMode = false;
@@ -747,7 +749,7 @@ async function loadConfigFile(params) {
     }
 
     if (loadedConfigObj.GTS_QUIT_ON_COMPLETE !== undefined) {
-      console.log("GTS | LOADED GTS_QUIT_ON_COMPLETE: " + loadedConfigObj.GTS_QUIT_ON_COMPLETE);
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_QUIT_ON_COMPLETE: " + loadedConfigObj.GTS_QUIT_ON_COMPLETE);
       if (!loadedConfigObj.GTS_QUIT_ON_COMPLETE || (loadedConfigObj.GTS_QUIT_ON_COMPLETE === "false")) {
         newConfiguration.quitOnComplete = false;
       }
@@ -757,12 +759,12 @@ async function loadConfigFile(params) {
     }
 
     if (loadedConfigObj.GTS_VERBOSE_MODE !== undefined){
-      console.log("GTS | LOADED GTS_VERBOSE_MODE: " + loadedConfigObj.GTS_VERBOSE_MODE);
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_VERBOSE_MODE: " + loadedConfigObj.GTS_VERBOSE_MODE);
       newConfiguration.verbose = loadedConfigObj.GTS_VERBOSE_MODE;
     }
 
     if (loadedConfigObj.GTS_ENABLE_STDIN !== undefined){
-      console.log("GTS | LOADED GTS_ENABLE_STDIN: " + loadedConfigObj.GTS_ENABLE_STDIN);
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_ENABLE_STDIN: " + loadedConfigObj.GTS_ENABLE_STDIN);
       newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
     }
 
@@ -812,7 +814,7 @@ async function loadAllConfigFiles(cnf){
 }
 
 configEvents.once("INIT_MONGODB", function(){
-  console.log(chalkLog("GTS | INIT_MONGODB"));
+  console.log(chalkLog(MODULE_ID_PREFIX + " | INIT_MONGODB"));
 });
 
 async function updateMaxInputHashMap(params){
@@ -857,7 +859,7 @@ async function updateMaxInputHashMap(params){
 async function updateCategorizedUser(params){
 
   if (!params.nodeId || params.nodeId === undefined) {
-    console.error(chalkError("GTS | *** UPDATE CATEGORIZED USERS: NODE ID UNDEFINED"));
+    console.error(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: NODE ID UNDEFINED"));
     statsObj.errors.users.findOne += 1;
     throw new Error("NODE ID UNDEFINED");
   }
@@ -866,20 +868,20 @@ async function updateCategorizedUser(params){
     const dbUser = await global.globalUser.findOne({ nodeId: params.nodeId }).lean().exec();
 
     if (!dbUser || dbUser === undefined){
-      console.log(chalkLog("GTS | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + params.nodeId));
+      console.log(chalkLog(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + params.nodeId));
       statsObj.users.notFound += 1;
       statsObj.users.notCategorized += 1;
       return;
     }
 
     if (!dbUser.category || dbUser.category === undefined) {
-      console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED | UID: " + dbUser.nodeId));
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED | UID: " + dbUser.nodeId));
       statsObj.users.notCategorized += 1;
       return;
     }
 
     if (dbUser.screenName === undefined) {
-      console.log(chalkError("GTS | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED | UID: " + dbUser.nodeId));
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED | UID: " + dbUser.nodeId));
       statsObj.users.screenNameUndefined += 1;
       statsObj.users.notCategorized += 1;
       return;
@@ -901,7 +903,7 @@ async function updateCategorizedUser(params){
 
       if (user.profileHistograms.sentiment.magnitude !== undefined){
         if (user.profileHistograms.sentiment.magnitude < 0){
-          console.log(chalkAlert("GTS | !!! NORMALIZATION MAG LESS THAN 0 | CLAMPED: " + user.profileHistograms.sentiment.magnitude));
+          console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! NORMALIZATION MAG LESS THAN 0 | CLAMPED: " + user.profileHistograms.sentiment.magnitude));
           user.profileHistograms.sentiment.magnitude = 0;
         }
         statsObj.normalization.magnitude.max = Math.max(statsObj.normalization.magnitude.max, user.profileHistograms.sentiment.magnitude);
@@ -909,12 +911,12 @@ async function updateCategorizedUser(params){
 
       if (user.profileHistograms.sentiment.score !== undefined){
         if (user.profileHistograms.sentiment.score < -1.0){
-          console.log(chalkAlert("GTS | !!! NORMALIZATION SCORE LESS THAN -1.0 | CLAMPED: " + user.profileHistograms.sentiment.score));
+          console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! NORMALIZATION SCORE LESS THAN -1.0 | CLAMPED: " + user.profileHistograms.sentiment.score));
           user.profileHistograms.sentiment.score = -1.0;
         }
 
         if (user.profileHistograms.sentiment.score > 1.0){
-          console.log(chalkAlert("GTS | !!! NORMALIZATION SCORE GREATER THAN 1.0 | CLAMPED: " + user.profileHistograms.sentiment.score));
+          console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! NORMALIZATION SCORE GREATER THAN 1.0 | CLAMPED: " + user.profileHistograms.sentiment.score));
           user.profileHistograms.sentiment.score = 1.0;
         }
 
@@ -984,7 +986,7 @@ async function updateCategorizedUser(params){
 
       categorizedUserHistogramTotal();
 
-      console.log(chalkLog("GTS | CATEGORIZED"
+      console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
         + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + statsObj.archiveTotal
         + " (" + categorizedUsersPercent.toFixed(1) + "%)"
         + " | TOTAL: " + categorizedUserHistogram.total
@@ -1001,28 +1003,152 @@ async function updateCategorizedUser(params){
 
   }
   catch(err){
-    console.error(chalkError("GTS | *** UPDATE CATEGORIZED USER ERROR: " + err));
+    console.error(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USER ERROR: " + err));
     statsObj.errors.users.findOne += 1;
     throw err;
   }
 }
 
-let categorizedNodeIdsQueueInterval;
 const categorizedNodeIdsQueue = [];
-let categorizedNodeIdsQueueReady = false;
 
-function initCategorizedNodeIdsQueue(params){
+let userIndex = 0;
 
-  return new Promise(function(resolve){
+const catorizeUser = function (params){
+  return new Promise(function(resolve, reject){
+    updateCategorizedUser({nodeId: params.nodeId})
+    .then(function(user){
+      if (!user) {
 
-    const interval = params.interval || 20;
+        statsObj.userErrorCount += 1;
 
-    console.log(chalkInfo("GTS | INIT CATEGORIZE NODE IDS QUEUE"
-      + " | " + statsObj.archiveTotal + " CATEGORIZED USERS"
-      + " | INTERVAL: " + interval + " MS"
+        console.log(chalkAlert(MODULE_ID_PREFIX + " | *** UPDATE CL USR NOT FOUND: "
+          + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
+          + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + " ]"
+          + " | USER ID: " + params.nodeId
+        ));
+
+        resolve();
+      }
+      else {
+
+        userIndex += 1;
+
+        tcUtils.updateGlobalHistograms({user: user})
+        .then(function(){
+          const subUser = pick(
+            user,
+            [
+              "userId", 
+              "screenName", 
+              "nodeId", 
+              "name",
+              "lang",
+              "statusesCount",
+              "followersCount",
+              "friendsCount",
+              "friends",
+              "languageAnalysis", 
+              "category", 
+              "categoryAuto", 
+              "histograms", 
+              "profileHistograms", 
+              "tweetHistograms", 
+              "location", 
+              "ignored", 
+              "following", 
+              "threeceeFollowing"
+            ]
+          );
+
+          if (params.verbose || params.testMode) {
+            console.log(chalkInfo(MODULE_ID_PREFIX + " | -<- UPDATE CL USR <DB"
+              + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
+              + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + "]"
+              + " | " + user.nodeId
+              + " | @" + user.screenName
+            ));
+          }
+
+          if (statsObj.archiveStartMoment === 0) { statsObj.archiveStartMoment = moment(); }
+
+          archiveUser({user: subUser})
+          .then(function(){
+            resolve(subUser);
+          })
+          .catch(function(err){
+            return reject(err);
+          })
+        })
+        .catch(function(err){
+          return reject(err);
+        });
+
+      }
+    })
+    .catch(function(err){
+      console.log(chalkError(MODULE_ID_PREFIX
+        + " | *** UPDATE CATEGORIZED USER ERROR | USER ID: " + params.nodeId 
+        + " | ERROR: " + err
+      ));
+      return reject(err);
+    });
+  });
+}
+
+const catorizeUserPromiseProducer = function (){
+
+  if (categorizedNodeIdsQueue.length > 0) {
+    const nodeId = categorizedNodeIdsQueue.shift();
+    return catorizeUser({nodeId: nodeId});
+  }
+  else{
+    return null;
+  }
+
+}
+
+// The number of promises to process simultaneously.
+configuration.promisePoolConcurrency = DEFAULT_PROMISE_POOL_CONCURRENCY;
+const promisePoolConcurrency = configuration.promisePoolConcurrency;
+ 
+// Create a pool.
+const catorizeUserPromisePool = new PromisePool(catorizeUserPromiseProducer, promisePoolConcurrency);
+
+catorizeUserPromisePool.addEventListener("fulfilled", function(event) {
+  // The event contains:
+  // - target:    the PromisePool itself
+  // - data:
+  //   - promise: the Promise that got fulfilled
+  //   - result:  the result of that Promise
+  if (configuration.verbose || configuration.testMode){
+    console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ CATEGORIZE USER POOL FULFILLED"
+      + " | @" + event.data.result.screenName
+      // + "\n" + tcUtils.jsonPrint(event.data.result)
+    ));
+  }
+});
+
+catorizeUserPromisePool.addEventListener("rejected", function(event) {
+  // The event contains:
+  // - target:    the PromisePool itself
+  // - data:
+  //   - promise: the Promise that got rejected
+  //   - error:   the Error for the rejection
+  console.log(chalkAlert(MODULE_ID_PREFIX + " | *** CATEGORIZE USER POOL REJECTED"
+    + " | " + event.data.error.message
+  ));
+});
+
+function initCategorizeUserPool(){
+
+  return new Promise(function(resolve, reject){
+
+    console.log(chalkInfo(MODULE_ID_PREFIX + " | ... INIT CATEGORIZE USER POOL"
+      + " | POOL SIZE: " + configuration.promisePoolConcurrency
+      + " | " + statsObj.archiveTotal + " USERS"
     ));
 
-    statsObj.status = "UPDATE CATEGORIZED USERS";
+    statsObj.status = "INIT CATEGORIZE USER POOL";
 
     statsObj.normalization.magnitude.max = -Infinity;
     statsObj.normalization.score.min = 1.0;
@@ -1032,91 +1158,21 @@ function initCategorizedNodeIdsQueue(params){
     statsObj.users.updatedCategorized = 0;
     statsObj.users.notCategorized = 0;
 
-    let userIndex = 0;
+    // Start the pool.
+    const catorizeUserPromise = catorizeUserPromisePool.start();
 
-    categorizedNodeIdsQueueReady = true;
-
-    categorizedNodeIdsQueueInterval = setInterval(async function(){
-
-      if (categorizedNodeIdsQueueReady && (categorizedNodeIdsQueue.length > 0)){
-
-        categorizedNodeIdsQueueReady = false;
-
-        const nodeId = categorizedNodeIdsQueue.shift();
-
-        try{
-
-          const user = await updateCategorizedUser({nodeId: nodeId});
-
-          if (!user) {
-
-            statsObj.userErrorCount += 1;
-
-            console.log(chalkAlert("GTS | *** UPDATE CL USR NOT FOUND: "
-              + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
-              + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + " ]"
-              + " | USER ID: " + nodeId
-            ));
-
-            categorizedNodeIdsQueueReady = true;
-          }
-          else {
-
-            userIndex += 1;
-
-            await tcUtils.updateGlobalHistograms({user: user});
-
-            const subUser = pick(
-              user,
-              [
-                "userId", 
-                "screenName", 
-                "nodeId", 
-                "name",
-                "lang",
-                "statusesCount",
-                "followersCount",
-                "friendsCount",
-                "friends",
-                "languageAnalysis", 
-                "category", 
-                "categoryAuto", 
-                "histograms", 
-                "profileHistograms", 
-                "tweetHistograms", 
-                "location", 
-                "ignored", 
-                "following", 
-                "threeceeFollowing"
-              ]
-            );
-
-            if (configuration.verbose || configuration.testMode) {
-              console.log(chalkInfo("GTS | -<- UPDATE CL USR <DB"
-                + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
-                + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + "]"
-                + " | " + user.nodeId
-                + " | @" + user.screenName
-              ));
-            }
-
-            if (statsObj.archiveStartMoment === 0) { statsObj.archiveStartMoment = moment(); }
-
-            await archiveUser({user: subUser});
-
-            categorizedNodeIdsQueueReady = true;
-          }
-        }
-        catch(err){
-          console.log(chalkError("GTS | *** UPDATE CATEGORIZED USER ERROR | USER ID: " + nodeId + " | ERROR: " + err));
-          categorizedNodeIdsQueueReady = true;
-        }
-
-      }
-
-    }, interval);
-
-    resolve();
+    // Wait for the pool to settle.
+    catorizeUserPromise.then(function () {
+      console.log(chalkGreen(
+        "====================================================\n"
+        + MODULE_ID_PREFIX + " | CATEGORIZED USER POOL COMPLETE\n"
+        + "====================================================\n"
+      ));
+      resolve();
+    }, function (err) {
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** CATEGORIZED USER POOL ERROR: " + err));
+      reject(err);
+    })
 
   });
 }
@@ -1142,14 +1198,14 @@ function categoryCursor(params){
         userServerController.findCategorizedUsersCursor(params, function(err, results){
 
           if (err) {
-            console.error(chalkError("GTS | ERROR: initCategorizedNodeIds: " + err));
+            console.error(chalkError(MODULE_ID_PREFIX + " | ERROR: initCategorizedNodeIds: " + err));
             cb(err);
           }
           else if (configuration.testMode && (totalCount >= configuration.maxTestCount)) {
 
             more = false;
 
-            console.log(chalkAlert("GTS | +++ LOADED CATEGORIZED USERS FROM DB"
+            console.log(chalkAlert(MODULE_ID_PREFIX + " | +++ LOADED CATEGORIZED USERS FROM DB"
               + " | *** TEST MODE ***"
               + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
               + " | TOTAL CATEGORIZED: " + totalCount
@@ -1175,7 +1231,6 @@ function categoryCursor(params){
 
             totalMatchRate = 100*(totalMatched/totalCount);
 
-            // Object.keys(results.obj).forEach(function(nodeId){
             for (const nodeId of Object.keys(results.obj)){
 
               if (results.obj[nodeId].category) { 
@@ -1183,20 +1238,26 @@ function categoryCursor(params){
                 totalQueued += 1;
                 categorizedNodeIdsQueue.push(nodeId);
 
+
                 if (configuration.testMode && totalQueued >= configuration.maxTestCount) {
-                  console.log(chalkAlert("GTS | *** TEST MODE | MAX TEST QUEUED: " + totalQueued));
+                  console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE | MAX TEST QUEUED: " + totalQueued));
                   break;
                 }
 
               }
               else {
-                console.log(chalkAlert("GTS | ??? UNCATEGORIZED USER FROM DB\n" + tcUtils.jsonPrint(results.obj[nodeId])));
+                console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNCATEGORIZED USER FROM DB\n" + tcUtils.jsonPrint(results.obj[nodeId])));
               }
+            }
+
+            if (!statsObj.initCategorizedNodeIdsQueueFlag) { 
+              configEvents.emit("CATEGORIZED_NODE_IDS_QUEUE");
+              statsObj.initCategorizedNodeIdsQueueFlag = true;
             }
 
             if (configuration.verbose || (totalCount % 1000 === 0)) {
 
-              console.log(chalkLog("GTS | ... LOADING CATEGORIZED USERS FROM DB"
+              console.log(chalkLog(MODULE_ID_PREFIX + " | ... LOADING CATEGORIZED USERS FROM DB"
                 + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
                 + " | TOTAL: " + totalCount
                 + " | " + totalManual + " MAN"
@@ -1215,7 +1276,7 @@ function categoryCursor(params){
 
             more = false;
 
-            console.log(chalkGreen("GTS | +++ LOADED CATEGORIZED USERS FROM DB"
+            console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ LOADED CATEGORIZED USERS FROM DB"
               + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
               + " | TOTAL CATEGORIZED: " + totalCount
               + " | LIMIT: " + params.limit
@@ -1235,10 +1296,10 @@ function categoryCursor(params){
 
       function(err){
         if (err) {
-          console.log(chalkError("GTS | INIT CATEGORIZED USER HASHMAP ERROR: " + err + "\n" + tcUtils.jsonPrint(err)));
+          console.log(chalkError(MODULE_ID_PREFIX + " | INIT CATEGORIZED USER HASHMAP ERROR: " + err + "\n" + tcUtils.jsonPrint(err)));
           return reject(err);
         }
-        console.log(chalkBlueBold("GTS | INIT CATEGORIZED USERS: " + totalCount));
+        console.log(chalkBlueBold(MODULE_ID_PREFIX + " | INIT CATEGORIZED USERS: " + totalCount));
         resolve();
       }
     );
@@ -1249,7 +1310,7 @@ async function initCategorizedNodeIds(){
 
   statsObj.status = "INIT CATEGORIZED NODE IDS";
 
-  console.log(chalkInfo("GTS | ... INIT CATEGORIZED NODE IDs ..."));
+  console.log(chalkInfo(MODULE_ID_PREFIX + " | ... INIT CATEGORIZED NODE IDs ..."));
 
   const p = {};
 
@@ -1281,7 +1342,7 @@ async function archiveUser(params){
     statsObj.usersAppendedToArchive += 1;
 
     if (configuration.verbose) {
-      console.log(chalkLog("GTS | >-- ARCHIVE | USER"
+      console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | USER"
         + " [" + statsObj.usersAppendedToArchive + " APPENDED]"
         + " | @" + params.user.screenName
       ));
@@ -1289,7 +1350,7 @@ async function archiveUser(params){
     return;
   }
   catch(err){
-    console.log(chalkError("GTS | *** ARCHIVE USER ERROR"
+    console.log(chalkError(MODULE_ID_PREFIX + " | *** ARCHIVE USER ERROR"
       + " [" + statsObj.usersAppendedToArchive + " APPENDED]"
       + " | @" + params.user.screenName
       + " | ERR: " + err
@@ -1306,7 +1367,7 @@ function endAppendUsers(){
     endArchiveUsersInterval = setInterval(function(){
 
       if ((statsObj.usersAppendedToArchive > 0) && (statsObj.archiveRemainUsers <= 0)){
-        console.log(chalkAlert("GTS | XXX END APPEND"
+        console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX END APPEND"
           + " | " + statsObj.archiveTotal + " USERS"
           + " | " + statsObj.usersAppendedToArchive + " APPENDED"
           + " | " + statsObj.usersProcessed + " PROCESSED"
@@ -1333,23 +1394,23 @@ function getFileLock(params){
 
     try {
 
-      console.log(chalkBlue("GTS | ... GET LOCK FILE | " + params.file));
+      console.log(chalkBlue(MODULE_ID_PREFIX + " | ... GET LOCK FILE | " + params.file));
 
       lockFile.lock(params.file, params.options, function(err){
 
         if (err) {
-          console.log(chalkError("GTS | *** FILE LOCK FAIL: " + params.file + "\n" + err));
+          console.log(chalkError(MODULE_ID_PREFIX + " | *** FILE LOCK FAIL: " + params.file + "\n" + err));
           // return reject(err);
           return resolve(false);
         }
 
-        console.log(chalkGreen("GTS | +++ FILE LOCK: " + params.file));
+        console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ FILE LOCK: " + params.file));
         resolve(true);
       });
 
     }
     catch(err){
-      console.log(chalkError("GTS | *** GET FILE LOCK ERROR: " + err));
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** GET FILE LOCK ERROR: " + err));
       return reject(err);
     }
 
@@ -1360,7 +1421,7 @@ function delay(params){
   return new Promise(function(resolve){
 
     if (params.message) {
-      console.log(chalkLog("GTS | " + params.message + " | PERIOD: " + tcUtils.msToTime(params.period)));
+      console.log(chalkLog(MODULE_ID_PREFIX + " | " + params.message + " | PERIOD: " + tcUtils.msToTime(params.period)));
     }
     setTimeout(function(){
       resolve(true);
@@ -1383,11 +1444,11 @@ async function releaseFileLock(params){
   lockFile.unlock(params.file, function(err){
 
     if (err) {
-      console.log(chalkError("GTS | *** FILE UNLOCK FAIL: " + params.file + "\n" + err));
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** FILE UNLOCK FAIL: " + params.file + "\n" + err));
       throw err;
     }
 
-    console.log(chalkLog("GTS | --- FILE UNLOCK: " + params.file));
+    console.log(chalkLog(MODULE_ID_PREFIX + " | --- FILE UNLOCK: " + params.file));
     return true;
 
   });
@@ -1410,7 +1471,7 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userArchivePath){
       configuration.archiveFileUploadCompleteFlagFile = configuration.archiveFileUploadCompleteFlagFile.replace(/\.json/, "_test.json");
     }
 
-    console.log(chalkLog("GTS | ... SAVING FLAG FILE" 
+    console.log(chalkLog(MODULE_ID_PREFIX + " | ... SAVING FLAG FILE" 
       + " | " + configuration.userArchiveFolder + "/" + configuration.archiveFileUploadCompleteFlagFile 
       + " | " + fileSizeInBytes + " B | " + savedSize.toFixed(3) + " MB"
     ));
@@ -1429,7 +1490,7 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userArchivePath){
     quit("DONE");
   }
   catch(err){
-    console.log(chalkError("GTS | *** ARCHIVE_OUTPUT_CLOSED ERROR", err));
+    console.log(chalkError(MODULE_ID_PREFIX + " | *** ARCHIVE_OUTPUT_CLOSED ERROR", err));
     quit();
   }
 
@@ -1443,10 +1504,10 @@ async function initArchiver(){
     userArchivePath = configuration.userArchivePath.replace(/\.zip/, "_test.zip");
   }
 
-  console.log(chalkBlue("GTS | ... INIT ARCHIVER | " + userArchivePath));
+  console.log(chalkBlue(MODULE_ID_PREFIX + " | ... INIT ARCHIVER | " + userArchivePath));
 
   if (archive && archive.isOpen) {
-    console.log(chalkAlert("GTS | ARCHIVE ALREADY OPEN | " + userArchivePath));
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | ARCHIVE ALREADY OPEN | " + userArchivePath));
     return;
   }
 
@@ -1455,7 +1516,7 @@ async function initArchiver(){
   const archiveFileLocked = await getFileLock({file: lockFileName, options: fileLockOptions});
 
   if (!archiveFileLocked) {
-    console.log(chalkAlert("GTS | *** FILE LOCK FAILED | SKIP INIT ARCHIVE: " + userArchivePath));
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | *** FILE LOCK FAILED | SKIP INIT ARCHIVE: " + userArchivePath));
     statsObj.archiveOpen = false;
     return;
   }
@@ -1468,17 +1529,17 @@ async function initArchiver(){
    
   output.on("close", function() {
     const archiveSize = toMegabytes(archive.pointer());
-    console.log(chalkGreen("GTS | XXX ARCHIVE OUTPUT | CLOSED | " + archiveSize.toFixed(2) + " MB"));
+    console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX ARCHIVE OUTPUT | CLOSED | " + archiveSize.toFixed(2) + " MB"));
     configEvents.emit("ARCHIVE_OUTPUT_CLOSED", userArchivePath);
   });
    
   output.on("end", function() {
     const archiveSize = toMegabytes(archive.pointer());
-    console.log(chalkBlueBold("GTS | XXX ARCHIVE OUTPUT | END | " + archiveSize.toFixed(2) + " MB"));
+    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX ARCHIVE OUTPUT | END | " + archiveSize.toFixed(2) + " MB"));
   });
    
   archive.on("warning", function(err) {
-    console.log(chalkAlert("GTS | !!! ARCHIVE | WARNING\n" + tcUtils.jsonPrint(err)));
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! ARCHIVE | WARNING\n" + tcUtils.jsonPrint(err)));
     if (err.code !== "ENOENT") {
       throw err;
     }
@@ -1501,8 +1562,7 @@ async function initArchiver(){
     statsObj.archiveEndMoment.add(statsObj.archiveRemainMS, "ms");
 
     if ((statsObj.usersProcessed % 100 === 0) || configuration.verbose || configuration.testMode) {
-      console.log(chalkInfo("GTS | >+- ARCHIVE | PROGRESS"
-        + " | TEST: " + configuration.testMode
+      console.log(chalkInfo(MODULE_ID_PREFIX + " | >+- ARCHIVE | PROGRESS"
         + " | " + tcUtils.getTimeStamp()
         + " | APPNDD: " + statsObj.usersAppendedToArchive
         + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
@@ -1521,7 +1581,7 @@ async function initArchiver(){
     statsObj.archiveEntries += 1;
 
     if (configuration.verbose || configuration.testMode) {
-      console.log(chalkLog("GTS | >-- ARCHIVE | ENTRY"
+      console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | ENTRY"
         + " [ " + statsObj.usersAppendedToArchive + " APPENDED ]"
         + " [ " + statsObj.archiveEntries + " ENTRIES ]"
         + " | " + entryData.name
@@ -1530,12 +1590,12 @@ async function initArchiver(){
   });
    
   archive.on("close", function() {
-    console.log(chalkBlueBold("GTS | XXX ARCHIVE | CLOSED | " + userArchivePath));
+    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX ARCHIVE | CLOSED | " + userArchivePath));
   });
    
   archive.on("finish", function() {
 
-    console.log(chalkBlueBold("GTS | +++ ARCHIVE | FINISHED | " + tcUtils.getTimeStamp()
+    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | +++ ARCHIVE | FINISHED | " + tcUtils.getTimeStamp()
       + "\nGTS | +++ ARCHIVE | FINISHED | TEST MODE: " + configuration.testMode
       + "\nGTS | +++ ARCHIVE | FINISHED | ARCHIVE:   " + userArchivePath
       + "\nGTS | +++ ARCHIVE | FINISHED | ENTRIES:   " + statsObj.usersAppendedToArchive + "/" + statsObj.archiveTotal + " APPENDED"
@@ -1545,7 +1605,7 @@ async function initArchiver(){
   });
    
   archive.on("error", function(err) {
-    console.log(chalkError("GTS | *** ARCHIVE | ERROR\n" + tcUtils.jsonPrint(err)));
+    console.log(chalkError(MODULE_ID_PREFIX + " | *** ARCHIVE | ERROR\n" + tcUtils.jsonPrint(err)));
     throw err;
   });
    
@@ -1573,7 +1633,7 @@ async function initialize(cnf){
   cnf.enableStdin = process.env.GTS_ENABLE_STDIN || true;
 
   if (process.env.GTS_QUIT_ON_COMPLETE !== undefined) {
-    console.log("GTS | ENV GTS_QUIT_ON_COMPLETE: " + process.env.GTS_QUIT_ON_COMPLETE);
+    console.log(MODULE_ID_PREFIX + " | ENV GTS_QUIT_ON_COMPLETE: " + process.env.GTS_QUIT_ON_COMPLETE);
     if (!process.env.GTS_QUIT_ON_COMPLETE || (process.env.GTS_QUIT_ON_COMPLETE === false) || (process.env.GTS_QUIT_ON_COMPLETE === "false")) {
       cnf.quitOnComplete = false;
     }
@@ -1598,10 +1658,10 @@ async function initialize(cnf){
 
   configArgs.forEach(function(arg){
     if (_.isObject(configuration[arg])) {
-      console.log("GTS | _FINAL CONFIG | " + arg + "\n" + tcUtils.jsonPrint(configuration[arg]));
+      console.log(MODULE_ID_PREFIX + " | _FINAL CONFIG | " + arg + "\n" + tcUtils.jsonPrint(configuration[arg]));
     }
     else {
-      console.log("GTS | _FINAL CONFIG | " + arg + ": " + configuration[arg]);
+      console.log(MODULE_ID_PREFIX + " | _FINAL CONFIG | " + arg + ": " + configuration[arg]);
     }
   });
   
@@ -1616,24 +1676,30 @@ async function generateGlobalTrainingTestSet(){
 
   statsObj.status = "GENERATE TRAINING SET";
 
-  console.log(chalkBlueBold("GTS | ==================================================================="));
-  console.log(chalkBlueBold("GTS | GENERATE TRAINING SET | " + tcUtils.getTimeStamp()));
-  console.log(chalkBlueBold("GTS | ==================================================================="));
+  console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
+  console.log(chalkBlueBold(MODULE_ID_PREFIX + " | GENERATE TRAINING SET | " + tcUtils.getTimeStamp()));
+  console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
 
   statsObj.totalCategorizedUsersInDB = await global.globalUser.find(catUsersQuery).countDocuments().exec();
   statsObj.archiveTotal = statsObj.totalCategorizedUsersInDB;
 
-  console.log(chalkBlue("GTS | CATEGORIZED USERS IN DB: " + statsObj.totalCategorizedUsersInDB));
+  console.log(chalkBlue(MODULE_ID_PREFIX + " | CATEGORIZED USERS IN DB: " + statsObj.totalCategorizedUsersInDB));
 
   if (configuration.testMode) {
     statsObj.archiveTotal = Math.min(statsObj.archiveTotal, configuration.maxTestCount);
-    console.log(chalkAlert("GTS | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveTotal + " USERS"));
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveTotal + " USERS"));
   }
 
+  configEvents.once("CATEGORIZED_NODE_IDS_QUEUE", async function(){
+    await initCategorizeUserPool();
+  });
+
   await initArchiver();
-  await initCategorizedNodeIdsQueue({interval: configuration.categorizedNodeIdsQueueInterval});
   await initCategorizedNodeIds();
   await endAppendUsers();
+
+  // inc total to account for future append
+  statsObj.archiveTotal += 1;
 
   const mihmObj = {};
 
@@ -1696,12 +1762,11 @@ setTimeout(async function(){
     await tcUtils.saveGlobalHistograms({rootFolder: rootFolder, pruneFlag: true});
     tcUtils.redisFlush();
     tcUtils.redisQuit();
-    clearInterval(categorizedNodeIdsQueueInterval);
-    console.log(chalkBlueBold("GTS | XXX MAIN END XXX "));
+    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
   }
   catch(err){
     tcUtils.redisFlush();
     tcUtils.redisQuit();
-    console.log(chalkError("GTS | *** MAIN ERROR: " + err));
+    console.log(chalkError(MODULE_ID_PREFIX + " | *** MAIN ERROR: " + err));
   }
 }, 1000);
