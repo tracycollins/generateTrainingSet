@@ -492,7 +492,6 @@ function showStats(options){
       + "\nGTS | >+- ARCHIVE | PROGRESS"
       + " | TEST: " + configuration.testMode
       + " | " + tcUtils.getTimeStamp()
-      // + " | AUQ: " + archiveUserQueue.length
       + " | APPNDD: " + statsObj.usersAppendedToArchive
       + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
       + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
@@ -1008,50 +1007,6 @@ async function updateCategorizedUser(params){
   }
 }
 
-// let archiveUserQueueInterval;
-// const archiveUserQueue = [];
-// let archiveUserQueueReady = false;
-
-// function initArchiveUserQueue(i){
-
-//   return new Promise(function(resolve){
-
-//     const interval = i || 20;
-
-//     console.log(chalkInfo("GTS | INIT ARCHIVE USER QUEUE"
-//       + " | INTERVAL: " + interval + " MS"
-//     ));
-
-//     statsObj.status = "ARCHIVE USERS";
-
-//     archiveUserQueueReady = true;
-
-//     archiveUserQueueInterval = setInterval(async function(){
-
-//       if (archiveUserQueueReady && (archiveUserQueue.length > 0)){
-
-//         archiveUserQueueReady = false;
-
-//         const subUser = archiveUserQueue.shift();
-
-//         try{
-//           await archiveUser({user: subUser});
-//           archiveUserQueueReady = true;
-//         }
-//         catch(err){
-//           console.log(chalkError("GTS | *** ARCHIVE USER ERROR | @" + subUser.screenName + " | ERROR: " + err));
-//           archiveUserQueueReady = true;
-//         }
-
-//       }
-
-//     }, interval);
-
-//     resolve();
-
-//   });
-// }
-
 let categorizedNodeIdsQueueInterval;
 const categorizedNodeIdsQueue = [];
 let categorizedNodeIdsQueueReady = false;
@@ -1147,7 +1102,6 @@ function initCategorizedNodeIdsQueue(params){
 
             if (statsObj.archiveStartMoment === 0) { statsObj.archiveStartMoment = moment(); }
 
-            // archiveUserQueue.push(subUser);
             await archiveUser({user: subUser});
 
             categorizedNodeIdsQueueReady = true;
@@ -1342,7 +1296,6 @@ async function archiveUser(params){
     ));
     throw err;
   }
-
 }
 
 let endArchiveUsersInterval;
@@ -1551,7 +1504,6 @@ async function initArchiver(){
       console.log(chalkInfo("GTS | >+- ARCHIVE | PROGRESS"
         + " | TEST: " + configuration.testMode
         + " | " + tcUtils.getTimeStamp()
-        // + " | AUQ: " + archiveUserQueue.length
         + " | APPNDD: " + statsObj.usersAppendedToArchive
         + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
         + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
