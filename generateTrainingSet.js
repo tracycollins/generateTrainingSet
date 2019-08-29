@@ -171,7 +171,7 @@ statsObj.errors.users.findOne = 0;
 const statsPickArray = [
   "pid",
   "heap",
-  "maxHeap",
+  "maxHeap",``
   "startTime", 
   "elapsed", 
   "serverConnected", 
@@ -482,6 +482,8 @@ function showStats(options){
       + " | STATUS: " + statsObj.status
       + " | CPUs: " + statsObj.cpus
       + " | " + testObj.testRunId
+      + " | HEAP: " + statsObj.heap.toFixed(3) + " MB"
+      + " | MAX HEAP: " + statsObj.maxHeap.toFixed(3) + " MB"
       + " | RUN " + tcUtils.msToTime(statsObj.elapsed)
       + " | NOW " + moment().format(compactDateTimeFormat)
       + " | STRT " + moment(parseInt(statsObj.startTime)).format(compactDateTimeFormat)
