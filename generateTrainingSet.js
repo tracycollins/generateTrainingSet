@@ -1,7 +1,7 @@
 /*jslint node: true */
 /*jshint sub:true*/
-
-const DEFAULT_PROMISE_POOL_CONCURRENCY = 4;
+const DEFAULT_PROMISE_POOL_CONCURRENCY_REDIS = 4;
+const DEFAULT_PROMISE_POOL_CONCURRENCY_CAT_USER = 4;
 const TEST_MODE_LENGTH = 100;
 
 const catUsersQuery = { 
@@ -215,6 +215,9 @@ configuration.interruptFlag = false;
 configuration.enableRequiredTrainingSet = false;
 configuration.quitOnComplete = DEFAULT_QUIT_ON_COMPLETE;
 configuration.globalTrainingSetId = GLOBAL_TRAINING_SET_ID;
+
+configuration.redisPromisePoolConcurrency = DEFAULT_PROMISE_POOL_CONCURRENCY_REDIS;
+configuration.catUserPromisePoolConcurrency = DEFAULT_PROMISE_POOL_CONCURRENCY_CAT_USER;
 
 configuration.DROPBOX = {};
 
@@ -769,9 +772,14 @@ async function loadConfigFile(params) {
       }
     }
 
-    if (loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY !== undefined){
-      console.log(MODULE_ID_PREFIX + " | LOADED GTS_PROMISE_POOL_CONCURRENCY: " + loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY);
-      newConfiguration.promisePoolConcurrency = loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY;
+    if (loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY_REDIS !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_PROMISE_POOL_CONCURRENCY_REDIS: " + loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY_REDIS);
+      newConfiguration.redisPromisePoolConcurrency = loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY_REDIS;
+    }
+
+    if (loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY_CAT_USER !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_PROMISE_POOL_CONCURRENCY_CAT_USER: " + loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY_CAT_USER);
+      newConfiguration.catUserPromisePoolConcurrency = loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY_CAT_USER;
     }
 
     if (loadedConfigObj.GTS_VERBOSE_MODE !== undefined){
@@ -1039,7 +1047,7 @@ const catorizeUser = function (params){
 
     updateCategorizedUser({nodeId: params.nodeId})
     .then(function(user){
-      if (!user) {
+      if (!user || user === undefined) {
 
         statsObj.userErrorCount += 1;
 
@@ -1095,15 +1103,15 @@ const catorizeUser = function (params){
 
           archiveUser({user: subUser})
           .then(function(){
-            resolve();
+            resolve({screenName: subUser.screenName});
           })
           .catch(function(err){
-            console.log(chalkError(MODULE_ID_PREFIX + " | *** ERR: " + err));
+            console.log(chalkError(MODULE_ID_PREFIX + " | *** archiveUser ERROR: " + err));
             return reject(err);
           })
         })
         .catch(function(err){
-          console.log(chalkError(MODULE_ID_PREFIX + " | *** ERR: " + err));
+          console.log(chalkError(MODULE_ID_PREFIX + " | *** updateGlobalHistograms ERROR: " + err));
           return reject(err);
         });
 
@@ -1123,7 +1131,7 @@ const catorizeUserPromiseProducer = function (){
 
   if (categorizedNodeIdsQueue.length > 0) {
     const nodeId = categorizedNodeIdsQueue.shift();
-    return catorizeUser({nodeId: nodeId});
+    return catorizeUser({nodeId: nodeId, verbose: configuration.verbose, testMode: configuration.testMode});
   }
   else{
     return null;
@@ -1131,11 +1139,10 @@ const catorizeUserPromiseProducer = function (){
 }
 
 // The number of promises to process simultaneously.
-configuration.promisePoolConcurrency = DEFAULT_PROMISE_POOL_CONCURRENCY;
-const promisePoolConcurrency = configuration.promisePoolConcurrency;
+configuration.catUserPromisePoolConcurrency = DEFAULT_PROMISE_POOL_CONCURRENCY_CAT_USER;
  
 // Create a pool.
-const catorizeUserPromisePool = new PromisePool(catorizeUserPromiseProducer, promisePoolConcurrency);
+const catorizeUserPromisePool = new PromisePool(catorizeUserPromiseProducer, configuration.catUserPromisePoolConcurrency);
 
 catorizeUserPromisePool.addEventListener("fulfilled", function(event) {
   // The event contains:
@@ -1144,10 +1151,19 @@ catorizeUserPromisePool.addEventListener("fulfilled", function(event) {
   //   - promise: the Promise that got fulfilled
   //   - result:  the result of that Promise
   if (configuration.verbose || configuration.testMode){
+    const screenName = (event.data.result) ? "@" + event.data.result.screenName : "UNDEFINED USER?";
+
     console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ CATEGORIZE USER POOL FULFILLED"
-      + " | @" + event.data.result.screenName
+      + " | " + screenName
       // + "\n" + tcUtils.jsonPrint(event.data.result)
     ));
+
+    if (event.data.result === undefined) {
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? CATEGORIZE USER POOL FULFILL RESULT USER UNDEFINED"
+        + "\nevent.data\n" + tcUtils.jsonPrint(event.data)
+        // + "\n" + tcUtils.jsonPrint(event.data.result)
+      ));
+    }
   }
 });
 
@@ -1167,7 +1183,7 @@ function initCategorizeUserPool(){
   return new Promise(function(resolve, reject){
 
     console.log(chalkInfo(MODULE_ID_PREFIX + " | ... INIT CATEGORIZE USER POOL"
-      + " | POOL SIZE: " + configuration.promisePoolConcurrency
+      + " | POOL SIZE: " + configuration.catUserPromisePoolConcurrency
       + " | " + statsObj.archiveTotal + " USERS"
     ));
 
@@ -1769,7 +1785,7 @@ setTimeout(async function(){
     await tcUtils.redisInit();
     await tcUtils.redisFlush();
     configEvents.emit("INIT_CATEGORIZE_USER_POOL");
-    await tcUtils.initUpdateRedisEntryPool({promisePoolConcurrency: configuration.promisePoolConcurrency});
+    await tcUtils.initUpdateRedisEntryPool({promisePoolConcurrency: configuration.redisPromisePoolConcurrency});
     await generateGlobalTrainingTestSet();
 
     let rootFolder;
