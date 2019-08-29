@@ -120,6 +120,10 @@ DEFAULT_INPUT_TYPES.forEach(function(type){
 });
 
 const statsObj = {};
+
+statsObj.heap = process.memoryUsage().heapUsed/(1024*1024);
+statsObj.maxHeap = process.memoryUsage().heapUsed/(1024*1024);
+
 let statsObjSmall = {};
 
 statsObj.status = "LOAD";
@@ -165,7 +169,9 @@ statsObj.errors.users = {};
 statsObj.errors.users.findOne = 0;
 
 const statsPickArray = [
-  "pid", 
+  "pid",
+  "heap",
+  "maxHeap",
   "startTime", 
   "elapsed", 
   "serverConnected", 
@@ -284,7 +290,8 @@ const categorizedUserHistogramTotal = function(){
   categorizedUserHistogram.total += categorizedUserHistogram.negative;
   categorizedUserHistogram.total += categorizedUserHistogram.none;
 
-  return categorizedUserHistogram.total;
+  return;
+  // return categorizedUserHistogram.total;
 }
 
 const configEvents = new EventEmitter3({
@@ -460,6 +467,8 @@ const categorizedUsersFile = "categorizedUsers_manual.json";
 function showStats(options){
 
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
+  statsObj.heap = process.memoryUsage().heapUsed/(1024*1024);
+  statsObj.maxHeap = Math.max(statsObj.maxHeap, statsObj.heap);
 
   statsObjSmall = pick(statsObj, statsPickArray);
 
@@ -824,7 +833,6 @@ async function updateMaxInputHashMap(params){
   const histogramTypes = Object.keys(histograms);
 
   for (const type of histogramTypes){
-
     if (type !== "sentiment") {
 
       if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
@@ -844,13 +852,18 @@ async function updateMaxInputHashMap(params){
               maxInputHashMap[type][entity] = Math.max(maxInputHashMap[type][entity], histograms[type][entity]);
             }
           }
+          else{
+            console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNDEFINED histograms[type][entity]"
+              + " | TYPE: " + type
+              + " | ENTITY: " + entity
+            ));
+            delete histograms[type][entity];
+          }
 
         }
 
       }
-
     }
-
   }
 
   return;
@@ -1027,7 +1040,7 @@ const catorizeUser = function (params){
           + " | USER ID: " + params.nodeId
         ));
 
-        resolve();
+        return reject(new Error("USER NOT FOUND IN DB: " + params.nodeId));
       }
       else {
 
@@ -1076,10 +1089,12 @@ const catorizeUser = function (params){
             resolve(subUser);
           })
           .catch(function(err){
+            console.log(chalkError(MODULE_ID_PREFIX + " | *** ERR: " + err));
             return reject(err);
           })
         })
         .catch(function(err){
+          console.log(chalkError(MODULE_ID_PREFIX + " | *** ERR: " + err));
           return reject(err);
         });
 
@@ -1104,6 +1119,17 @@ const catorizeUserPromiseProducer = function (){
   else{
     return null;
   }
+
+  // configEvents.on("CATEGORIZE_NODE", function(nodeId){
+  //   return catorizeUser({nodeId: nodeId});
+  // });
+  
+  // configEvents.on("CATEGORIZE_NODE_END", async function(){
+  //   console.log(chalkAlert(MODULE_ID_PREFIX + " | >>> EVENT : CATEGORIZE_NODE_END"));
+  //   await tcUtils.endUpdateRedisHistograms();
+  //   return null;
+  // });
+  
 }
 
 // The number of promises to process simultaneously.
@@ -1235,8 +1261,9 @@ function categoryCursor(params){
               if (results.obj[nodeId].category) { 
 
                 totalQueued += 1;
-                categorizedNodeIdsQueue.push(nodeId);
 
+                categorizedNodeIdsQueue.push(nodeId);
+                // configEvents.emit("CATEGORIZE_NODE", nodeId);
 
                 if (configuration.testMode && totalQueued >= configuration.maxTestCount) {
                   console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE | MAX TEST QUEUED: " + totalQueued));
@@ -1247,11 +1274,6 @@ function categoryCursor(params){
               else {
                 console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNCATEGORIZED USER FROM DB\n" + tcUtils.jsonPrint(results.obj[nodeId])));
               }
-            }
-
-            if (!statsObj.initCategorizedNodeIdsQueueFlag) { 
-              configEvents.emit("CATEGORIZED_NODE_IDS_QUEUE");
-              statsObj.initCategorizedNodeIdsQueueFlag = true;
             }
 
             if (configuration.verbose || (totalCount % 1000 === 0)) {
@@ -1294,11 +1316,14 @@ function categoryCursor(params){
       },
 
       function(err){
+
+
         if (err) {
           console.log(chalkError(MODULE_ID_PREFIX + " | INIT CATEGORIZED USER HASHMAP ERROR: " + err + "\n" + tcUtils.jsonPrint(err)));
           return reject(err);
         }
         console.log(chalkBlueBold(MODULE_ID_PREFIX + " | INIT CATEGORIZED USERS: " + totalCount));
+        configEvents.emit("CATEGORIZE_NODE_END");
         resolve();
       }
     );
@@ -1319,6 +1344,7 @@ async function initCategorizedNodeIds(){
   p.query = { 
     "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
   };
+
 
   await categoryCursor(p);
 
@@ -1671,6 +1697,12 @@ async function initialize(cnf){
   return configuration;
 }
 
+// configEvents.once("CATEGORIZED_NODE_IDS_QUEUE", async function(){
+//   console.log(chalkAlert(MODULE_ID_PREFIX + " | >>> EVENT : CATEGORIZED_NODE_IDS_QUEUE"));
+//   await initCategorizeUserPool();
+//   configEvents.removeListener("CATEGORIZED_NODE_IDS_QUEUE");
+// });
+
 async function generateGlobalTrainingTestSet(){
 
   statsObj.status = "GENERATE TRAINING SET";
@@ -1682,19 +1714,18 @@ async function generateGlobalTrainingTestSet(){
   statsObj.totalCategorizedUsersInDB = await global.globalUser.find(catUsersQuery).countDocuments().exec();
   statsObj.archiveTotal = statsObj.totalCategorizedUsersInDB;
 
-  console.log(chalkBlue(MODULE_ID_PREFIX + " | CATEGORIZED USERS IN DB: " + statsObj.totalCategorizedUsersInDB));
+  console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
+  console.log(chalkBlueBold(MODULE_ID_PREFIX + " | CATEGORIZED USERS IN DB: " + statsObj.totalCategorizedUsersInDB));
+  console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
 
   if (configuration.testMode) {
     statsObj.archiveTotal = Math.min(statsObj.archiveTotal, configuration.maxTestCount);
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveTotal + " USERS"));
   }
 
-  configEvents.once("CATEGORIZED_NODE_IDS_QUEUE", async function(){
-    await initCategorizeUserPool();
-  });
-
   await initArchiver();
   await initCategorizedNodeIds();
+  await initCategorizeUserPool();
   await endAppendUsers();
 
   // inc total to account for future append
@@ -1738,10 +1769,10 @@ setTimeout(async function(){
     configuration = await initialize(configuration);
     await tcUtils.initSaveFileQueue();
     await tcUtils.redisInit();
-    await tcUtils.initUpdateRedisEntryPool({promisePoolConcurrency: 4});
     await tcUtils.redisFlush();
+    configEvents.emit("INIT_CATEGORIZE_USER_POOL");
+    await tcUtils.initUpdateRedisEntryPool({promisePoolConcurrency: 10});
     await generateGlobalTrainingTestSet();
-    await tcUtils.endUpdateRedisHistograms();
 
     let rootFolder;
 
