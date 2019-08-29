@@ -1,7 +1,7 @@
 /*jslint node: true */
 /*jshint sub:true*/
 
-const DEFAULT_PROMISE_POOL_CONCURRENCY = 10;
+const DEFAULT_PROMISE_POOL_CONCURRENCY = 4;
 const TEST_MODE_LENGTH = 100;
 
 const catUsersQuery = { 
@@ -1034,7 +1034,9 @@ const categorizedNodeIdsQueue = [];
 let userIndex = 0;
 
 const catorizeUser = function (params){
+
   return new Promise(function(resolve, reject){
+
     updateCategorizedUser({nodeId: params.nodeId})
     .then(function(user){
       if (!user) {
@@ -1767,7 +1769,7 @@ setTimeout(async function(){
     await tcUtils.redisInit();
     await tcUtils.redisFlush();
     configEvents.emit("INIT_CATEGORIZE_USER_POOL");
-    await tcUtils.initUpdateRedisEntryPool({promisePoolConcurrency: 10});
+    await tcUtils.initUpdateRedisEntryPool({promisePoolConcurrency: configuration.promisePoolConcurrency});
     await generateGlobalTrainingTestSet();
 
     let rootFolder;
