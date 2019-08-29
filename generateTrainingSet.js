@@ -1058,10 +1058,12 @@ function initArchiveUserQueue(params){
 
         const user = archiveUserQueue.shift();
 
+        archiveUserQueueReady = true;
+
         archiveUser({user: user})
         .then(function(){
 
-          console.log(chalkAlert(MODULE_ID_PREFIX + " | +++ ARCHIVED USER"
+          debug(chalkAlert(MODULE_ID_PREFIX + " | +++ ARCHIVED USER"
             + " [ AUQ: " + archiveUserQueue.length + "]"
             + " | USER ID: " + user.nodeId
             + " | @" + user.screenName
@@ -1148,7 +1150,7 @@ const catorizeUser = function (params){
           if (statsObj.archiveStartMoment === 0) { statsObj.archiveStartMoment = moment(); }
 
           archiveUserQueue.push(subUser);
-          resolve({screenName: subUser.screenName});
+          resolve();
 
         })
         .catch(function(err){
@@ -1192,10 +1194,10 @@ catorizeUserPromisePool.addEventListener("fulfilled", function(event) {
   //   - promise: the Promise that got fulfilled
   //   - result:  the result of that Promise
   if (configuration.verbose || configuration.testMode){
-    const screenName = (event.data.result) ? "@" + event.data.result.screenName : "UNDEFINED USER?";
+    // const screenName = (event.data.result) ? "@" + event.data.result.screenName : "UNDEFINED USER?";
 
     console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ CATEGORIZE USER POOL FULFILLED"
-      + " | " + screenName
+      // + " | " + screenName
       // + "\n" + tcUtils.jsonPrint(event.data.result)
     ));
 
