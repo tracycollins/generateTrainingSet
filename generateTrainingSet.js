@@ -1,7 +1,7 @@
 /*jslint node: true */
 /*jshint sub:true*/
 
-const DEFAULT_PROMISE_POOL_CONCURRENCY = 10;
+const DEFAULT_PROMISE_POOL_CONCURRENCY = 4;
 const TEST_MODE_LENGTH = 100;
 
 const catUsersQuery = { 
@@ -1104,7 +1104,6 @@ const catorizeUserPromiseProducer = function (){
   else{
     return null;
   }
-
 }
 
 // The number of promises to process simultaneously.
@@ -1737,10 +1736,12 @@ setTimeout(async function(){
     }, ONE_MINUTE);
 
     configuration = await initialize(configuration);
-    await tcUtils.redisInit();
     await tcUtils.initSaveFileQueue();
+    await tcUtils.redisInit();
+    await tcUtils.initUpdateRedisEntryPool({promisePoolConcurrency: 4});
     await tcUtils.redisFlush();
     await generateGlobalTrainingTestSet();
+    await tcUtils.endUpdateRedisHistograms();
 
     let rootFolder;
 
@@ -1756,8 +1757,6 @@ setTimeout(async function(){
     }
 
     console.log(chalkInfo("TFE | ... SAVING HISTOGRAMS"));
-
-    await tcUtils.saveGlobalHistograms({rootFolder: rootFolder});
 
     await tcUtils.saveGlobalHistograms({rootFolder: rootFolder, pruneFlag: true});
     tcUtils.redisFlush();
