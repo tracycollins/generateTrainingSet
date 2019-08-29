@@ -1,7 +1,7 @@
 /*jslint node: true */
 /*jshint sub:true*/
 
-const DEFAULT_PROMISE_POOL_CONCURRENCY = 4;
+const DEFAULT_PROMISE_POOL_CONCURRENCY = 10;
 const TEST_MODE_LENGTH = 100;
 
 const catUsersQuery = { 
@@ -50,6 +50,7 @@ const ONE_MINUTE = 60 * ONE_SECOND;
 
 const ONE_KILOBYTE = 1024;
 const ONE_MEGABYTE = 1024 * ONE_KILOBYTE;
+const ONE_GIGABYTE = 1024 * ONE_MEGABYTE;
 
 const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 
@@ -121,8 +122,8 @@ DEFAULT_INPUT_TYPES.forEach(function(type){
 
 const statsObj = {};
 
-statsObj.heap = process.memoryUsage().heapUsed/(1024*1024);
-statsObj.maxHeap = process.memoryUsage().heapUsed/(1024*1024);
+statsObj.heap = process.memoryUsage().heapUsed/ONE_GIGABYTE;
+statsObj.maxHeap = process.memoryUsage().heapUsed/ONE_GIGABYTE;
 
 let statsObjSmall = {};
 
@@ -171,7 +172,7 @@ statsObj.errors.users.findOne = 0;
 const statsPickArray = [
   "pid",
   "heap",
-  "maxHeap",``
+  "maxHeap",
   "startTime", 
   "elapsed", 
   "serverConnected", 
@@ -467,11 +468,10 @@ const categorizedUsersFile = "categorizedUsers_manual.json";
 function showStats(options){
 
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
-  statsObj.heap = process.memoryUsage().heapUsed/(1024*1024);
+  statsObj.heap = process.memoryUsage().heapUsed/ONE_GIGABYTE;
   statsObj.maxHeap = Math.max(statsObj.maxHeap, statsObj.heap);
 
   statsObjSmall = pick(statsObj, statsPickArray);
-
 
   if (options) {
     console.log(MODULE_ID_PREFIX + " | STATS\nGTS | " + tcUtils.jsonPrint(statsObjSmall));
@@ -482,8 +482,8 @@ function showStats(options){
       + " | STATUS: " + statsObj.status
       + " | CPUs: " + statsObj.cpus
       + " | " + testObj.testRunId
-      + " | HEAP: " + statsObj.heap.toFixed(3) + " MB"
-      + " | MAX HEAP: " + statsObj.maxHeap.toFixed(3) + " MB"
+      + " | HEAP: " + statsObj.heap.toFixed(3) + " GB"
+      + " | MAX HEAP: " + statsObj.maxHeap.toFixed(3) + " GB"
       + " | RUN " + tcUtils.msToTime(statsObj.elapsed)
       + " | NOW " + moment().format(compactDateTimeFormat)
       + " | STRT " + moment(parseInt(statsObj.startTime)).format(compactDateTimeFormat)
@@ -767,6 +767,11 @@ async function loadConfigFile(params) {
       else {
         newConfiguration.quitOnComplete = true;
       }
+    }
+
+    if (loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_PROMISE_POOL_CONCURRENCY: " + loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY);
+      newConfiguration.promisePoolConcurrency = loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY;
     }
 
     if (loadedConfigObj.GTS_VERBOSE_MODE !== undefined){
@@ -1088,7 +1093,7 @@ const catorizeUser = function (params){
 
           archiveUser({user: subUser})
           .then(function(){
-            resolve(subUser);
+            resolve();
           })
           .catch(function(err){
             console.log(chalkError(MODULE_ID_PREFIX + " | *** ERR: " + err));
@@ -1120,18 +1125,7 @@ const catorizeUserPromiseProducer = function (){
   }
   else{
     return null;
-  }
-
-  // configEvents.on("CATEGORIZE_NODE", function(nodeId){
-  //   return catorizeUser({nodeId: nodeId});
-  // });
-  
-  // configEvents.on("CATEGORIZE_NODE_END", async function(){
-  //   console.log(chalkAlert(MODULE_ID_PREFIX + " | >>> EVENT : CATEGORIZE_NODE_END"));
-  //   await tcUtils.endUpdateRedisHistograms();
-  //   return null;
-  // });
-  
+  }  
 }
 
 // The number of promises to process simultaneously.
