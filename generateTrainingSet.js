@@ -1038,6 +1038,50 @@ async function updateCategorizedUser(params){
 }
 
 const categorizedNodeIdsQueue = [];
+const archiveUserQueue = [];
+let archiveUserQueueReady = true;
+let archiveUserQueueInterval;
+
+function initArchiveUserQueue(params){
+
+  return new Promise(function(resolve){
+
+    const interval = params.interval;
+
+    clearInterval(archiveUserQueueInterval);
+
+    archiveUserQueueInterval = setInterval(function(){
+
+      if (archiveUserQueueReady && (archiveUserQueue.length > 0)) {
+
+        archiveUserQueueReady = false;
+
+        const user = archiveUserQueue.shift();
+
+        archiveUser({user: user})
+        .then(function(){
+
+          console.log(chalkAlert(MODULE_ID_PREFIX + " | +++ ARCHIVED USER"
+            + " [ AUQ: " + archiveUserQueue.length + "]"
+            + " | USER ID: " + user.nodeId
+            + " | @" + user.screenName
+          ));
+
+          archiveUserQueueReady = true;
+        })
+        .catch(function(err){
+          console.log(chalkError(MODULE_ID_PREFIX + " | *** archiveUser ERROR: " + err));
+          archiveUserQueueReady = true;
+        });
+      }
+
+    }, interval);
+
+    resolve();
+
+  });
+}
+
 
 let userIndex = 0;
 
@@ -1103,14 +1147,9 @@ const catorizeUser = function (params){
 
           if (statsObj.archiveStartMoment === 0) { statsObj.archiveStartMoment = moment(); }
 
-          archiveUser({user: subUser})
-          .then(function(){
-            resolve({screenName: subUser.screenName});
-          })
-          .catch(function(err){
-            console.log(chalkError(MODULE_ID_PREFIX + " | *** archiveUser ERROR: " + err));
-            return reject(err);
-          })
+          archiveUserQueue.push(subUser);
+          resolve({screenName: subUser.screenName});
+
         })
         .catch(function(err){
           console.log(chalkError(MODULE_ID_PREFIX + " | *** updateGlobalHistograms ERROR: " + err));
@@ -1745,6 +1784,7 @@ async function generateGlobalTrainingTestSet(){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveTotal + " USERS"));
   }
 
+  await initArchiveUserQueue({interval: 5});
   await initArchiver();
   await initCategorizedNodeIds();
   await initCategorizeUserPool();
