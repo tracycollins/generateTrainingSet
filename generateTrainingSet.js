@@ -1090,6 +1090,8 @@ const catorizeUser = function (params){
             ]
           );
 
+          subUser.friends = _.slice(subUser.friends, 0,5000);
+
           if (params.verbose || params.testMode) {
             console.log(chalkInfo(MODULE_ID_PREFIX + " | -<- UPDATE CL USR <DB"
               + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
@@ -1365,37 +1367,43 @@ async function initCategorizedNodeIds(){
   return;
 }
 
-async function archiveUser(params){
+function archiveUser(params){
 
-  if (archive === undefined) { 
-    throw new Error("ARCHIVE UNDEFINED");
-  }
+  return new Promise(function(resolve, reject){
 
-  let fileName;
+    if (archive === undefined) { 
+      return reject(new Error("ARCHIVE UNDEFINED"));
+    }
 
-  try{
-    fileName = "user_" + params.user.userId + ".json";
-    const userBuffer = Buffer.from(JSON.stringify(params.user));
-    archive.append(userBuffer, { name: fileName});
+    let fileName;
 
-    statsObj.usersAppendedToArchive += 1;
+    try{
 
-    if (configuration.verbose) {
-      console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | USER"
+      fileName = "user_" + params.user.userId + ".json";
+      const userBuffer = Buffer.from(JSON.stringify(params.user));
+      // const userBuffer = Buffer.from(JSON.stringify({test: "testing"}));
+      archive.append(userBuffer, { name: fileName});
+
+      statsObj.usersAppendedToArchive += 1;
+
+      if (configuration.verbose) {
+        console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | USER"
+          + " [" + statsObj.usersAppendedToArchive + " APPENDED]"
+          + " | @" + params.user.screenName
+        ));
+      }
+      resolve();
+    }
+    catch(err){
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** ARCHIVE USER ERROR"
         + " [" + statsObj.usersAppendedToArchive + " APPENDED]"
         + " | @" + params.user.screenName
+        + " | ERR: " + err
       ));
+      return reject(err);
     }
-    return;
-  }
-  catch(err){
-    console.log(chalkError(MODULE_ID_PREFIX + " | *** ARCHIVE USER ERROR"
-      + " [" + statsObj.usersAppendedToArchive + " APPENDED]"
-      + " | @" + params.user.screenName
-      + " | ERR: " + err
-    ));
-    throw err;
-  }
+  });
+
 }
 
 let endArchiveUsersInterval;
