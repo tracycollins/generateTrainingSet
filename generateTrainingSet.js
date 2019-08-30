@@ -55,8 +55,6 @@ const ONE_GIGABYTE = 1024 * ONE_MEGABYTE;
 const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 
 const DEFAULT_SERVER_MODE = false;
-// const DEFAULT_FIND_CAT_USER_CURSOR_LIMIT = 100;
-// const DEFAULT_CURSOR_BATCH_SIZE = process.env.DEFAULT_CURSOR_BATCH_SIZE || 100;
 const DEFAULT_WAIT_UNLOCK_INTERVAL = 15*ONE_SECOND;
 const DEFAULT_WAIT_UNLOCK_TIMEOUT = 10*ONE_MINUTE;
 const DEFAULT_FILELOCK_RETRY_WAIT = DEFAULT_WAIT_UNLOCK_INTERVAL;
@@ -91,26 +89,12 @@ const sizeof = require("object-sizeof");
 const pick = require("object.pick");
 const Slack = require("slack-node");
 const EventEmitter3 = require("eventemitter3");
-// const async = require("async");
 const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
 const tcUtils = new ThreeceeUtilities("GTS_TCU");
 const debug = require("debug")("gts");
 const commandLineArgs = require("command-line-args");
   
 let archive;
-
-// const customArchiveWriteStream = require("stream").Writable;
-
-// customArchiveWriteStream.prototype._write = function(chunk, data){
-//   console.log(chunk);
-//   console.log(data);
-// };
-
-// const archiveWriteStream = new customArchiveWriteStream();
-
-// archiveWriteStream.on("error", function(err){
-//   console.log("archiveWriteStream ERROR: ", err);
-// })
 
 const chalk = require("chalk");
 const chalkAlert = chalk.red;
@@ -1311,155 +1295,6 @@ function categoryCursorStream(params){
   });
 }
 
-// function categoryCursor(params){
-//   return new Promise(function(resolve, reject){
-
-//     let more = true;
-//     let totalCount = 0;
-//     let totalManual = 0;
-//     let totalAuto = 0;
-//     let totalMatched = 0;
-//     let totalMismatched = 0;
-//     let totalMatchRate = 0;
-//     let totalQueued = 0;
-
-//     async.whilst(
-
-//       function test(cbTest) { cbTest(null, more); },
-
-//       function(cb){
-
-//         userServerController.findCategorizedUsersCursor(params, function(err, results){
-
-//           if (err) {
-//             console.error(chalkError(MODULE_ID_PREFIX + " | ERROR: initCategorizedNodeIds: " + err));
-//             cb(err);
-//           }
-//           else if (configuration.testMode && (totalCount >= configuration.maxTestCount)) {
-
-//             more = false;
-
-//             console.log(chalkAlert(MODULE_ID_PREFIX + " | +++ LOADED CATEGORIZED USERS FROM DB"
-//               + " | *** TEST MODE ***"
-//               + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
-//               + " | TOTAL CATEGORIZED: " + totalCount
-//               + " | LIMIT: " + params.limit
-//               + " | SKIP: " + params.skip
-//               + " | " + totalManual + " MAN"
-//               + " | " + totalAuto + " AUTO"
-//               + " | " + totalMatched + " MATCHED"
-//               + " / " + totalMismatched + " MISMATCHED"
-//               + " | " + totalMatchRate.toFixed(2) + "% MATCHRATE"
-//             ));
-
-//             cb();
-//           }
-//           else if (results) {
-
-//             more = true;
-//             totalCount += results.count;
-//             totalManual += results.manual;
-//             totalAuto += results.auto;
-//             totalMatched += results.matched;
-//             totalMismatched += results.mismatched;
-
-//             totalMatchRate = 100*(totalMatched/totalCount);
-
-//             for (const nodeId of Object.keys(results.obj)){
-
-//               if (results.obj[nodeId].category) { 
-
-//                 totalQueued += 1;
-
-//                 categorizedNodeQueue.push(results.obj[nodeId]);
-//                 // configEvents.emit("CATEGORIZE_NODE", nodeId);
-
-//                 if (configuration.testMode && totalQueued >= configuration.maxTestCount) {
-//                   console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE | MAX TEST QUEUED: " + totalQueued));
-//                   break;
-//                 }
-
-//               }
-//               else {
-//                 console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNCATEGORIZED USER FROM DB\n" + tcUtils.jsonPrint(results.obj[nodeId])));
-//               }
-//             }
-
-//             if (configuration.verbose || (totalCount % 1000 === 0)) {
-
-//               console.log(chalkLog(MODULE_ID_PREFIX + " | ... LOADING CATEGORIZED USERS FROM DB"
-//                 + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
-//                 + " | TOTAL: " + totalCount
-//                 + " | " + totalManual + " MAN"
-//                 + " | " + totalAuto + " AUTO"
-//                 + " | " + totalMatched + " MATCHED"
-//                 + " / " + totalMismatched + " MISMATCHED"
-//                 + " | " + totalMatchRate.toFixed(2) + "% MATCHRATE"
-//               ));
-//             }
-
-//             params.skip += results.count;
-
-//             cb();
-//           }
-//           else {
-
-//             more = false;
-
-//             console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ LOADED CATEGORIZED USERS FROM DB"
-//               + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
-//               + " | TOTAL CATEGORIZED: " + totalCount
-//               + " | LIMIT: " + params.limit
-//               + " | SKIP: " + params.skip
-//               + " | " + totalManual + " MAN"
-//               + " | " + totalAuto + " AUTO"
-//               + " | " + totalMatched + " MATCHED"
-//               + " / " + totalMismatched + " MISMATCHED"
-//               + " | " + totalMatchRate.toFixed(2) + "% MATCHRATE"
-//             ));
-
-//             cb();
-//           }
-
-//         });
-//       },
-
-//       function(err){
-
-
-//         if (err) {
-//           console.log(chalkError(MODULE_ID_PREFIX + " | INIT CATEGORIZED USER HASHMAP ERROR: " + err + "\n" + tcUtils.jsonPrint(err)));
-//           return reject(err);
-//         }
-//         console.log(chalkBlueBold(MODULE_ID_PREFIX + " | INIT CATEGORIZED USERS: " + totalCount));
-//         configEvents.emit("CATEGORIZE_NODE_END");
-//         resolve();
-//       }
-//     );
-//   });
-// }
-
-// async function initCategorizedNodeIds(){
-
-//   statsObj.status = "INIT CATEGORIZED NODE IDS";
-
-//   console.log(chalkInfo(MODULE_ID_PREFIX + " | ... INIT CATEGORIZED NODE IDs ..."));
-
-//   const p = {};
-
-//   p.skip = 0;
-//   p.limit = DEFAULT_FIND_CAT_USER_CURSOR_LIMIT;
-//   p.batchSize = DEFAULT_CURSOR_BATCH_SIZE;
-//   p.query = { 
-//     "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
-//   };
-
-
-//   await categoryCursor(p);
-
-//   return;
-// }
-
 function archiveUser(params){
 
   return new Promise(function(resolve, reject){
@@ -1469,16 +1304,10 @@ function archiveUser(params){
     }
 
     const fileName = "user_" + params.user.userId + ".json";
-    // const user = params.user;
-    // delete user.friends;
 
     const userBuffer = Buffer.from(JSON.stringify(params.user));
 
     archive.append(userBuffer, { name: fileName});
-
-    // setTimeout(function(){
-    //   tcUtils.emitter.emit("append_" + fileName);
-    // }, 100);
 
     tcUtils.waitEvent({ event: "append_" + fileName})
     .then(function(){
@@ -1813,12 +1642,6 @@ async function initialize(cnf){
 
   return configuration;
 }
-
-// configEvents.once("CATEGORIZED_NODE_IDS_QUEUE", async function(){
-//   console.log(chalkAlert(MODULE_ID_PREFIX + " | >>> EVENT : CATEGORIZED_NODE_IDS_QUEUE"));
-//   await initCategorizeUserPool();
-//   configEvents.removeListener("CATEGORIZED_NODE_IDS_QUEUE");
-// });
 
 async function generateGlobalTrainingTestSet(){
 
