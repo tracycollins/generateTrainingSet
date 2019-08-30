@@ -20,7 +20,7 @@
     "@davvo/drbx": "^2.1.0",
     "@google-cloud/vision": "^1.2.0",
     "@google/maps": "^0.5.5",
-    "@threeceelabs/mergehistograms": "^1.0.5",
+    "@threeceelabs/mergehistograms": "^1.0.6",
     "@threeceelabs/mongoose-twitter": "^1.0.258",
     "@threeceelabs/threecee-utilities": "^1.0.121",
     "@threeceelabs/twitter-image-parser": "^1.0.78",
