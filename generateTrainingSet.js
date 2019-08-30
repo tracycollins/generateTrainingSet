@@ -55,8 +55,8 @@ const ONE_GIGABYTE = 1024 * ONE_MEGABYTE;
 const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 
 const DEFAULT_SERVER_MODE = false;
-const DEFAULT_FIND_CAT_USER_CURSOR_LIMIT = 100;
-const DEFAULT_CURSOR_BATCH_SIZE = process.env.DEFAULT_CURSOR_BATCH_SIZE || 100;
+// const DEFAULT_FIND_CAT_USER_CURSOR_LIMIT = 100;
+// const DEFAULT_CURSOR_BATCH_SIZE = process.env.DEFAULT_CURSOR_BATCH_SIZE || 100;
 const DEFAULT_WAIT_UNLOCK_INTERVAL = 15*ONE_SECOND;
 const DEFAULT_WAIT_UNLOCK_TIMEOUT = 10*ONE_MINUTE;
 const DEFAULT_FILELOCK_RETRY_WAIT = DEFAULT_WAIT_UNLOCK_INTERVAL;
@@ -91,13 +91,26 @@ const sizeof = require("object-sizeof");
 const pick = require("object.pick");
 const Slack = require("slack-node");
 const EventEmitter3 = require("eventemitter3");
-const async = require("async");
+// const async = require("async");
 const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
 const tcUtils = new ThreeceeUtilities("GTS_TCU");
 const debug = require("debug")("gts");
 const commandLineArgs = require("command-line-args");
-
+  
 let archive;
+
+// const customArchiveWriteStream = require("stream").Writable;
+
+// customArchiveWriteStream.prototype._write = function(chunk, data){
+//   console.log(chunk);
+//   console.log(data);
+// };
+
+// const archiveWriteStream = new customArchiveWriteStream();
+
+// archiveWriteStream.on("error", function(err){
+//   console.log("archiveWriteStream ERROR: ", err);
+// })
 
 const chalk = require("chalk");
 const chalkAlert = chalk.red;
@@ -140,7 +153,7 @@ statsObj.archiveOpen = false;
 statsObj.archiveModifiedMoment = moment("2010-01-01");
 statsObj.endAppendUsersFlag = false;
 
-statsObj.initCategorizedNodeIdsQueueFlag = false;
+statsObj.initcategorizedNodeQueueFlag = false;
 
 statsObj.archiveEntries = 0;
 statsObj.archiveTotal = 0;
@@ -886,44 +899,44 @@ async function updateMaxInputHashMap(params){
 
 async function updateCategorizedUser(params){
 
-  if (!params.nodeId || params.nodeId === undefined) {
-    console.error(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: NODE ID UNDEFINED"));
+  if (!params.user || params.user === undefined) {
+    console.error(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER UNDEFINED"));
     statsObj.errors.users.findOne += 1;
-    throw new Error("NODE ID UNDEFINED");
+    throw new Error("USER UNDEFINED");
   }
 
   try {
-    const dbUser = await global.globalUser.findOne({ nodeId: params.nodeId }).lean().exec();
+    // const dbUser = await global.globalUser.findOne({ nodeId: params.nodeId }).lean().exec();
 
-    if (!dbUser || dbUser === undefined){
-      console.log(chalkLog(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + params.nodeId));
-      statsObj.users.notFound += 1;
+    // if (!dbUser || dbUser === undefined){
+    //   console.log(chalkLog(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + params.nodeId));
+    //   statsObj.users.notFound += 1;
+    //   statsObj.users.notCategorized += 1;
+    //   return;
+    // }
+
+    if (!params.user.category || params.user.category === undefined) {
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED | UID: " + params.user.nodeId));
       statsObj.users.notCategorized += 1;
       return;
     }
 
-    if (!dbUser.category || dbUser.category === undefined) {
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED | UID: " + dbUser.nodeId));
-      statsObj.users.notCategorized += 1;
-      return;
-    }
-
-    if (dbUser.screenName === undefined) {
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED | UID: " + dbUser.nodeId));
+    if (params.user.screenName === undefined) {
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED | UID: " + params.user.nodeId));
       statsObj.users.screenNameUndefined += 1;
       statsObj.users.notCategorized += 1;
       return;
     }
 
-    if (!dbUser.profileHistograms || (dbUser.profileHistograms === undefined)){
-      dbUser.profileHistograms = {};
+    if (!params.user.profileHistograms || (params.user.profileHistograms === undefined)){
+      params.user.profileHistograms = {};
     }
 
-    if (dbUser.friends && (dbUser.friends.length > 5000)){
-      dbUser.friends = _.slice(dbUser.friends, 0,5000);
+    if (params.user.friends && (params.user.friends.length > 5000)){
+      params.user.friends = _.slice(params.user.friends, 0,5000);
     }
 
-    const user = await tcUtils.encodeHistogramUrls({user: dbUser});
+    const user = await tcUtils.encodeHistogramUrls({user: params.user});
 
     await updateMaxInputHashMap({user: user});
 
@@ -1037,7 +1050,7 @@ async function updateCategorizedUser(params){
   }
 }
 
-const categorizedNodeIdsQueue = [];
+const categorizedNodeQueue = [];
 const archiveUserQueue = [];
 let archiveUserQueueReady = true;
 let archiveUserQueueInterval;
@@ -1058,7 +1071,7 @@ function initArchiveUserQueue(params){
 
         const user = archiveUserQueue.shift();
 
-        archiveUserQueueReady = true;
+        // archiveUserQueueReady = true;
 
         archiveUser({user: user})
         .then(function(){
@@ -1091,14 +1104,14 @@ const catorizeUser = function (params){
 
   return new Promise(function(resolve, reject){
 
-    updateCategorizedUser({nodeId: params.nodeId})
+    updateCategorizedUser({user: params.user})
     .then(function(user){
       if (!user || user === undefined) {
 
         statsObj.userErrorCount += 1;
 
         console.log(chalkAlert(MODULE_ID_PREFIX + " | *** UPDATE CL USR NOT FOUND: "
-          + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
+          + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
           + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + " ]"
           + " | USER ID: " + params.nodeId
         ));
@@ -1109,8 +1122,8 @@ const catorizeUser = function (params){
 
         userIndex += 1;
 
-        tcUtils.updateGlobalHistograms({user: user})
-        .then(function(){
+        // tcUtils.updateGlobalHistograms({user: user})
+        // .then(function(){
           const subUser = pick(
             user,
             [
@@ -1140,7 +1153,7 @@ const catorizeUser = function (params){
 
           if (params.verbose || params.testMode) {
             console.log(chalkInfo(MODULE_ID_PREFIX + " | -<- UPDATE CL USR <DB"
-              + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
+              + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
               + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + "]"
               + " | " + user.nodeId
               + " | @" + user.screenName
@@ -1149,14 +1162,14 @@ const catorizeUser = function (params){
 
           if (statsObj.archiveStartMoment === 0) { statsObj.archiveStartMoment = moment(); }
 
-          archiveUserQueue.push(subUser);
-          resolve();
+          // archiveUserQueue.push(subUser);
+          resolve(subUser);
 
-        })
-        .catch(function(err){
-          console.log(chalkError(MODULE_ID_PREFIX + " | *** updateGlobalHistograms ERROR: " + err));
-          return reject(err);
-        });
+        // })
+        // .catch(function(err){
+        //   console.log(chalkError(MODULE_ID_PREFIX + " | *** updateGlobalHistograms ERROR: " + err));
+        //   return reject(err);
+        // });
 
       }
     })
@@ -1172,9 +1185,9 @@ const catorizeUser = function (params){
 
 const catorizeUserPromiseProducer = function (){
 
-  if (categorizedNodeIdsQueue.length > 0) {
-    const nodeId = categorizedNodeIdsQueue.shift();
-    return catorizeUser({nodeId: nodeId, verbose: configuration.verbose, testMode: configuration.testMode});
+  if (categorizedNodeQueue.length > 0) {
+    const user = categorizedNodeQueue.shift();
+    return catorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
   }
   else{
     return null;
@@ -1201,10 +1214,9 @@ catorizeUserPromisePool.addEventListener("fulfilled", function(event) {
       // + "\n" + tcUtils.jsonPrint(event.data.result)
     ));
 
-    if (event.data.result === undefined) {
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? CATEGORIZE USER POOL FULFILL RESULT USER UNDEFINED"
-        + "\nevent.data\n" + tcUtils.jsonPrint(event.data)
-        // + "\n" + tcUtils.jsonPrint(event.data.result)
+    if (event.data.result !== undefined) {
+      console.log(chalkAlert(MODULE_ID_PREFIX + " |  CATEGORIZE USER POOL FULFILL RESULT"
+        + "\n" + tcUtils.jsonPrint(event.data.result)
       ));
     }
   }
@@ -1221,192 +1233,232 @@ catorizeUserPromisePool.addEventListener("rejected", function(event) {
   ));
 });
 
-function initCategorizeUserPool(){
+// function initCategorizeUserPool(){
 
-  return new Promise(function(resolve, reject){
+//   return new Promise(function(resolve, reject){
 
-    console.log(chalkInfo(MODULE_ID_PREFIX + " | ... INIT CATEGORIZE USER POOL"
-      + " | POOL SIZE: " + configuration.catUserPromisePoolConcurrency
-      + " | " + statsObj.archiveTotal + " USERS"
-    ));
+//     console.log(chalkInfo(MODULE_ID_PREFIX + " | ... INIT CATEGORIZE USER POOL"
+//       + " | POOL SIZE: " + configuration.catUserPromisePoolConcurrency
+//       + " | " + statsObj.archiveTotal + " USERS"
+//     ));
 
-    statsObj.status = "INIT CATEGORIZE USER POOL";
+//     statsObj.status = "INIT CATEGORIZE USER POOL";
 
-    statsObj.normalization.magnitude.max = -Infinity;
-    statsObj.normalization.score.min = 1.0;
-    statsObj.normalization.score.max = -1.0;
-    statsObj.normalization.comp.min = Infinity;
-    statsObj.normalization.comp.max = -Infinity;
-    statsObj.users.updatedCategorized = 0;
-    statsObj.users.notCategorized = 0;
+//     statsObj.normalization.magnitude.max = -Infinity;
+//     statsObj.normalization.score.min = 1.0;
+//     statsObj.normalization.score.max = -1.0;
+//     statsObj.normalization.comp.min = Infinity;
+//     statsObj.normalization.comp.max = -Infinity;
+//     statsObj.users.updatedCategorized = 0;
+//     statsObj.users.notCategorized = 0;
 
-    // Start the pool.
-    const catorizeUserPromise = catorizeUserPromisePool.start();
+//     // Start the pool.
+//     const catorizeUserPromise = catorizeUserPromisePool.start();
 
-    // Wait for the pool to settle.
-    catorizeUserPromise.then(function () {
-      console.log(chalkGreen(
-        "====================================================\n"
-        + MODULE_ID_PREFIX + " | CATEGORIZED USER POOL COMPLETE\n"
-        + "====================================================\n"
-      ));
-      resolve();
-    }, function (err) {
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** CATEGORIZED USER POOL ERROR: " + err));
-      reject(err);
-    })
+//     // Wait for the pool to settle.
+//     catorizeUserPromise.then(function () {
+//       console.log(chalkGreen(
+//         "====================================================\n"
+//         + MODULE_ID_PREFIX + " | CATEGORIZED USER POOL COMPLETE\n"
+//         + "====================================================\n"
+//       ));
+//       resolve();
+//     }, function (err) {
+//       console.log(chalkError(MODULE_ID_PREFIX + " | *** CATEGORIZED USER POOL ERROR: " + err));
+//       reject(err);
+//     })
 
-  });
-}
+//   });
+// }
 
-function categoryCursor(params){
-  return new Promise(function(resolve, reject){
+function categoryCursorStream(params){
 
-    let more = true;
-    let totalCount = 0;
-    let totalManual = 0;
-    let totalAuto = 0;
-    let totalMatched = 0;
-    let totalMismatched = 0;
-    let totalMatchRate = 0;
-    let totalQueued = 0;
+  return new Promise(function(resolve){
 
-    async.whilst(
+    const catCursor = global.globalUser.find(params.query).lean().cursor();
 
-      function test(cbTest) { cbTest(null, more); },
+    let ready = true;
+    let archivedCount = 0;
 
-      function(cb){
+    const catCursorInterval = setInterval(async function(){
 
-        userServerController.findCategorizedUsersCursor(params, function(err, results){
-
-          if (err) {
-            console.error(chalkError(MODULE_ID_PREFIX + " | ERROR: initCategorizedNodeIds: " + err));
-            cb(err);
-          }
-          else if (configuration.testMode && (totalCount >= configuration.maxTestCount)) {
-
-            more = false;
-
-            console.log(chalkAlert(MODULE_ID_PREFIX + " | +++ LOADED CATEGORIZED USERS FROM DB"
-              + " | *** TEST MODE ***"
-              + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
-              + " | TOTAL CATEGORIZED: " + totalCount
-              + " | LIMIT: " + params.limit
-              + " | SKIP: " + params.skip
-              + " | " + totalManual + " MAN"
-              + " | " + totalAuto + " AUTO"
-              + " | " + totalMatched + " MATCHED"
-              + " / " + totalMismatched + " MISMATCHED"
-              + " | " + totalMatchRate.toFixed(2) + "% MATCHRATE"
-            ));
-
-            cb();
-          }
-          else if (results) {
-
-            more = true;
-            totalCount += results.count;
-            totalManual += results.manual;
-            totalAuto += results.auto;
-            totalMatched += results.matched;
-            totalMismatched += results.mismatched;
-
-            totalMatchRate = 100*(totalMatched/totalCount);
-
-            for (const nodeId of Object.keys(results.obj)){
-
-              if (results.obj[nodeId].category) { 
-
-                totalQueued += 1;
-
-                categorizedNodeIdsQueue.push(nodeId);
-                // configEvents.emit("CATEGORIZE_NODE", nodeId);
-
-                if (configuration.testMode && totalQueued >= configuration.maxTestCount) {
-                  console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE | MAX TEST QUEUED: " + totalQueued));
-                  break;
-                }
-
-              }
-              else {
-                console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNCATEGORIZED USER FROM DB\n" + tcUtils.jsonPrint(results.obj[nodeId])));
-              }
-            }
-
-            if (configuration.verbose || (totalCount % 1000 === 0)) {
-
-              console.log(chalkLog(MODULE_ID_PREFIX + " | ... LOADING CATEGORIZED USERS FROM DB"
-                + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
-                + " | TOTAL: " + totalCount
-                + " | " + totalManual + " MAN"
-                + " | " + totalAuto + " AUTO"
-                + " | " + totalMatched + " MATCHED"
-                + " / " + totalMismatched + " MISMATCHED"
-                + " | " + totalMatchRate.toFixed(2) + "% MATCHRATE"
-              ));
-            }
-
-            params.skip += results.count;
-
-            cb();
-          }
-          else {
-
-            more = false;
-
-            console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ LOADED CATEGORIZED USERS FROM DB"
-              + " [ CNIDQ: " + categorizedNodeIdsQueue.length + "]"
-              + " | TOTAL CATEGORIZED: " + totalCount
-              + " | LIMIT: " + params.limit
-              + " | SKIP: " + params.skip
-              + " | " + totalManual + " MAN"
-              + " | " + totalAuto + " AUTO"
-              + " | " + totalMatched + " MATCHED"
-              + " / " + totalMismatched + " MISMATCHED"
-              + " | " + totalMatchRate.toFixed(2) + "% MATCHRATE"
-            ));
-
-            cb();
-          }
-
-        });
-      },
-
-      function(err){
-
-
-        if (err) {
-          console.log(chalkError(MODULE_ID_PREFIX + " | INIT CATEGORIZED USER HASHMAP ERROR: " + err + "\n" + tcUtils.jsonPrint(err)));
-          return reject(err);
-        }
-        console.log(chalkBlueBold(MODULE_ID_PREFIX + " | INIT CATEGORIZED USERS: " + totalCount));
-        configEvents.emit("CATEGORIZE_NODE_END");
-        resolve();
+      if (configuration.testMode && (archivedCount >= configuration.maxTestCount)) {
+        clearInterval(catCursorInterval);
+        return resolve();
       }
-    );
+
+      if (ready && (archiveUserQueue.length < 100)){
+
+        ready = false;
+
+        const u = await catCursor.next();
+
+        if (!u || (u === undefined)) {
+          clearInterval(catCursorInterval);
+          return resolve();
+        }
+
+        u.friends = _.slice(u.friends, 0,5000);
+
+        const user = await catorizeUser({user: u, verbose: configuration.verbose, testMode: configuration.testMode});
+
+        archiveUserQueue.push(user);
+        archivedCount += 1;
+        ready = true;
+      }
+    }, 10);
+
   });
 }
 
-async function initCategorizedNodeIds(){
+// function categoryCursor(params){
+//   return new Promise(function(resolve, reject){
 
-  statsObj.status = "INIT CATEGORIZED NODE IDS";
+//     let more = true;
+//     let totalCount = 0;
+//     let totalManual = 0;
+//     let totalAuto = 0;
+//     let totalMatched = 0;
+//     let totalMismatched = 0;
+//     let totalMatchRate = 0;
+//     let totalQueued = 0;
 
-  console.log(chalkInfo(MODULE_ID_PREFIX + " | ... INIT CATEGORIZED NODE IDs ..."));
+//     async.whilst(
 
-  const p = {};
+//       function test(cbTest) { cbTest(null, more); },
 
-  p.skip = 0;
-  p.limit = DEFAULT_FIND_CAT_USER_CURSOR_LIMIT;
-  p.batchSize = DEFAULT_CURSOR_BATCH_SIZE;
-  p.query = { 
-    "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
-  };
+//       function(cb){
+
+//         userServerController.findCategorizedUsersCursor(params, function(err, results){
+
+//           if (err) {
+//             console.error(chalkError(MODULE_ID_PREFIX + " | ERROR: initCategorizedNodeIds: " + err));
+//             cb(err);
+//           }
+//           else if (configuration.testMode && (totalCount >= configuration.maxTestCount)) {
+
+//             more = false;
+
+//             console.log(chalkAlert(MODULE_ID_PREFIX + " | +++ LOADED CATEGORIZED USERS FROM DB"
+//               + " | *** TEST MODE ***"
+//               + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
+//               + " | TOTAL CATEGORIZED: " + totalCount
+//               + " | LIMIT: " + params.limit
+//               + " | SKIP: " + params.skip
+//               + " | " + totalManual + " MAN"
+//               + " | " + totalAuto + " AUTO"
+//               + " | " + totalMatched + " MATCHED"
+//               + " / " + totalMismatched + " MISMATCHED"
+//               + " | " + totalMatchRate.toFixed(2) + "% MATCHRATE"
+//             ));
+
+//             cb();
+//           }
+//           else if (results) {
+
+//             more = true;
+//             totalCount += results.count;
+//             totalManual += results.manual;
+//             totalAuto += results.auto;
+//             totalMatched += results.matched;
+//             totalMismatched += results.mismatched;
+
+//             totalMatchRate = 100*(totalMatched/totalCount);
+
+//             for (const nodeId of Object.keys(results.obj)){
+
+//               if (results.obj[nodeId].category) { 
+
+//                 totalQueued += 1;
+
+//                 categorizedNodeQueue.push(results.obj[nodeId]);
+//                 // configEvents.emit("CATEGORIZE_NODE", nodeId);
+
+//                 if (configuration.testMode && totalQueued >= configuration.maxTestCount) {
+//                   console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE | MAX TEST QUEUED: " + totalQueued));
+//                   break;
+//                 }
+
+//               }
+//               else {
+//                 console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNCATEGORIZED USER FROM DB\n" + tcUtils.jsonPrint(results.obj[nodeId])));
+//               }
+//             }
+
+//             if (configuration.verbose || (totalCount % 1000 === 0)) {
+
+//               console.log(chalkLog(MODULE_ID_PREFIX + " | ... LOADING CATEGORIZED USERS FROM DB"
+//                 + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
+//                 + " | TOTAL: " + totalCount
+//                 + " | " + totalManual + " MAN"
+//                 + " | " + totalAuto + " AUTO"
+//                 + " | " + totalMatched + " MATCHED"
+//                 + " / " + totalMismatched + " MISMATCHED"
+//                 + " | " + totalMatchRate.toFixed(2) + "% MATCHRATE"
+//               ));
+//             }
+
+//             params.skip += results.count;
+
+//             cb();
+//           }
+//           else {
+
+//             more = false;
+
+//             console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ LOADED CATEGORIZED USERS FROM DB"
+//               + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
+//               + " | TOTAL CATEGORIZED: " + totalCount
+//               + " | LIMIT: " + params.limit
+//               + " | SKIP: " + params.skip
+//               + " | " + totalManual + " MAN"
+//               + " | " + totalAuto + " AUTO"
+//               + " | " + totalMatched + " MATCHED"
+//               + " / " + totalMismatched + " MISMATCHED"
+//               + " | " + totalMatchRate.toFixed(2) + "% MATCHRATE"
+//             ));
+
+//             cb();
+//           }
+
+//         });
+//       },
+
+//       function(err){
 
 
-  await categoryCursor(p);
+//         if (err) {
+//           console.log(chalkError(MODULE_ID_PREFIX + " | INIT CATEGORIZED USER HASHMAP ERROR: " + err + "\n" + tcUtils.jsonPrint(err)));
+//           return reject(err);
+//         }
+//         console.log(chalkBlueBold(MODULE_ID_PREFIX + " | INIT CATEGORIZED USERS: " + totalCount));
+//         configEvents.emit("CATEGORIZE_NODE_END");
+//         resolve();
+//       }
+//     );
+//   });
+// }
 
-  return;
-}
+// async function initCategorizedNodeIds(){
+
+//   statsObj.status = "INIT CATEGORIZED NODE IDS";
+
+//   console.log(chalkInfo(MODULE_ID_PREFIX + " | ... INIT CATEGORIZED NODE IDs ..."));
+
+//   const p = {};
+
+//   p.skip = 0;
+//   p.limit = DEFAULT_FIND_CAT_USER_CURSOR_LIMIT;
+//   p.batchSize = DEFAULT_CURSOR_BATCH_SIZE;
+//   p.query = { 
+//     "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
+//   };
+
+
+//   await categoryCursor(p);
+
+//   return;
+// }
 
 function archiveUser(params){
 
@@ -1416,35 +1468,35 @@ function archiveUser(params){
       return reject(new Error("ARCHIVE UNDEFINED"));
     }
 
-    let fileName;
+    const fileName = "user_" + params.user.userId + ".json";
+    // const user = params.user;
+    // delete user.friends;
 
-    try{
+    const userBuffer = Buffer.from(JSON.stringify(params.user));
 
-      fileName = "user_" + params.user.userId + ".json";
-      const userBuffer = Buffer.from(JSON.stringify(params.user));
-      // const userBuffer = Buffer.from(JSON.stringify({test: "testing"}));
-      archive.append(userBuffer, { name: fileName});
+    archive.append(userBuffer, { name: fileName});
+
+    // setTimeout(function(){
+    //   tcUtils.emitter.emit("append_" + fileName);
+    // }, 100);
+
+    tcUtils.waitEvent({ event: "append_" + fileName})
+    .then(function(){
 
       statsObj.usersAppendedToArchive += 1;
 
-      if (configuration.verbose) {
+      if (configuration.verbose || configuration.testMode) {
         console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | USER"
           + " [" + statsObj.usersAppendedToArchive + " APPENDED]"
           + " | @" + params.user.screenName
         ));
       }
-      resolve();
-    }
-    catch(err){
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** ARCHIVE USER ERROR"
-        + " [" + statsObj.usersAppendedToArchive + " APPENDED]"
-        + " | @" + params.user.screenName
-        + " | ERR: " + err
-      ));
-      return reject(err);
-    }
-  });
 
+      resolve();
+
+    });
+
+  });
 }
 
 let endArchiveUsersInterval;
@@ -1668,13 +1720,15 @@ async function initArchiver(){
 
     statsObj.archiveEntries += 1;
 
-    if (configuration.verbose || configuration.testMode) {
+    if (configuration.verbose || configuration.testMode || (statsObj.archiveEntries % 100 === 0)) {
       console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | ENTRY"
         + " [ " + statsObj.usersAppendedToArchive + " APPENDED ]"
         + " [ " + statsObj.archiveEntries + " ENTRIES ]"
         + " | " + entryData.name
       ));
     }
+
+    tcUtils.emitter.emit("append_" + entryData.name);
   });
    
   archive.on("close", function() {
@@ -1788,8 +1842,9 @@ async function generateGlobalTrainingTestSet(){
 
   await initArchiveUserQueue({interval: 5});
   await initArchiver();
-  await initCategorizedNodeIds();
-  await initCategorizeUserPool();
+  await categoryCursorStream({query: catUsersQuery});
+  // await initCategorizedNodeIds();
+  // await initCategorizeUserPool();
   await endAppendUsers();
 
   // inc total to account for future append
@@ -1836,6 +1891,7 @@ setTimeout(async function(){
     await tcUtils.redisFlush();
     configEvents.emit("INIT_CATEGORIZE_USER_POOL");
     await tcUtils.initUpdateRedisEntryPool({promisePoolConcurrency: configuration.redisPromisePoolConcurrency});
+
     await generateGlobalTrainingTestSet();
 
     let rootFolder;
