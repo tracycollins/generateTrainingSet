@@ -3,7 +3,7 @@
 /temp/*
 ./temp/*
 ./*.heapdump
-
+./report.*
 # Compiled source #
 ###################
 *.com
