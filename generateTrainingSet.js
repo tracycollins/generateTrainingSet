@@ -1106,8 +1106,8 @@ const catorizeUser = function (params){
 
         userIndex += 1;
 
-        // tcUtils.updateGlobalHistograms({user: user})
-        // .then(function(){
+        tcUtils.updateGlobalHistograms({user: user})
+        .then(function(){
           const subUser = pick(
             user,
             [
@@ -1149,11 +1149,11 @@ const catorizeUser = function (params){
           // archiveUserQueue.push(subUser);
           resolve(subUser);
 
-        // })
-        // .catch(function(err){
-        //   console.log(chalkError(MODULE_ID_PREFIX + " | *** updateGlobalHistograms ERROR: " + err));
-        //   return reject(err);
-        // });
+        })
+        .catch(function(err){
+          console.log(chalkError(MODULE_ID_PREFIX + " | *** updateGlobalHistograms ERROR: " + err));
+          return reject(err);
+        });
 
       }
     })
@@ -1167,55 +1167,55 @@ const catorizeUser = function (params){
   });
 }
 
-const catorizeUserPromiseProducer = function (){
+// const catorizeUserPromiseProducer = function (){
 
-  if (categorizedNodeQueue.length > 0) {
-    const user = categorizedNodeQueue.shift();
-    return catorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
-  }
-  else{
-    return null;
-  }  
-}
+//   if (categorizedNodeQueue.length > 0) {
+//     const user = categorizedNodeQueue.shift();
+//     return catorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
+//   }
+//   else{
+//     return null;
+//   }  
+// }
 
-// The number of promises to process simultaneously.
-configuration.catUserPromisePoolConcurrency = DEFAULT_PROMISE_POOL_CONCURRENCY_CAT_USER;
+// // The number of promises to process simultaneously.
+// configuration.catUserPromisePoolConcurrency = DEFAULT_PROMISE_POOL_CONCURRENCY_CAT_USER;
  
-// Create a pool.
-const catorizeUserPromisePool = new PromisePool(catorizeUserPromiseProducer, configuration.catUserPromisePoolConcurrency);
+// // Create a pool.
+// const catorizeUserPromisePool = new PromisePool(catorizeUserPromiseProducer, configuration.catUserPromisePoolConcurrency);
 
-catorizeUserPromisePool.addEventListener("fulfilled", function(event) {
-  // The event contains:
-  // - target:    the PromisePool itself
-  // - data:
-  //   - promise: the Promise that got fulfilled
-  //   - result:  the result of that Promise
-  if (configuration.verbose || configuration.testMode){
-    // const screenName = (event.data.result) ? "@" + event.data.result.screenName : "UNDEFINED USER?";
+// catorizeUserPromisePool.addEventListener("fulfilled", function(event) {
+//   // The event contains:
+//   // - target:    the PromisePool itself
+//   // - data:
+//   //   - promise: the Promise that got fulfilled
+//   //   - result:  the result of that Promise
+//   if (configuration.verbose || configuration.testMode){
+//     // const screenName = (event.data.result) ? "@" + event.data.result.screenName : "UNDEFINED USER?";
 
-    console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ CATEGORIZE USER POOL FULFILLED"
-      // + " | " + screenName
-      // + "\n" + tcUtils.jsonPrint(event.data.result)
-    ));
+//     console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ CATEGORIZE USER POOL FULFILLED"
+//       // + " | " + screenName
+//       // + "\n" + tcUtils.jsonPrint(event.data.result)
+//     ));
 
-    if (event.data.result !== undefined) {
-      console.log(chalkAlert(MODULE_ID_PREFIX + " |  CATEGORIZE USER POOL FULFILL RESULT"
-        + "\n" + tcUtils.jsonPrint(event.data.result)
-      ));
-    }
-  }
-});
+//     if (event.data.result !== undefined) {
+//       console.log(chalkAlert(MODULE_ID_PREFIX + " |  CATEGORIZE USER POOL FULFILL RESULT"
+//         + "\n" + tcUtils.jsonPrint(event.data.result)
+//       ));
+//     }
+//   }
+// });
 
-catorizeUserPromisePool.addEventListener("rejected", function(event) {
-  // The event contains:
-  // - target:    the PromisePool itself
-  // - data:
-  //   - promise: the Promise that got rejected
-  //   - error:   the Error for the rejection
-  console.log(chalkAlert(MODULE_ID_PREFIX + " | *** CATEGORIZE USER POOL REJECTED"
-    + " | " + event.data.error.message
-  ));
-});
+// catorizeUserPromisePool.addEventListener("rejected", function(event) {
+//   // The event contains:
+//   // - target:    the PromisePool itself
+//   // - data:
+//   //   - promise: the Promise that got rejected
+//   //   - error:   the Error for the rejection
+//   console.log(chalkAlert(MODULE_ID_PREFIX + " | *** CATEGORIZE USER POOL REJECTED"
+//     + " | " + event.data.error.message
+//   ));
+// });
 
 // function initCategorizeUserPool(){
 
