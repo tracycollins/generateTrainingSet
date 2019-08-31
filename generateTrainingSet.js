@@ -1710,10 +1710,10 @@ setTimeout(async function(){
 
     configuration = await initialize(configuration);
     await tcUtils.initSaveFileQueue();
-    await tcUtils.redisInit();
-    await tcUtils.redisFlush();
-    configEvents.emit("INIT_CATEGORIZE_USER_POOL");
-    await tcUtils.initUpdateRedisEntryPool({promisePoolConcurrency: configuration.redisPromisePoolConcurrency});
+    // await tcUtils.redisInit();
+    // await tcUtils.redisFlush();
+    // configEvents.emit("INIT_CATEGORIZE_USER_POOL");
+    // await tcUtils.initUpdateRedisEntryPool({promisePoolConcurrency: configuration.redisPromisePoolConcurrency});
 
     await generateGlobalTrainingTestSet();
 
@@ -1733,13 +1733,13 @@ setTimeout(async function(){
     console.log(chalkInfo("TFE | ... SAVING HISTOGRAMS"));
 
     await tcUtils.saveGlobalHistograms({rootFolder: rootFolder, pruneFlag: true});
-    tcUtils.redisFlush();
-    tcUtils.redisQuit();
+    // tcUtils.redisFlush();
+    // tcUtils.redisQuit();
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
   }
   catch(err){
-    tcUtils.redisFlush();
-    tcUtils.redisQuit();
+    // tcUtils.redisFlush();
+    // tcUtils.redisQuit();
     console.log(chalkError(MODULE_ID_PREFIX + " | *** MAIN ERROR: " + err));
   }
 }, 1000);
