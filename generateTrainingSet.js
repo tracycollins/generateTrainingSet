@@ -890,14 +890,6 @@ async function updateCategorizedUser(params){
   }
 
   try {
-    // const dbUser = await global.globalUser.findOne({ nodeId: params.nodeId }).lean().exec();
-
-    // if (!dbUser || dbUser === undefined){
-    //   console.log(chalkLog(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER NOT FOUND: NID: " + params.nodeId));
-    //   statsObj.users.notFound += 1;
-    //   statsObj.users.notCategorized += 1;
-    //   return;
-    // }
 
     if (!params.user.category || params.user.category === undefined) {
       console.log(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED | UID: " + params.user.nodeId));
@@ -1166,94 +1158,6 @@ const catorizeUser = function (params){
     });
   });
 }
-
-// const catorizeUserPromiseProducer = function (){
-
-//   if (categorizedNodeQueue.length > 0) {
-//     const user = categorizedNodeQueue.shift();
-//     return catorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
-//   }
-//   else{
-//     return null;
-//   }  
-// }
-
-// // The number of promises to process simultaneously.
-// configuration.catUserPromisePoolConcurrency = DEFAULT_PROMISE_POOL_CONCURRENCY_CAT_USER;
- 
-// // Create a pool.
-// const catorizeUserPromisePool = new PromisePool(catorizeUserPromiseProducer, configuration.catUserPromisePoolConcurrency);
-
-// catorizeUserPromisePool.addEventListener("fulfilled", function(event) {
-//   // The event contains:
-//   // - target:    the PromisePool itself
-//   // - data:
-//   //   - promise: the Promise that got fulfilled
-//   //   - result:  the result of that Promise
-//   if (configuration.verbose || configuration.testMode){
-//     // const screenName = (event.data.result) ? "@" + event.data.result.screenName : "UNDEFINED USER?";
-
-//     console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ CATEGORIZE USER POOL FULFILLED"
-//       // + " | " + screenName
-//       // + "\n" + tcUtils.jsonPrint(event.data.result)
-//     ));
-
-//     if (event.data.result !== undefined) {
-//       console.log(chalkAlert(MODULE_ID_PREFIX + " |  CATEGORIZE USER POOL FULFILL RESULT"
-//         + "\n" + tcUtils.jsonPrint(event.data.result)
-//       ));
-//     }
-//   }
-// });
-
-// catorizeUserPromisePool.addEventListener("rejected", function(event) {
-//   // The event contains:
-//   // - target:    the PromisePool itself
-//   // - data:
-//   //   - promise: the Promise that got rejected
-//   //   - error:   the Error for the rejection
-//   console.log(chalkAlert(MODULE_ID_PREFIX + " | *** CATEGORIZE USER POOL REJECTED"
-//     + " | " + event.data.error.message
-//   ));
-// });
-
-// function initCategorizeUserPool(){
-
-//   return new Promise(function(resolve, reject){
-
-//     console.log(chalkInfo(MODULE_ID_PREFIX + " | ... INIT CATEGORIZE USER POOL"
-//       + " | POOL SIZE: " + configuration.catUserPromisePoolConcurrency
-//       + " | " + statsObj.archiveTotal + " USERS"
-//     ));
-
-//     statsObj.status = "INIT CATEGORIZE USER POOL";
-
-//     statsObj.normalization.magnitude.max = -Infinity;
-//     statsObj.normalization.score.min = 1.0;
-//     statsObj.normalization.score.max = -1.0;
-//     statsObj.normalization.comp.min = Infinity;
-//     statsObj.normalization.comp.max = -Infinity;
-//     statsObj.users.updatedCategorized = 0;
-//     statsObj.users.notCategorized = 0;
-
-//     // Start the pool.
-//     const catorizeUserPromise = catorizeUserPromisePool.start();
-
-//     // Wait for the pool to settle.
-//     catorizeUserPromise.then(function () {
-//       console.log(chalkGreen(
-//         "====================================================\n"
-//         + MODULE_ID_PREFIX + " | CATEGORIZED USER POOL COMPLETE\n"
-//         + "====================================================\n"
-//       ));
-//       resolve();
-//     }, function (err) {
-//       console.log(chalkError(MODULE_ID_PREFIX + " | *** CATEGORIZED USER POOL ERROR: " + err));
-//       reject(err);
-//     })
-
-//   });
-// }
 
 function categoryCursorStream(params){
 
@@ -1666,8 +1570,6 @@ async function generateGlobalTrainingTestSet(){
   await initArchiveUserQueue({interval: 5});
   await initArchiver();
   await categoryCursorStream({query: catUsersQuery});
-  // await initCategorizedNodeIds();
-  // await initCategorizeUserPool();
   await endAppendUsers();
 
   // inc total to account for future append
