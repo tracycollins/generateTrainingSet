@@ -1,8 +1,8 @@
 /*jslint node: true */
 /*jshint sub:true*/
-const DEFAULT_PROMISE_POOL_CONCURRENCY_REDIS = 4;
-const DEFAULT_PROMISE_POOL_CONCURRENCY_CAT_USER = 4;
-const TEST_MODE_LENGTH = 100;
+
+const DEFAULT_INPUT_TYPE_MIN_FRIENDS = 1000;
+const TEST_MODE_LENGTH = 1000;
 
 const catUsersQuery = { 
   "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
@@ -72,8 +72,6 @@ const fileLockOptions = {
   stale: DEFAULT_FILELOCK_STALE,
   wait: DEFAULT_FILELOCK_WAIT
 };
-
-const PromisePool = require("es6-promise-pool");
 
 const path = require("path");
 const moment = require("moment");
@@ -212,9 +210,6 @@ configuration.interruptFlag = false;
 configuration.enableRequiredTrainingSet = false;
 configuration.quitOnComplete = DEFAULT_QUIT_ON_COMPLETE;
 configuration.globalTrainingSetId = GLOBAL_TRAINING_SET_ID;
-
-configuration.redisPromisePoolConcurrency = DEFAULT_PROMISE_POOL_CONCURRENCY_REDIS;
-configuration.catUserPromisePoolConcurrency = DEFAULT_PROMISE_POOL_CONCURRENCY_CAT_USER;
 
 configuration.DROPBOX = {};
 
@@ -767,16 +762,6 @@ async function loadConfigFile(params) {
       else {
         newConfiguration.quitOnComplete = true;
       }
-    }
-
-    if (loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY_REDIS !== undefined){
-      console.log(MODULE_ID_PREFIX + " | LOADED GTS_PROMISE_POOL_CONCURRENCY_REDIS: " + loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY_REDIS);
-      newConfiguration.redisPromisePoolConcurrency = loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY_REDIS;
-    }
-
-    if (loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY_CAT_USER !== undefined){
-      console.log(MODULE_ID_PREFIX + " | LOADED GTS_PROMISE_POOL_CONCURRENCY_CAT_USER: " + loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY_CAT_USER);
-      newConfiguration.catUserPromisePoolConcurrency = loadedConfigObj.GTS_PROMISE_POOL_CONCURRENCY_CAT_USER;
     }
 
     if (loadedConfigObj.GTS_VERBOSE_MODE !== undefined){
@@ -1612,11 +1597,6 @@ setTimeout(async function(){
 
     configuration = await initialize(configuration);
     await tcUtils.initSaveFileQueue();
-    // await tcUtils.redisInit();
-    // await tcUtils.redisFlush();
-    // configEvents.emit("INIT_CATEGORIZE_USER_POOL");
-    // await tcUtils.initUpdateRedisEntryPool({promisePoolConcurrency: configuration.redisPromisePoolConcurrency});
-
     await generateGlobalTrainingTestSet();
 
     let rootFolder;
@@ -1634,14 +1614,13 @@ setTimeout(async function(){
 
     console.log(chalkInfo("TFE | ... SAVING HISTOGRAMS"));
 
-    await tcUtils.saveGlobalHistograms({rootFolder: rootFolder, pruneFlag: true});
-    // tcUtils.redisFlush();
-    // tcUtils.redisQuit();
+    const inputTypeMinHash = {};
+    inputTypeMinHash.friends = (configuration.testMode) ? 10 : DEFAULT_INPUT_TYPE_MIN_FRIENDS;
+
+    await tcUtils.saveGlobalHistograms({rootFolder: rootFolder, pruneFlag: true, inputTypeMinHash: inputTypeMinHash});
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
   }
   catch(err){
-    // tcUtils.redisFlush();
-    // tcUtils.redisQuit();
     console.log(chalkError(MODULE_ID_PREFIX + " | *** MAIN ERROR: " + err));
   }
 }, 1000);
