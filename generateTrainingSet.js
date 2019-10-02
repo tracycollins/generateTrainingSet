@@ -1,6 +1,7 @@
 /*jslint node: true */
 /*jshint sub:true*/
 
+const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_INPUT_TYPE_MIN_FRIENDS = 1000;
 const TEST_MODE_LENGTH = 1000;
 
@@ -196,6 +197,7 @@ configuration.verbose = false;
 configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
 configuration.maxTestCount = TEST_MODE_LENGTH;
+configuration.maxHistogramValue = DEFAULT_MAX_HISTOGRAM_VALUE;
 
 let defaultConfiguration = {}; // general configuration for GTS
 let hostConfiguration = {}; // host-specific configuration for GTS
@@ -774,6 +776,11 @@ async function loadConfigFile(params) {
       newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
     }
 
+    if (loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_MAX_HISTOGRAM_VALUE: " + loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE);
+      newConfiguration.maxHistogramValue = loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE;
+    }
+
     return newConfiguration;
   }
   catch(err){
@@ -841,6 +848,17 @@ async function updateMaxInputHashMap(params){
         for (const entity of histogramTypeEntities){
 
           if (histograms[type][entity] !== undefined){
+
+            if (histograms[type][entity] > configuration.maxHistogramValue){
+              console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! LARGE VALUE histograms[type][entity] --- CLAMPED TO 1000"
+                + " | @" + params.user.screenName
+                + " | TYPE: " + type
+                + " | ENTITY: " + entity
+                + " | VALUE: " + histograms[type][entity]
+              ));
+
+              histograms[type][entity] = 1000;
+            }
 
             if (maxInputHashMap[type][entity] === undefined){
               maxInputHashMap[type][entity] = Math.max(1, histograms[type][entity]);
