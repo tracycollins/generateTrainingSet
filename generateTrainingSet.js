@@ -338,6 +338,8 @@ function slackPostMessage(channel, text, callback){
   });
 }
 
+const maxHistogramValue = { name: "maxHistogramValue", alias: "M", type: Number };
+
 const help = { name: "help", alias: "h", type: Boolean};
 
 const enableStdin = { name: "enableStdin", alias: "S", type: Boolean, defaultValue: true };
@@ -348,6 +350,7 @@ const verbose = { name: "verbose", alias: "v", type: Boolean };
 const testMode = { name: "testMode", alias: "X", type: Boolean };
 
 const optionDefinitions = [
+  maxHistogramValue,
   enableStdin, 
   quitOnComplete, 
   quitOnError, 
@@ -826,62 +829,102 @@ async function loadAllConfigFiles(cnf){
   return tempConfig;
 }
 
+async function clampHistogram(params){
+
+  const histogramTypes = Object.keys(params.histogram);
+  const maxValue = params.maxValue || configuration.maxHistogramValue;
+
+  const histogram = {};
+
+  for (const type of histogramTypes){
+
+    histogram[type] = {};
+
+    const entities = Object.keys(params.histogram[type]);
+
+    for (const entity of entities){
+
+      if (params.histogram[type][entity] > configuration.maxHistogramValue){
+
+        console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: " + maxValue
+          + " | @" + params.screenName
+          + " | TYPE: " + type
+          + " | ENTITY: " + entity
+          + " | VALUE: " + params.histogram[type][entity]
+        ));
+
+      }
+
+      histogram[type][entity] = Math.min(maxValue, params.histogram[type][entity]) || 1;
+    }
+  }
+
+  return histogram;
+}
+
 configEvents.once("INIT_MONGODB", function(){
   console.log(chalkLog(MODULE_ID_PREFIX + " | INIT_MONGODB"));
 });
 
-async function updateMaxInputHashMap(params){
+async function updateUserAndMaxInputHashMap(params){
 
-  const histograms = await mergeHistograms.merge({ histogramA: params.user.profileHistograms, histogramB: params.user.tweetHistograms });
+  try{
 
-  const histogramTypes = Object.keys(histograms);
+    const user = params.user;
 
-  for (const type of histogramTypes){
-    if (type !== "sentiment") {
+    const dbUpdateParams = {};
 
-      if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
+    dbUpdateParams.profileHistograms = {};
+    dbUpdateParams.tweetHistograms = {};
 
-      const histogramTypeEntities = Object.keys(histograms[type]);
+    dbUpdateParams.profileHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.profileHistograms});
+    dbUpdateParams.tweetHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.tweetHistograms});
 
-      if (histogramTypeEntities.length > 0) {
+    const dbUpdatedUser = await global.globalUser.findOneAndUpdate({userId: user.userId}, dbUpdateParams, {new: true, lean: true});
 
-        for (const entity of histogramTypeEntities){
+    const mergedHistograms = await mergeHistograms.merge({ histogramA: dbUpdatedUser.profileHistograms, histogramB: dbUpdatedUser.tweetHistograms });
 
-          if (histograms[type][entity] !== undefined){
+    const histogramTypes = Object.keys(mergedHistograms);
 
-            if (histograms[type][entity] > configuration.maxHistogramValue){
-              console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! LARGE VALUE histograms[type][entity] --- CLAMPED TO 1000"
-                + " | @" + params.user.screenName
-                + " | TYPE: " + type
-                + " | ENTITY: " + entity
-                + " | VALUE: " + histograms[type][entity]
-              ));
+    for (const type of histogramTypes){
+      if (type !== "sentiment") {
 
-              histograms[type][entity] = 1000;
-            }
+        if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
 
-            if (maxInputHashMap[type][entity] === undefined){
-              maxInputHashMap[type][entity] = Math.max(1, histograms[type][entity]);
+        const histogramTypeEntities = Object.keys(mergedHistograms[type]);
+
+        if (histogramTypeEntities.length > 0) {
+
+          for (const entity of histogramTypeEntities){
+
+            if (mergedHistograms[type][entity] !== undefined){
+
+              if (maxInputHashMap[type][entity] === undefined){
+                maxInputHashMap[type][entity] = Math.max(1, mergedHistograms[type][entity]);
+              }
+              else{
+                maxInputHashMap[type][entity] = Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
+              }
             }
             else{
-              maxInputHashMap[type][entity] = Math.max(maxInputHashMap[type][entity], histograms[type][entity]);
+              console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNDEFINED mergedHistograms[type][entity]"
+                + " | TYPE: " + type
+                + " | ENTITY: " + entity
+              ));
+              delete mergedHistograms[type][entity];
             }
-          }
-          else{
-            console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNDEFINED histograms[type][entity]"
-              + " | TYPE: " + type
-              + " | ENTITY: " + entity
-            ));
-            delete histograms[type][entity];
+
           }
 
         }
-
       }
     }
-  }
 
-  return;
+    return dbUpdatedUser;
+  }
+  catch(err){
+    throw err;
+  }
 }
 
 async function updateCategorizedUser(params){
@@ -892,32 +935,41 @@ async function updateCategorizedUser(params){
     throw new Error("USER UNDEFINED");
   }
 
+  const userIn = params.user;
+
   try {
 
-    if (!params.user.category || params.user.category === undefined) {
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED | UID: " + params.user.nodeId));
+    if (!userIn.category || userIn.category === undefined) {
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED | UID: " + userIn.nodeId));
       statsObj.users.notCategorized += 1;
       return;
     }
 
-    if (params.user.screenName === undefined) {
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED | UID: " + params.user.nodeId));
+    if (userIn.screenName === undefined) {
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED | UID: " + userIn.nodeId));
       statsObj.users.screenNameUndefined += 1;
       statsObj.users.notCategorized += 1;
       return;
     }
 
-    if (!params.user.profileHistograms || (params.user.profileHistograms === undefined)){
-      params.user.profileHistograms = {};
+    if (!userIn.tweetHistograms || (userIn.tweetHistograms == undefined)){
+      userIn.tweetHistograms = {};
     }
 
-    if (params.user.friends && (params.user.friends.length > 5000)){
-      params.user.friends = _.slice(params.user.friends, 0,5000);
+    if (!userIn.profileHistograms || (userIn.profileHistograms == undefined)){
+      userIn.profileHistograms = {};
     }
 
-    const user = await tcUtils.encodeHistogramUrls({user: params.user});
+    if (!userIn.friends || (userIn.friends == undefined)){
+      userIn.friends = [];
+    }
+    else if (userIn.friends.length > 5000){
+      userIn.friends = _.slice(userIn.friends, 0,5000);
+    }
 
-    await updateMaxInputHashMap({user: user});
+    const u = await tcUtils.encodeHistogramUrls({user: userIn});
+
+    const user = await updateUserAndMaxInputHashMap({user: u});
 
     if (user.profileHistograms.sentiment && (user.profileHistograms.sentiment !== undefined)) {
 
@@ -1079,87 +1131,76 @@ function initArchiveUserQueue(params){
 
 let userIndex = 0;
 
-const catorizeUser = function (params){
+async function catorizeUser(params){
 
-  return new Promise(function(resolve, reject){
+  try{
+    const user = await updateCategorizedUser({user: params.user});
 
-    updateCategorizedUser({user: params.user})
-    .then(function(user){
-      if (!user || user === undefined) {
+    if (!user || user === undefined) {
 
-        statsObj.userErrorCount += 1;
+      statsObj.userErrorCount += 1;
 
-        console.log(chalkAlert(MODULE_ID_PREFIX + " | *** UPDATE CL USR NOT FOUND: "
-          + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
-          + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + " ]"
-          + " | USER ID: " + params.nodeId
-        ));
-
-        return reject(new Error("USER NOT FOUND IN DB: " + params.nodeId));
-      }
-      else {
-
-        userIndex += 1;
-
-        tcUtils.updateGlobalHistograms({user: user})
-        .then(function(){
-          const subUser = pick(
-            user,
-            [
-              "userId", 
-              "screenName", 
-              "nodeId", 
-              "name",
-              "lang",
-              "statusesCount",
-              "followersCount",
-              "friendsCount",
-              "friends",
-              "languageAnalysis", 
-              "category", 
-              "categoryAuto", 
-              "histograms", 
-              "profileHistograms", 
-              "tweetHistograms", 
-              "location", 
-              "ignored", 
-              "following", 
-              "threeceeFollowing"
-            ]
-          );
-
-          subUser.friends = _.slice(subUser.friends, 0,5000);
-
-          if (params.verbose || params.testMode) {
-            console.log(chalkInfo(MODULE_ID_PREFIX + " | -<- UPDATE CL USR <DB"
-              + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
-              + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + "]"
-              + " | " + user.nodeId
-              + " | @" + user.screenName
-            ));
-          }
-
-          if (statsObj.archiveStartMoment === 0) { statsObj.archiveStartMoment = moment(); }
-
-          // archiveUserQueue.push(subUser);
-          resolve(subUser);
-
-        })
-        .catch(function(err){
-          console.log(chalkError(MODULE_ID_PREFIX + " | *** updateGlobalHistograms ERROR: " + err));
-          return reject(err);
-        });
-
-      }
-    })
-    .catch(function(err){
-      console.log(chalkError(MODULE_ID_PREFIX
-        + " | *** UPDATE CATEGORIZED USER ERROR | USER ID: " + params.nodeId 
-        + " | ERROR: " + err
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | *** UPDATE CL USR NOT FOUND: "
+        + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
+        + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + " ]"
+        + " | USER ID: " + params.nodeId
       ));
-      return reject(err);
-    });
-  });
+
+      throw new Error("USER NOT FOUND IN DB: " + params.nodeId);
+    }
+
+    userIndex += 1;
+
+    await tcUtils.updateGlobalHistograms({user: user});
+
+    const subUser = pick(
+      user,
+      [
+        "userId", 
+        "screenName", 
+        "nodeId", 
+        "name",
+        "lang",
+        "statusesCount",
+        "followersCount",
+        "friendsCount",
+        "friends",
+        "languageAnalysis", 
+        "category", 
+        "categoryAuto", 
+        "histograms", 
+        "profileHistograms", 
+        "tweetHistograms", 
+        "location", 
+        "ignored", 
+        "following", 
+        "threeceeFollowing"
+      ]
+    );
+
+    subUser.friends = _.slice(subUser.friends, 0,5000);
+
+    if (params.verbose || params.testMode) {
+      console.log(chalkInfo(MODULE_ID_PREFIX + " | -<- UPDATE CL USR <DB"
+        + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
+        + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + "]"
+        + " | " + user.nodeId
+        + " | @" + user.screenName
+      ));
+    }
+
+    if (statsObj.archiveStartMoment === 0) { statsObj.archiveStartMoment = moment(); }
+
+    return subUser;
+
+  }
+  catch(err){
+    console.log(chalkError(MODULE_ID_PREFIX
+      + " | *** UPDATE CATEGORIZED USER ERROR | USER ID: " + params.nodeId 
+      + " | ERROR: " + err
+    ));
+    throw err;
+  }
 }
 
 function categoryCursorStream(params){
@@ -1182,18 +1223,23 @@ function categoryCursorStream(params){
 
         ready = false;
 
-        const u = await catCursor.next();
+        const user = await catCursor.next();
 
-        if (!u || (u === undefined)) {
+        if (!user || (user === undefined)) {
           clearInterval(catCursorInterval);
           return resolve();
         }
 
-        u.friends = _.slice(u.friends, 0,5000);
+        if (!user.friends || user.friends == undefined) {
+          user.friends = [];
+        }
+        else{
+          user.friends = _.slice(user.friends, 0,5000);
+        }
 
-        const user = await catorizeUser({user: u, verbose: configuration.verbose, testMode: configuration.testMode});
+        const catUser = await catorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
 
-        archiveUserQueue.push(user);
+        archiveUserQueue.push(catUser);
         archivedCount += 1;
         ready = true;
       }
