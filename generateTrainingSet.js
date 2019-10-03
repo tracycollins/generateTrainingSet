@@ -2,6 +2,8 @@
 /*jshint sub:true*/
 
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
+const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 10;
+const DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM = 2;
 const DEFAULT_INPUT_TYPE_MIN_FRIENDS = 1000;
 const TEST_MODE_LENGTH = 1000;
 
@@ -1679,7 +1681,10 @@ setTimeout(async function(){
     console.log(chalkInfo("TFE | ... SAVING HISTOGRAMS"));
 
     const inputTypeMinHash = {};
-    inputTypeMinHash.friends = (configuration.testMode) ? 10 : DEFAULT_INPUT_TYPE_MIN_FRIENDS;
+    inputTypeMinHash.media = (configuration.testMode) ? DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM : DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM;
+    inputTypeMinHash.places = (configuration.testMode) ? DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM : DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM;
+    inputTypeMinHash.urls = (configuration.testMode) ? DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM : DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM;
+    inputTypeMinHash.friends = (configuration.testMode) ? DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM : DEFAULT_INPUT_TYPE_MIN_FRIENDS;
 
     await tcUtils.saveGlobalHistograms({rootFolder: rootFolder, pruneFlag: true, inputTypeMinHash: inputTypeMinHash});
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
