@@ -90,8 +90,6 @@ const sizeof = require("object-sizeof");
 const pick = require("object.pick");
 const Slack = require("slack-node");
 const EventEmitter3 = require("eventemitter3");
-const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
-const tcUtils = new ThreeceeUtilities("GTS_TCU");
 const debug = require("debug")("gts");
 const commandLineArgs = require("command-line-args");
   
@@ -253,8 +251,31 @@ configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
 configuration.userArchivePath = configuration[HOST].userArchivePath;
 
-
 const slackOAuthAccessToken = "xoxp-3708084981-3708084993-206468961315-ec62db5792cd55071a51c544acf0da55";
+
+const wordAssoDb = require("@threeceelabs/mongoose-twitter");
+let dbConnection;
+
+const tcuChildName = MODULE_ID_PREFIX + "_TCU";
+const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
+const tcUtils = new ThreeceeUtilities(tcuChildName);
+
+const NeuralNetworkTools = require("@threeceelabs/neural-network-tools");
+const nnTools = new NeuralNetworkTools(MODULE_ID_PREFIX + "_NNT");
+
+const UserServerController = require("@threeceelabs/user-server-controller");
+const userServerController = new UserServerController(MODULE_ID_PREFIX + "_USC");
+let userServerControllerReady = false;
+
+userServerController.on("error", function(err){
+  userServerControllerReady = false;
+  console.log(chalkError(MODULE_ID_PREFIX + " | *** USC ERROR | " + err));
+});
+
+userServerController.on("ready", function(appname){
+  userServerControllerReady = true;
+  console.log(chalk.green(MODULE_ID_PREFIX + " | USC READY | " + appname));
+});
 
 function toMegabytes(sizeInBytes) {
   return sizeInBytes/ONE_MEGABYTE;
@@ -444,25 +465,6 @@ debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_ACCESS_TOKEN :" + configuration.D
 debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_KEY :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_KEY);
 debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_SECRET :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_SECRET);
 
-global.globalDbConnection = false;
-const mongoose = require("mongoose");
-mongoose.set("useFindAndModify", false);
-
-const emojiModel = require("@threeceelabs/mongoose-twitter/models/emoji.server.model");
-const hashtagModel = require("@threeceelabs/mongoose-twitter/models/hashtag.server.model");
-const locationModel = require("@threeceelabs/mongoose-twitter/models/location.server.model");
-const mediaModel = require("@threeceelabs/mongoose-twitter/models/media.server.model");
-const neuralNetworkModel = require("@threeceelabs/mongoose-twitter/models/neuralNetwork.server.model");
-const placeModel = require("@threeceelabs/mongoose-twitter/models/place.server.model");
-const tweetModel = require("@threeceelabs/mongoose-twitter/models/tweet.server.model");
-const urlModel = require("@threeceelabs/mongoose-twitter/models/url.server.model");
-const userModel = require("@threeceelabs/mongoose-twitter/models/user.server.model");
-const wordModel = require("@threeceelabs/mongoose-twitter/models/word.server.model");
-
-global.globalWordAssoDb = require("@threeceelabs/mongoose-twitter");
-
-const UserServerController = require("@threeceelabs/user-server-controller");
-let userServerController;
 
 const globalCategorizedUsersFolder = dropboxConfigDefaultFolder + "/categorizedUsers";
 const categorizedUsersFile = "categorizedUsers_manual.json";
@@ -562,71 +564,48 @@ process.on("exit", function() {
   quit("SIGINT");
 });
 
-function connectDb(){
+async function connectDb(){
 
-  return new Promise(function(resolve, reject){
+  try {
 
-    try {
+    statsObj.status = "CONNECTING MONGO DB";
 
-      statsObj.status = "CONNECTING MONGO DB";
+    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | CONNECT MONGO DB ..."));
 
-      global.globalWordAssoDb.connect(MODULE_ID + "_" + process.pid, async function(err, db){
+    const db = await wordAssoDb.connect(MODULE_ID_PREFIX + "_" + process.pid);
 
-        if (err) {
-          console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION ERROR: " + err));
-          statsObj.status = "MONGO CONNECTION ERROR";
-          quit({cause: "MONGO DB ERROR: " + err});
-          return reject(err);
-        }
+    db.on("error", async function(err){
+      statsObj.status = "MONGO ERROR";
+      statsObj.dbConnectionReady = false;
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION ERROR"));
+      db.close();
+      quit({cause: "MONGO DB ERROR: " + err});
+    });
 
-        db.on("close", async function(){
-          statsObj.status = "MONGO CLOSED";
-          console.error.bind(console, MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION CLOSED");
-          console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION CLOSED"));
-        });
+    db.on("close", async function(err){
+      statsObj.status = "MONGO CLOSED";
+      statsObj.dbConnectionReady = false;
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION CLOSED"));
+      quit({cause: "MONGO DB CLOSED: " + err});
+    });
 
-        db.on("error", async function(){
-          statsObj.status = "MONGO ERROR";
-          console.error.bind(console, MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION ERROR");
-          console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECTION ERROR"));
-        });
+    db.on("disconnected", async function(){
+      statsObj.status = "MONGO DISCONNECTED";
+      statsObj.dbConnectionReady = false;
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | *** MONGO DB DISCONNECTED"));
+      quit({cause: "MONGO DB DISCONNECTED"});
+    });
 
-        db.on("disconnected", async function(){
-          statsObj.status = "MONGO DISCONNECTED";
-          console.error.bind(console, MODULE_ID_PREFIX + " | *** MONGO DB DISCONNECTED");
-          console.log(chalkAlert(MODULE_ID_PREFIX + " | *** MONGO DB DISCONNECTED"));
-        });
+    console.log(chalk.green(MODULE_ID_PREFIX + " | MONGOOSE DEFAULT CONNECTION OPEN"));
 
-        global.globalDbConnection = db;
+    statsObj.dbConnectionReady = true;
 
-        console.log(chalk.green(MODULE_ID_PREFIX + " | MONGOOSE DEFAULT CONNECTION OPEN"));
-
-        global.globalEmoji = global.globalDbConnection.model("Emoji", emojiModel.EmojiSchema);
-        global.globalHashtag = global.globalDbConnection.model("Hashtag", hashtagModel.HashtagSchema);
-        global.globalLocation = global.globalDbConnection.model("Location", locationModel.LocationSchema);
-        global.globalMedia = global.globalDbConnection.model("Media", mediaModel.MediaSchema);
-        global.globalNeuralNetwork = global.globalDbConnection.model("NeuralNetwork", neuralNetworkModel.NeuralNetworkSchema);
-        global.globalPlace = global.globalDbConnection.model("Place", placeModel.PlaceSchema);
-        global.globalTweet = global.globalDbConnection.model("Tweet", tweetModel.TweetSchema);
-        global.globalUrl = global.globalDbConnection.model("Url", urlModel.UrlSchema);
-        global.globalUser = global.globalDbConnection.model("User", userModel.UserSchema);
-        global.globalWord = global.globalDbConnection.model("Word", wordModel.WordSchema);
-
-        const uscChildName = MODULE_ID_PREFIX + "_USC";
-        userServerController = new UserServerController(uscChildName);
-
-        userServerController.on("ready", function(appname){
-          statsObj.status = "MONGO DB CONNECTED";
-          console.log(chalkLog(MODULE_ID_PREFIX + " | " + uscChildName + " READY | " + appname));
-          resolve(db);
-        });
-      });
-    }
-    catch(err){
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECT ERROR: " + err));
-      reject(err);
-    }
-  });
+    return db;
+  }
+  catch(err){
+    console.log(chalkError(MODULE_ID_PREFIX + " | *** MONGO DB CONNECT ERROR: " + err));
+    throw err;
+  }
 }
 
 function initStdIn(){
@@ -882,7 +861,7 @@ async function updateUserAndMaxInputHashMap(params){
     dbUpdateParams.profileHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.profileHistograms});
     dbUpdateParams.tweetHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.tweetHistograms});
 
-    const dbUpdatedUser = await global.globalUser.findOneAndUpdate({userId: user.userId}, dbUpdateParams, {new: true, lean: true});
+    const dbUpdatedUser = await wordAssoDb.User.findOneAndUpdate({userId: user.userId}, dbUpdateParams, {new: true, lean: true});
 
     const mergedHistograms = await mergeHistograms.merge({ histogramA: dbUpdatedUser.profileHistograms, histogramB: dbUpdatedUser.tweetHistograms });
 
@@ -1209,7 +1188,7 @@ function categoryCursorStream(params){
 
   return new Promise(function(resolve){
 
-    const catCursor = global.globalUser.find(params.query).lean().cursor();
+    const catCursor = wordAssoDb.User.find(params.query).lean().cursor();
 
     let ready = true;
     let archivedCount = 0;
@@ -1593,7 +1572,7 @@ async function initialize(cnf){
   
   statsObj.commandLineArgsLoaded = true;
 
-  global.globalDbConnection = await connectDb();
+  dbConnection = await connectDb();
 
   return configuration;
 }
@@ -1606,7 +1585,7 @@ async function generateGlobalTrainingTestSet(){
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | GENERATE TRAINING SET | " + tcUtils.getTimeStamp()));
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
 
-  statsObj.totalCategorizedUsersInDB = await global.globalUser.find(catUsersQuery).countDocuments().exec();
+  statsObj.totalCategorizedUsersInDB = await wordAssoDb.User.find(catUsersQuery).countDocuments().exec();
   statsObj.archiveTotal = statsObj.totalCategorizedUsersInDB;
 
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
