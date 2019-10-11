@@ -2,7 +2,7 @@
 /*jshint sub:true*/
 
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
-const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 10;
+const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
 const DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM = 2;
 const DEFAULT_INPUT_TYPE_MIN_FRIENDS = 1000;
 const TEST_MODE_LENGTH = 1000;
@@ -48,6 +48,36 @@ const DEFAULT_INPUT_TYPES = [
   "words"
 ];
 
+const defaultInputTypeMinHash = {
+  emoji: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
+  friends: DEFAULT_INPUT_TYPE_MIN_FRIENDS,
+  hashtags: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
+  images: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
+  locations: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
+  media: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
+  mentions: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
+  places: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
+  sentiment: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
+  urls: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
+  userMentions: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
+  words: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM
+};
+
+const testInputTypeMinHash = {
+  emoji: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
+  friends: 20,
+  hashtags: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
+  images: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
+  locations: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
+  media: 1,
+  mentions: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
+  places: 1,
+  sentiment: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
+  urls: 1,
+  userMentions: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
+  words: 10
+};
+
 const ONE_SECOND = 1000;
 const ONE_MINUTE = 60 * ONE_SECOND;
 
@@ -66,7 +96,6 @@ const DEFAULT_FILELOCK_WAIT = DEFAULT_WAIT_UNLOCK_TIMEOUT;
 const DEFAULT_QUIT_ON_COMPLETE = false;
 const DEFAULT_TEST_RATIO = 0.20;
 const MODULE_ID_PREFIX = "GTS";
-const MODULE_ID = MODULE_ID_PREFIX + "_node_" + hostname;
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
 const fileLockOptions = { 
@@ -254,26 +283,19 @@ configuration.userArchivePath = configuration[HOST].userArchivePath;
 const slackOAuthAccessToken = "xoxp-3708084981-3708084993-206468961315-ec62db5792cd55071a51c544acf0da55";
 
 const wordAssoDb = require("@threeceelabs/mongoose-twitter");
-let dbConnection;
 
 const tcuChildName = MODULE_ID_PREFIX + "_TCU";
 const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
 const tcUtils = new ThreeceeUtilities(tcuChildName);
 
-const NeuralNetworkTools = require("@threeceelabs/neural-network-tools");
-const nnTools = new NeuralNetworkTools(MODULE_ID_PREFIX + "_NNT");
-
 const UserServerController = require("@threeceelabs/user-server-controller");
 const userServerController = new UserServerController(MODULE_ID_PREFIX + "_USC");
-let userServerControllerReady = false;
 
 userServerController.on("error", function(err){
-  userServerControllerReady = false;
   console.log(chalkError(MODULE_ID_PREFIX + " | *** USC ERROR | " + err));
 });
 
 userServerController.on("ready", function(appname){
-  userServerControllerReady = true;
   console.log(chalk.green(MODULE_ID_PREFIX + " | USC READY | " + appname));
 });
 
@@ -1572,7 +1594,7 @@ async function initialize(cnf){
   
   statsObj.commandLineArgsLoaded = true;
 
-  dbConnection = await connectDb();
+  await connectDb();
 
   return configuration;
 }
@@ -1659,11 +1681,7 @@ setTimeout(async function(){
 
     console.log(chalkInfo("TFE | ... SAVING HISTOGRAMS"));
 
-    const inputTypeMinHash = {};
-    inputTypeMinHash.media = (configuration.testMode) ? DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM : DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM;
-    inputTypeMinHash.places = (configuration.testMode) ? DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM : DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM;
-    inputTypeMinHash.urls = (configuration.testMode) ? DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM : DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM;
-    inputTypeMinHash.friends = (configuration.testMode) ? DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM : DEFAULT_INPUT_TYPE_MIN_FRIENDS;
+    const inputTypeMinHash = (configuration.testMode) ? testInputTypeMinHash : defaultInputTypeMinHash;
 
     await tcUtils.saveGlobalHistograms({rootFolder: rootFolder, pruneFlag: true, inputTypeMinHash: inputTypeMinHash});
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
