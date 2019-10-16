@@ -1605,7 +1605,7 @@ async function generateGlobalTrainingTestSet(){
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | GENERATE TRAINING SET | " + tcUtils.getTimeStamp()));
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
 
-  statsObj.totalCategorizedUsersInDB = await wordAssoDb.User.find(catUsersQuery).countDocuments().exec();
+  statsObj.totalCategorizedUsersInDB = await wordAssoDb.User.find(catUsersQuery).countDocuments();
   statsObj.archiveTotal = statsObj.totalCategorizedUsersInDB;
 
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
