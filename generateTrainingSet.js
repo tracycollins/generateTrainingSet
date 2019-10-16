@@ -1406,7 +1406,7 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userArchivePath){
     fileSizeObj.histogram = {};
     fileSizeObj.histogram = categorizedUserHistogram;
 
-    await tcUtils.saveFile({localFlag: true, folder: configuration.userArchiveFolder, file: configuration.archiveFileUploadCompleteFlagFile, obj: fileSizeObj });
+    await tcUtils.saveFile({folder: configuration.userArchiveFolder, file: configuration.archiveFileUploadCompleteFlagFile, obj: fileSizeObj });
 
     await delay({message: "... WAIT FOR DROPBOX FLAG FILE SYNC", period: ONE_MINUTE});
 
