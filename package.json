@@ -22,7 +22,7 @@
     "@google/maps": "^1.0.1",
     "@threeceelabs/mergehistograms": "^1.0.6",
     "@threeceelabs/mongoose-twitter": "^1.0.277",
-    "@threeceelabs/threecee-utilities": "^1.0.176",
+    "@threeceelabs/threecee-utilities": "^1.0.179",
     "@threeceelabs/twitter-image-parser": "^1.0.79",
     "@threeceelabs/twitter-text-parser": "^1.0.83",
     "@threeceelabs/user-server-controller": "^1.0.480",
