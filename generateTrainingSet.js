@@ -1,6 +1,3 @@
-/*jslint node: true */
-/*jshint sub:true*/
-
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
 const DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM = 2;
@@ -19,6 +16,7 @@ hostname = hostname.replace(/.home/g, "");
 hostname = hostname.replace(/.at.net/g, "");
 hostname = hostname.replace(/.fios-router.home/g, "");
 hostname = hostname.replace(/word0-instance-1/g, "google");
+hostname = hostname.replace(/word-1/g, "google");
 hostname = hostname.replace(/word/g, "google");
 
 const PRIMARY_HOST = process.env.PRIMARY_HOST || "google";
