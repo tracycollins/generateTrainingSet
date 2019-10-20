@@ -78,6 +78,8 @@ const testInputTypeMinHash = {
 
 const ONE_SECOND = 1000;
 const ONE_MINUTE = 60 * ONE_SECOND;
+const ONE_HOUR = 60 * ONE_MINUTE;
+const ONE_DAY = 24 * ONE_HOUR;
 
 const ONE_KILOBYTE = 1024;
 const ONE_MEGABYTE = 1024 * ONE_KILOBYTE;
@@ -109,6 +111,9 @@ const lockFile = require("lockfile");
 const merge = require("deepmerge");
 const archiver = require("archiver");
 const fs = require("fs");
+const { promisify } = require("util");
+const renameFileAsync = promisify(fs.rename);
+const unlinkFileAsync = promisify(fs.unlink);
 const MergeHistograms = require("@threeceelabs/mergehistograms");
 const mergeHistograms = new MergeHistograms();
 const util = require("util");
@@ -1377,6 +1382,63 @@ async function releaseFileLock(params){
   });
 }
 
+async function deleteOldArchives(p){
+
+  const params = p || {};
+
+  const maxAgeMs = params.maxAgeMs || ONE_DAY;
+  const folder = params.folder || configuration.userArchiveFolder;
+
+  const userArchiveEntryArray = await tcUtils.filesListFolder({folder: folder});
+
+  for(const entry of userArchiveEntryArray.entries){
+    // console.log(chalkLog(MODULE_ID_PREFIX + " | ENTRY: " + entry.name));
+
+    if (!entry.name.startsWith(hostname + "_")) {
+      console.log(chalkLog(MODULE_ID_PREFIX + " | ... SKIPPING DELETE OF " + entry.name));
+    }
+    else if (!entry.name.endsWith("users.zip")) {
+      console.log(chalkInfo(MODULE_ID_PREFIX + " | ... SKIPPING DELETE OF " + entry.name));
+    }
+    else{
+
+      // configuration.userArchiveFile = hostname + "_" + statsObj.startTimeMoment.format(compactDateTimeFormat) + "_users.zip";
+
+      const namePartsArray = entry.name.split("_");
+
+      const entryDate = namePartsArray[1] + "_" + namePartsArray[2];
+
+      console.log(chalkInfo(MODULE_ID_PREFIX + " | ENTRY DATE: " + entryDate));
+
+      const entryMoment = new moment(entryDate, "YYYYMMDD_HHmmss");
+
+      const entryAge = moment.duration(statsObj.startTimeMoment.diff(entryMoment));
+
+      if (entryAge > maxAgeMs) {
+        console.log(chalkAlert(MODULE_ID_PREFIX
+          + " | DELETE ENTRY: " + entry.path_display
+          + " | MAX AGE: " + tcUtils.msToTime(maxAgeMs)
+          + " | ENTRY AGE: " + tcUtils.msToTime(entryAge)
+        ));
+
+        await unlinkFileAsync(entry.path_display);
+
+      }
+      else{
+        console.log(chalkInfo(MODULE_ID_PREFIX
+          + " | ENTRY: " + entry.name
+          + " | MAX AGE: " + tcUtils.msToTime(maxAgeMs)
+          + " | ENTRY AGE: " + tcUtils.msToTime(entryAge)
+        ));
+      }
+      
+    }
+  }
+
+  return;
+
+}
+
 configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userArchivePath){
 
   try{
@@ -1408,7 +1470,9 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userArchivePath){
 
     await tcUtils.saveFile({folder: configuration.userArchiveFolder, file: configuration.archiveFileUploadCompleteFlagFile, obj: fileSizeObj });
 
-    await delay({message: "... WAIT FOR DROPBOX FLAG FILE SYNC", period: ONE_MINUTE});
+    await delay({message: "... WAIT FOR DROPBOX FLAG FILE SYNC | " + tcUtils.getTimeStamp(), period: ONE_MINUTE});
+
+    await deleteOldArchives();
 
     quit("DONE");
   }
@@ -1617,6 +1681,7 @@ async function generateGlobalTrainingTestSet(){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveTotal + " USERS"));
   }
 
+  await deleteOldArchives();
   await initArchiveUserQueue({interval: 5});
   await initArchiver();
   await categoryCursorStream({query: catUsersQuery});
