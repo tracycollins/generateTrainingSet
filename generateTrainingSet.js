@@ -1681,7 +1681,6 @@ async function generateGlobalTrainingTestSet(){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveTotal + " USERS"));
   }
 
-  await deleteOldArchives();
   await initArchiveUserQueue({interval: 5});
   await initArchiver();
   await categoryCursorStream({query: catUsersQuery});
