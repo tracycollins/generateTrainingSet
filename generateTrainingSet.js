@@ -1408,7 +1408,7 @@ async function deleteOldArchives(p){
 
       const entryDate = namePartsArray[1] + "_" + namePartsArray[2];
 
-      console.log(chalkInfo(MODULE_ID_PREFIX + " | ENTRY DATE: " + entryDate));
+      // console.log(chalkInfo(MODULE_ID_PREFIX + " | ENTRY DATE: " + entryDate));
 
       const entryMoment = new moment(entryDate, "YYYYMMDD_HHmmss");
 
@@ -1426,7 +1426,7 @@ async function deleteOldArchives(p){
       }
       else{
         console.log(chalkInfo(MODULE_ID_PREFIX
-          + " | ENTRY: " + entry.name
+          + " | SKIP DEL ENTRY: " + entry.name
           + " | MAX AGE: " + tcUtils.msToTime(maxAgeMs)
           + " | ENTRY AGE: " + tcUtils.msToTime(entryAge)
         ));
