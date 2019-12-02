@@ -112,7 +112,7 @@ const merge = require("deepmerge");
 const archiver = require("archiver");
 const fs = require("fs");
 const { promisify } = require("util");
-const renameFileAsync = promisify(fs.rename);
+// const renameFileAsync = promisify(fs.rename);
 const unlinkFileAsync = promisify(fs.unlink);
 const MergeHistograms = require("@threeceelabs/mergehistograms");
 const mergeHistograms = new MergeHistograms();
@@ -874,63 +874,57 @@ configEvents.once("INIT_MONGODB", function(){
 
 async function updateUserAndMaxInputHashMap(params){
 
-  try{
+  const user = params.user;
 
-    const user = params.user;
+  const dbUpdateParams = {};
 
-    const dbUpdateParams = {};
+  dbUpdateParams.profileHistograms = {};
+  dbUpdateParams.tweetHistograms = {};
 
-    dbUpdateParams.profileHistograms = {};
-    dbUpdateParams.tweetHistograms = {};
+  dbUpdateParams.profileHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.profileHistograms});
+  dbUpdateParams.tweetHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.tweetHistograms});
 
-    dbUpdateParams.profileHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.profileHistograms});
-    dbUpdateParams.tweetHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.tweetHistograms});
+  const dbUpdatedUser = await wordAssoDb.User.findOneAndUpdate({userId: user.userId}, dbUpdateParams, {new: true, lean: true});
 
-    const dbUpdatedUser = await wordAssoDb.User.findOneAndUpdate({userId: user.userId}, dbUpdateParams, {new: true, lean: true});
+  const mergedHistograms = await mergeHistograms.merge({ histogramA: dbUpdatedUser.profileHistograms, histogramB: dbUpdatedUser.tweetHistograms });
 
-    const mergedHistograms = await mergeHistograms.merge({ histogramA: dbUpdatedUser.profileHistograms, histogramB: dbUpdatedUser.tweetHistograms });
+  const histogramTypes = Object.keys(mergedHistograms);
 
-    const histogramTypes = Object.keys(mergedHistograms);
+  for (const type of histogramTypes){
+    if (type !== "sentiment") {
 
-    for (const type of histogramTypes){
-      if (type !== "sentiment") {
+      if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
 
-        if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
+      const histogramTypeEntities = Object.keys(mergedHistograms[type]);
 
-        const histogramTypeEntities = Object.keys(mergedHistograms[type]);
+      if (histogramTypeEntities.length > 0) {
 
-        if (histogramTypeEntities.length > 0) {
+        for (const entity of histogramTypeEntities){
 
-          for (const entity of histogramTypeEntities){
+          if (mergedHistograms[type][entity] !== undefined){
 
-            if (mergedHistograms[type][entity] !== undefined){
-
-              if (maxInputHashMap[type][entity] === undefined){
-                maxInputHashMap[type][entity] = Math.max(1, mergedHistograms[type][entity]);
-              }
-              else{
-                maxInputHashMap[type][entity] = Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
-              }
+            if (maxInputHashMap[type][entity] === undefined){
+              maxInputHashMap[type][entity] = Math.max(1, mergedHistograms[type][entity]);
             }
             else{
-              console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNDEFINED mergedHistograms[type][entity]"
-                + " | TYPE: " + type
-                + " | ENTITY: " + entity
-              ));
-              delete mergedHistograms[type][entity];
+              maxInputHashMap[type][entity] = Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
             }
-
+          }
+          else{
+            console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNDEFINED mergedHistograms[type][entity]"
+              + " | TYPE: " + type
+              + " | ENTITY: " + entity
+            ));
+            delete mergedHistograms[type][entity];
           }
 
         }
+
       }
     }
+  }
 
-    return dbUpdatedUser;
-  }
-  catch(err){
-    throw err;
-  }
+  return dbUpdatedUser;
 }
 
 async function updateCategorizedUser(params){
@@ -1236,18 +1230,26 @@ function categoryCursorStream(params){
           return resolve();
         }
 
-        if (!user.friends || user.friends == undefined) {
-          user.friends = [];
+        if (!user.screenName){
+          console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + tcUtils.jsonPrint(user)));
+          ready = true;
         }
-        else{
-          user.friends = _.slice(user.friends, 0,5000);
+        else {
+
+          if (!user.friends || user.friends == undefined) {
+            user.friends = [];
+          }
+          else{
+            user.friends = _.slice(user.friends, 0,5000);
+          }
+
+          const catUser = await catorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
+
+          archiveUserQueue.push(catUser);
+          archivedCount += 1;
+          ready = true;
+
         }
-
-        const catUser = await catorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
-
-        archiveUserQueue.push(catUser);
-        archivedCount += 1;
-        ready = true;
       }
     }, 10);
 
