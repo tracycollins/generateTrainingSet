@@ -1131,7 +1131,7 @@ function initArchiveUserQueue(params){
 
 let userIndex = 0;
 
-async function catorizeUser(params){
+async function categorizeUser(params){
 
   try{
     const user = await updateCategorizedUser({user: params.user});
@@ -1243,7 +1243,7 @@ function categoryCursorStream(params){
             user.friends = _.slice(user.friends, 0,5000);
           }
 
-          const catUser = await catorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
+          const catUser = await categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
 
           archiveUserQueue.push(catUser);
           archivedCount += 1;
