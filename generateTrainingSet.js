@@ -1232,6 +1232,7 @@ function categoryCursorStream(params){
 
         if (!user.screenName){
           console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + tcUtils.jsonPrint(user)));
+          statsObj.userErrorCount += 1;
           ready = true;
         }
         else {
@@ -1248,9 +1249,9 @@ function categoryCursorStream(params){
           archiveUserQueue.push(catUser);
           archivedCount += 1;
           ready = true;
-
         }
       }
+
     }, 10);
 
   });
