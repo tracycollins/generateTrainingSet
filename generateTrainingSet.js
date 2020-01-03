@@ -5,7 +5,11 @@ const DEFAULT_INPUT_TYPE_MIN_FRIENDS = 1000;
 const TEST_MODE_LENGTH = 1000;
 
 const catUsersQuery = { 
-  "$and": [{ "ignored": { "$nin": [true, "true"] } }, { "category": { "$in": ["left", "right", "neutral"] } }]
+  "$and": [
+    { "screenName": { "$nin": [ false, null ] } }, 
+    { "ignored": { "$nin": [true, "true"] } }, 
+    { "category": { "$in": ["left", "right", "neutral"] } }
+  ]
 };
 
 const os = require("os");
