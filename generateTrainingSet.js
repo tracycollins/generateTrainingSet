@@ -9,7 +9,7 @@ const TEST_MODE_LENGTH = 1000;
 
 const catUsersQuery = { 
   "$and": [
-    { "screenName": { "$nin": [ false, null ] } }, 
+    { "screenName": { "$nin": [false, null] } }, 
     { "ignored": { "$nin": [true, "true"] } }, 
     { "category": { "$in": ["left", "right", "neutral"] } }
   ]
@@ -45,7 +45,7 @@ const DEFAULT_INPUT_TYPES = [
   "images",
   "locations",
   "media",
-  "mentions",
+  // "mentions",
   "places",
   "sentiment",
   "urls",
@@ -60,7 +60,7 @@ const defaultInputTypeMinHash = {
   images: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
   locations: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
   media: DEFAULT_INPUT_TYPE_MIN_MEDIA,
-  mentions: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
+  // mentions: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
   places: DEFAULT_INPUT_TYPE_MIN_PLACES,
   sentiment: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
   urls: DEFAULT_INPUT_TYPE_MIN_URLS,
@@ -75,7 +75,7 @@ const testInputTypeMinHash = {
   images: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
   locations: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
   media: 1,
-  mentions: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
+  // mentions: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
   places: 1,
   sentiment: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
   urls: 1,
@@ -148,10 +148,12 @@ const chalkInfo = chalk.black;
 let categorizedUsersPercent = 0;
 
 const maxInputHashMap = {};
-const globalhistograms = {};
+// const globalhistograms = {};
+// const globalProfilehistograms = {};
 
 DEFAULT_INPUT_TYPES.forEach(function(type){
-  globalhistograms[type] = {};
+  // globalhistograms[type] = {};
+  // globalProfilehistograms[type] = {};
   maxInputHashMap[type] = {};
 });
 
