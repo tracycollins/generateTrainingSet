@@ -1318,6 +1318,7 @@ function endAppendUsers(){
           + " | " + statsObj.archiveTotal + " USERS"
           + " | " + statsObj.usersAppendedToArchive + " APPENDED"
           + " | " + statsObj.usersProcessed + " PROCESSED"
+          + " | " + statsObj.userEmptyCount + " EMPTY SKIPPED"
           + " | " + statsObj.userErrorCount + " ERRORS"
           + " | " + statsObj.archiveRemainUsers + " REMAIN"
         ));
@@ -1562,7 +1563,7 @@ async function initArchiver(){
 
     statsObj.archiveElapsed = (moment().valueOf() - statsObj.archiveStartMoment.valueOf()); // mseconds
     statsObj.archiveRate = statsObj.archiveElapsed/statsObj.usersProcessed; // msecs/usersArchived
-    statsObj.archiveRemainUsers = statsObj.archiveTotal - (statsObj.usersProcessed + statsObj.userErrorCount);
+    statsObj.archiveRemainUsers = statsObj.archiveTotal - (statsObj.usersProcessed + statsObj.userErrorCount + statsObj.userEmptyCount);
     statsObj.archiveRemainMS = statsObj.archiveRemainUsers * statsObj.archiveRate; // mseconds
     statsObj.archiveEndMoment = moment();
     statsObj.archiveEndMoment.add(statsObj.archiveRemainMS, "ms");
