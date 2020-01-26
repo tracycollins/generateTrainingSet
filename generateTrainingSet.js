@@ -131,7 +131,8 @@ const Slack = require("slack-node");
 const EventEmitter3 = require("eventemitter3");
 const debug = require("debug")("gts");
 const commandLineArgs = require("command-line-args");
-  
+const empty = require("is-empty");
+
 let archive;
 
 const chalk = require("chalk");
@@ -148,12 +149,8 @@ const chalkInfo = chalk.black;
 let categorizedUsersPercent = 0;
 
 const maxInputHashMap = {};
-// const globalhistograms = {};
-// const globalProfilehistograms = {};
 
 DEFAULT_INPUT_TYPES.forEach(function(type){
-  // globalhistograms[type] = {};
-  // globalProfilehistograms[type] = {};
   maxInputHashMap[type] = {};
 });
 
@@ -172,6 +169,7 @@ statsObj.commandLineArgsLoaded = false;
 statsObj.usersAppendedToArchive = 0;
 statsObj.usersProcessed = 0;
 statsObj.userErrorCount = 0;
+statsObj.userEmptyCount = 0;
 
 statsObj.archiveOpen = false;
 statsObj.archiveModifiedMoment = moment("2010-01-01");
@@ -1244,6 +1242,15 @@ function categoryCursorStream(params){
           statsObj.userErrorCount += 1;
           ready = true;
         }
+        else if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
+          statsObj.userEmptyCount += 1;
+          console.log(chalkWarn(MODULE_ID_PREFIX 
+            + " | !!! EMPTY USER HISTOGRAMS [ " + statsObj.userEmptyCount + "] @" + user.screenName 
+            + " | SKIPPING ..."
+          ));
+          ready = true;
+        }
+
         else {
 
           if (!user.friends || user.friends == undefined) {
