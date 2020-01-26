@@ -1245,7 +1245,7 @@ function categoryCursorStream(params){
         else if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
           statsObj.userEmptyCount += 1;
           console.log(chalkWarn(MODULE_ID_PREFIX 
-            + " | !!! EMPTY USER HISTOGRAMS [ " + statsObj.userEmptyCount + "] @" + user.screenName 
+            + " | !!! EMPTY USER HISTOGRAMS [" + statsObj.userEmptyCount + "] @" + user.screenName 
             + " | SKIPPING ..."
           ));
           ready = true;
