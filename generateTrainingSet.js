@@ -3,6 +3,7 @@ const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
 const DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM = 2;
 const DEFAULT_INPUT_TYPE_MIN_FRIENDS = 1000;
 const DEFAULT_INPUT_TYPE_MIN_MEDIA = 3;
+const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 const TEST_MODE_LENGTH = 1000;
@@ -45,7 +46,7 @@ const DEFAULT_INPUT_TYPES = [
   "images",
   "locations",
   "media",
-  // "mentions",
+  "ngrams",
   "places",
   "sentiment",
   "urls",
@@ -60,7 +61,7 @@ const defaultInputTypeMinHash = {
   images: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
   locations: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
   media: DEFAULT_INPUT_TYPE_MIN_MEDIA,
-  // mentions: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
+  ngrams: DEFAULT_INPUT_TYPE_MIN_NGRAMS,
   places: DEFAULT_INPUT_TYPE_MIN_PLACES,
   sentiment: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
   urls: DEFAULT_INPUT_TYPE_MIN_URLS,
@@ -75,7 +76,7 @@ const testInputTypeMinHash = {
   images: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
   locations: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
   media: 1,
-  // mentions: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
+  ngrams: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
   places: 1,
   sentiment: DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM,
   urls: 1,
@@ -1108,8 +1109,6 @@ function initArchiveUserQueue(params){
         archiveUserQueueReady = false;
 
         const user = archiveUserQueue.shift();
-
-        // archiveUserQueueReady = true;
 
         archiveUser({user: user})
         .then(function(){
