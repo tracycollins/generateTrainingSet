@@ -293,7 +293,7 @@ configuration.userArchivePath = configuration[HOST].userArchivePath;
 
 const slackOAuthAccessToken = "xoxp-3708084981-3708084993-206468961315-ec62db5792cd55071a51c544acf0da55";
 
-const wordAssoDb = require("@threeceelabs/mongoose-twitter");
+global.wordAssoDb = require("@threeceelabs/mongoose-twitter");
 
 const tcuChildName = MODULE_ID_PREFIX + "_TCU";
 const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
@@ -605,7 +605,7 @@ async function connectDb(){
 
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | CONNECT MONGO DB ..."));
 
-    const db = await wordAssoDb.connect(MODULE_ID_PREFIX + "_" + process.pid);
+    const db = await global.wordAssoDb.connect(MODULE_ID_PREFIX + "_" + process.pid);
 
     db.on("error", async function(err){
       statsObj.status = "MONGO ERROR";
@@ -892,7 +892,7 @@ async function updateUserAndMaxInputHashMap(params){
   dbUpdateParams.profileHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.profileHistograms});
   dbUpdateParams.tweetHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.tweetHistograms});
 
-  const dbUpdatedUser = await wordAssoDb.User.findOneAndUpdate({userId: user.userId}, dbUpdateParams, {new: true, lean: true});
+  const dbUpdatedUser = await global.wordAssoDb.User.findOneAndUpdate({userId: user.userId}, dbUpdateParams, {new: true, lean: true});
 
   const mergedHistograms = await mergeHistograms.merge({ histogramA: dbUpdatedUser.profileHistograms, histogramB: dbUpdatedUser.tweetHistograms });
 
@@ -1213,7 +1213,7 @@ function categoryCursorStream(params){
 
   return new Promise(function(resolve){
 
-    const catCursor = wordAssoDb.User.find(params.query).lean().cursor();
+    const catCursor = global.wordAssoDb.User.find(params.query).lean().cursor();
 
     let ready = true;
     let archivedCount = 0;
@@ -1688,7 +1688,7 @@ async function generateGlobalTrainingTestSet(){
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | GENERATE TRAINING SET | " + tcUtils.getTimeStamp()));
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
 
-  statsObj.totalCategorizedUsersInDB = await wordAssoDb.User.find(catUsersQuery).countDocuments();
+  statsObj.totalCategorizedUsersInDB = await global.wordAssoDb.User.find(catUsersQuery).countDocuments();
   statsObj.archiveTotal = statsObj.totalCategorizedUsersInDB;
 
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
