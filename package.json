@@ -20,6 +20,7 @@
     "@davvo/drbx": "^2.1.0",
     "@google-cloud/vision": "^1.8.0",
     "@google/maps": "^1.1.0",
+    "@slack/client": "^5.0.2",
     "@threeceelabs/mergehistograms": "^1.0.6",
     "@threeceelabs/mongoose-twitter": "^1.0.281",
     "@threeceelabs/threecee-utilities": "^1.0.220",

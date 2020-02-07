@@ -1,3 +1,5 @@
+const MODULE_NAME = "generateTrainingSet";
+
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
 const DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM = 2;
@@ -128,7 +130,7 @@ const util = require("util");
 const _ = require("lodash");
 const sizeof = require("object-sizeof");
 const pick = require("object.pick");
-const Slack = require("slack-node");
+// const Slack = require("slack-node");
 const EventEmitter3 = require("eventemitter3");
 const debug = require("debug")("gts");
 const commandLineArgs = require("command-line-args");
@@ -227,9 +229,6 @@ process.on("unhandledRejection", function(err, promise) {
   process.exit();
 });
 
-const slackChannel = "#gts";
-let slackText = "";
-
 let initMainInterval;
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
@@ -238,6 +237,7 @@ configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
 configuration.maxTestCount = TEST_MODE_LENGTH;
 configuration.maxHistogramValue = DEFAULT_MAX_HISTOGRAM_VALUE;
+configuration.slackChannel = {};
 
 let defaultConfiguration = {}; // general configuration for GTS
 let hostConfiguration = {}; // host-specific configuration for GTS
@@ -290,8 +290,6 @@ configuration.archiveFileUploadCompleteFlagFolder = path.join(configuration[HOST
 configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
 configuration.userArchivePath = configuration[HOST].userArchivePath;
-
-const slackOAuthAccessToken = "xoxp-3708084981-3708084993-206468961315-ec62db5792cd55071a51c544acf0da55";
 
 global.wordAssoDb = require("@threeceelabs/mongoose-twitter");
 
@@ -357,42 +355,219 @@ const configEvents = new EventEmitter3({
 
 let stdin;
 
-const slack = new Slack(slackOAuthAccessToken);
+//=========================================================================
+// SLACK
+//=========================================================================
 
-function slackPostMessage(channel, text, callback){
+const slackChannel = "gts";
+const HashMap = require("hashmap").HashMap;
+const channelsHashMap = new HashMap();
 
-  const offlineMode = configuration.offlineMode || false;
+const slackOAuthAccessToken = "xoxp-3708084981-3708084993-206468961315-ec62db5792cd55071a51c544acf0da55";
+const slackConversationId = "D65CSAELX"; // wordbot
+const slackRtmToken = "xoxb-209434353623-bNIoT4Dxu1vv8JZNgu7CDliy";
 
-  if (offlineMode) {
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | SLACK DISABLED"
-      + " | OFFLINE_MODE: " + configuration.offlineMode
-      + " | SERVER CONNECTED: " + statsObj.serverConnected
-    ));
-    if (callback !== undefined) { 
-      return callback(null, null);
-    }
-    else{
-      return;
-    }
+let slackRtmClient;
+let slackWebClient;
+
+async function slackSendRtmMessage(msg){
+  console.log(chalkBlue(MODULE_ID_PREFIX + " | SLACK RTM | SEND: " + msg));
+
+  const sendResponse = await slackRtmClient.sendMessage(msg, slackConversationId);
+
+  console.log(chalkLog(MODULE_ID_PREFIX + " | SLACK RTM | >T\n" + tcUtils.jsonPrint(sendResponse)));
+  return sendResponse;
+}
+
+async function slackSendWebMessage(msgObj){
+  const token = msgObj.token || slackOAuthAccessToken;
+  const channel = msgObj.channel || configuration.slackChannel.id;
+  const text = msgObj.text || msgObj;
+
+  const message = {
+    token: token, 
+    channel: channel,
+    text: text
+  };
+
+  if (msgObj.attachments !== undefined) {
+    message.attachments = msgObj.attachments;
   }
 
-  slack.api("chat.postMessage", {
-    text: text,
-    channel: channel
-  }, function(err, response){
-    if (err){
-      console.error(chalkError(MODULE_ID_PREFIX + " | *** SLACK POST MESSAGE ERROR"
-        + " | CH: " + channel
-        + "\nGTS | TEXT: " + text
-        + "\nGTS | ERROR: " + err
-      ));
+  if (slackWebClient && slackWebClient !== undefined) {
+    const sendResponse = await slackWebClient.chat.postMessage(message);
+    return sendResponse;
+  }
+  else {
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | SLACK WEB NOT CONFIGURED | SKIPPING SEND SLACK MESSAGE\n" + tcUtils.jsonPrint(message)));
+    return;
+  }
+}
+
+function slackMessageHandler(message){
+  return new Promise(function(resolve, reject){
+
+    try {
+
+      console.log(chalkInfo(MODULE_ID_PREFIX + " | MESSAGE | " + message.type + " | " + message.text));
+
+      if (message.type !== "message") {
+        console.log(chalkAlert("Unhandled MESSAGE TYPE: " + message.type));
+        return resolve();
+      }
+
+      const text = message.text.trim();
+      const textArray = text.split("|");
+
+      const sourceMessage = (textArray[2]) ? textArray[2].trim() : "NONE";
+
+      switch (sourceMessage) {
+        case "END FETCH ALL":
+        case "ERROR":
+        case "FETCH FRIENDS":
+        case "FSM INIT":
+        case "FSM FETCH_ALL":
+        case "GEN AUTO CAT":
+        case "INIT CHILD":
+        case "INIT LANG ANALYZER":
+        case "INIT MAX INPUT HASHMAP":
+        case "INIT NNs":
+        case "INIT RAN NNs":
+        case "INIT RNT CHILD":
+        case "INIT TWITTER USERS":
+        case "INIT TWITTER":
+        case "INIT UNFOLLOWABLE USER SET":
+        case "INIT UNFOLLOWABLE":
+        case "INIT":
+        case "LOAD BEST NN":
+        case "LOAD NN":
+        case "MONGO DB CONNECTED":
+        case "PONG":
+        case "QUIT":
+        case "QUITTING":
+        case "READY":
+        case "RESET":
+        case "SAV NN HASHMAP":
+        case "SLACK QUIT":
+        case "SLACK READY":
+        case "SLACK RTM READY":
+        case "START":
+        case "STATS":
+        case "TEXT": 
+        case "UPDATE HISTOGRAMS":
+        case "UPDATE NN STATS":
+        case "WAIT UPDATE STATS":
+        case "END UPDATE STATS":
+        case "UPDATE USER CAT STATS":
+          resolve();
+        break;
+        case "STATSUS":
+          console.log(chalkInfo(message.text));
+          resolve();
+        break;
+        case "PING":
+          console.log(chalkInfo("PING"));
+          // slackSendWebMessage(hostname + " | " + MODULE_ID_PREFIX + " | PONG");
+          resolve();
+        break;
+        case "NONE":
+          resolve();
+        break;
+        default:
+          console.log(chalkAlert(MODULE_ID_PREFIX + " | *** UNDEFINED SLACK MESSAGE: " + message.text));
+          // reject(new Error("UNDEFINED SLACK MESSAGE TYPE: " + message.text));
+          resolve({text: "UNDEFINED SLACK MESSAGE", message: message});
+      }
     }
-    else {
-      debug(response);
+    catch(err){
+      reject(err);
     }
-    if (callback !== undefined) { callback(err, response); }
+
   });
 }
+
+async function initSlackWebClient(){
+  try {
+
+    const { WebClient } = require("@slack/client");
+    slackWebClient = new WebClient(slackRtmToken);
+
+    const conversationsListResponse = await slackWebClient.conversations.list({token: slackOAuthAccessToken});
+
+    conversationsListResponse.channels.forEach(async function(channel){
+
+      console.log(chalkLog(MODULE_ID_PREFIX + " | CHANNEL | " + channel.id + " | " + channel.name));
+
+      if (channel.name === slackChannel) {
+        configuration.slackChannel = channel;
+
+        const message = {
+          token: slackOAuthAccessToken, 
+          channel: configuration.slackChannel.id,
+          text: "OP"
+        };
+
+        message.attachments = [];
+        message.attachments.push({
+          text: "INIT", 
+          fields: [ 
+            { title: "SRC", value: hostname + "_" + process.pid }, 
+            { title: "MOD", value: MODULE_NAME }, 
+            { title: "DST", value: "ALL" } 
+          ]
+        });
+
+        await slackWebClient.chat.postMessage(message);
+      }
+
+      channelsHashMap.set(channel.id, channel);
+
+    });
+
+    return;
+  }
+  catch(err){
+    console.log(chalkError(MODULE_ID_PREFIX + " | *** INIT SLACK WEB CLIENT ERROR: " + err));
+    throw err;
+  }
+}
+
+async function initSlackRtmClient(){
+
+  const { RTMClient } = require("@slack/client");
+  slackRtmClient = new RTMClient(slackRtmToken);
+
+  await slackRtmClient.start();
+
+  slackRtmClient.on("slack_event", async function(eventType, event){
+    switch (eventType) {
+      case "pong":
+        debug(chalkLog(MODULE_ID_PREFIX + " | SLACK RTM PONG | " + tcUtils.getTimeStamp() + " | " + event.reply_to));
+      break;
+      default: debug(chalkInfo(MODULE_ID_PREFIX + " | SLACK RTM EVENT | " + tcUtils.getTimeStamp() + " | " + eventType + "\n" + tcUtils.jsonPrint(event)));
+    }
+  });
+
+
+  slackRtmClient.on("message", async function(message){
+    if (configuration.verbose) { console.log(chalkLog(MODULE_ID_PREFIX + " | RTM R<\n" + tcUtils.jsonPrint(message))); }
+    debug(` | SLACK RTM MESSAGE | R< | CH: ${message.channel} | USER: ${message.user} | ${message.text}`);
+
+    try {
+      await slackMessageHandler(message);
+    }
+    catch(err){
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** SLACK RTM MESSAGE ERROR: " + err));
+    }
+
+  });
+
+  slackRtmClient.on("ready", async function(){
+    if (configuration.verbose) { await slackSendRtmMessage(hostname + " | " + MODULE_ID_PREFIX + " | SLACK RTM READY"); }
+    return;
+  });
+}
+
 
 const maxHistogramValue = { name: "maxHistogramValue", alias: "M", type: Number };
 
@@ -569,11 +744,11 @@ function quit(options){
       process.exit();
     }
     else {
-      slackText = "\n*" + statsObj.runId + "*";
+      let slackText = "\n*" + statsObj.runId + "*";
       slackText = slackText + " | RUN " + tcUtils.msToTime(statsObj.elapsed);
       slackText = slackText + " | QUIT CAUSE: " + options;
       debug(MODULE_ID_PREFIX + " | SLACK TEXT: " + slackText);
-      slackPostMessage(slackChannel, slackText);
+      slackSendWebMessage(slackChannel, slackText);
     }
   }
 
@@ -1330,11 +1505,6 @@ function endAppendUsers(){
   });
 }
 
-slackText = "\n*GTS START | " + hostname + "*";
-slackText = slackText + "\n" + tcUtils.getTimeStamp();
-
-slackPostMessage(slackChannel, slackText);
-
 function getFileLock(params){
 
   return new Promise(function(resolve, reject){
@@ -1745,6 +1915,10 @@ setTimeout(async function(){
 
     configuration = await initialize(configuration);
     await tcUtils.initSaveFileQueue();
+
+    await initSlackRtmClient();
+    await initSlackWebClient();
+
     await generateGlobalTrainingTestSet();
 
     let rootFolder;
@@ -1765,6 +1939,12 @@ setTimeout(async function(){
     const inputTypeMinHash = (configuration.testMode) ? testInputTypeMinHash : defaultInputTypeMinHash;
 
     await tcUtils.saveGlobalHistograms({rootFolder: rootFolder, pruneFlag: true, inputTypeMinHash: inputTypeMinHash});
+
+    let slackText = "\n*" + MODULE_ID_PREFIX + " | TRAINING SET*";
+    slackText = slackText + "\n" + configuration.userArchivePath;
+
+    await slackSendWebMessage({channel: slackChannel, text: slackText});
+
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
   }
   catch(err){

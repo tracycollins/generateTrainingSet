@@ -60,7 +60,7 @@ module.exports = {
         // ],
         "func-style": "off",
         "generator-star-spacing": "error",
-        "global-require": "error",
+        "global-require": "off",
         "guard-for-in": "error",
         "handle-callback-err": "off",
         "id-blacklist": "error",
