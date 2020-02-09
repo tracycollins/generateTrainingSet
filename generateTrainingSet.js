@@ -1236,7 +1236,7 @@ async function updateCategorizedUser(params){
     categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/statsObj.archiveTotal;
 
     if (configuration.verbose 
-      || configuration.testMode 
+      // || configuration.testMode 
       || ((statsObj.users.notCategorized + statsObj.users.updatedCategorized) % 1000 === 0)){
 
       categorizedUserHistogramTotal();
@@ -1361,7 +1361,7 @@ async function categorizeUser(params){
 
     subUser.friends = _.slice(subUser.friends, 0,5000);
 
-    if (params.verbose || params.testMode) {
+    if (params.verbose) {
       console.log(chalkInfo(MODULE_ID_PREFIX + " | -<- UPDATE CL USR <DB"
         + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
         + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + "]"
@@ -1384,6 +1384,11 @@ async function categorizeUser(params){
   }
 }
 
+const archivedUsers = {};
+archivedUsers.left = 0;
+archivedUsers.neutral = 0;
+archivedUsers.right = 0;
+
 function categoryCursorStream(params){
 
   return new Promise(function(resolve){
@@ -1396,6 +1401,10 @@ function categoryCursorStream(params){
     const catCursorInterval = setInterval(async function(){
 
       if (configuration.testMode && (archivedCount >= configuration.maxTestCount)) {
+        console.log(chalkInfo(MODULE_ID_PREFIX
+          + " | ARCHIVED: " + archivedCount
+          + " | archivedUsers\n" + tcUtils.jsonPrint(archivedUsers)
+        ));
         clearInterval(catCursorInterval);
         return resolve();
       }
@@ -1436,9 +1445,26 @@ function categoryCursorStream(params){
 
           const catUser = await categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
 
-          archiveUserQueue.push(catUser);
-          archivedCount += 1;
+          if (!configuration.testMode){
+            archiveUserQueue.push(catUser);
+            archivedUsers[catUser.category] += 1;
+            archivedCount += 1;
+          }
+          else if (configuration.testMode && (archivedUsers[user.category] < 0.34*configuration.maxTestCount)){
+            archiveUserQueue.push(catUser);
+            archivedUsers[catUser.category] += 1;
+            archivedCount += 1;
+          }
+
           ready = true;
+
+          if (archivedCount % 100 === 0){
+            console.log(chalkInfo(MODULE_ID_PREFIX
+              + " | ARCHIVED: " + archivedCount
+              + " | archivedUsers\n" + tcUtils.jsonPrint(archivedUsers)
+            ));
+          }
+
         }
       }
 
@@ -1737,7 +1763,7 @@ async function initArchiver(){
     statsObj.archiveEndMoment = moment();
     statsObj.archiveEndMoment.add(statsObj.archiveRemainMS, "ms");
 
-    if ((statsObj.usersProcessed % 100 === 0) || configuration.verbose || configuration.testMode) {
+    if ((statsObj.usersProcessed % 100 === 0) || configuration.verbose) {
       console.log(chalkInfo(MODULE_ID_PREFIX + " | >+- ARCHIVE | PROGRESS"
         + " | " + tcUtils.getTimeStamp()
         + " | APPNDD: " + statsObj.usersAppendedToArchive
@@ -1756,7 +1782,7 @@ async function initArchiver(){
 
     statsObj.archiveEntries += 1;
 
-    if (configuration.verbose || configuration.testMode || (statsObj.archiveEntries % 100 === 0)) {
+    if (configuration.verbose || (statsObj.archiveEntries % 100 === 0)) {
       console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | ENTRY"
         + " [ " + statsObj.usersAppendedToArchive + " APPENDED ]"
         + " [ " + statsObj.archiveEntries + " ENTRIES ]"
