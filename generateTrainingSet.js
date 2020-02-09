@@ -151,6 +151,29 @@ const chalkInfo = chalk.black;
 
 let categorizedUsersPercent = 0;
 
+const DEFAULT_USER_PROPERTY_PICK_ARRAY = [
+  "userId", 
+  "screenName", 
+  "nodeId", 
+  "name",
+  "description",
+  "lang",
+  "statusesCount",
+  "followersCount",
+  "friendsCount",
+  "friends",
+  "languageAnalysis", 
+  "category", 
+  "categoryAuto", 
+  "histograms", 
+  "profileHistograms", 
+  "tweetHistograms", 
+  "location", 
+  "ignored", 
+  "following", 
+  "threeceeFollowing"
+];
+
 const maxInputHashMap = {};
 
 DEFAULT_INPUT_TYPES.forEach(function(type){
@@ -245,6 +268,8 @@ let hostConfiguration = {}; // host-specific configuration for GTS
 configuration.serverMode = DEFAULT_SERVER_MODE;
 
 console.log(chalkLog(MODULE_ID_PREFIX + " | SERVER MODE: " + configuration.serverMode));
+
+configuration.userPropertyPickArray = DEFAULT_USER_PROPERTY_PICK_ARRAY;
 
 configuration.processName = process.env.GTS_PROCESS_NAME || "node_gts";
 
@@ -1330,33 +1355,15 @@ async function categorizeUser(params){
       throw new Error("USER NOT FOUND IN DB: " + params.nodeId);
     }
 
+    const userPropertyPickArray = params.userPropertyPickArray || configuration.userPropertyPickArray;
+
     userIndex += 1;
 
     await tcUtils.updateGlobalHistograms({user: user});
 
     const subUser = pick(
       user,
-      [
-        "userId", 
-        "screenName", 
-        "nodeId", 
-        "name",
-        "lang",
-        "statusesCount",
-        "followersCount",
-        "friendsCount",
-        "friends",
-        "languageAnalysis", 
-        "category", 
-        "categoryAuto", 
-        "histograms", 
-        "profileHistograms", 
-        "tweetHistograms", 
-        "location", 
-        "ignored", 
-        "following", 
-        "threeceeFollowing"
-      ]
+      userPropertyPickArray
     );
 
     subUser.friends = _.slice(subUser.friends, 0,5000);
@@ -1397,16 +1404,19 @@ function categoryCursorStream(params){
 
     let ready = true;
     let archivedCount = 0;
+    const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.maxTestCount;
 
     const catCursorInterval = setInterval(async function(){
 
-      if (configuration.testMode && (archivedCount >= configuration.maxTestCount)) {
+      // if (configuration.testMode && (archivedCount >= configuration.maxTestCount)) {
+      if (configuration.testMode && (archivedCount >= maxArchivedCount)) {
+        catCursor.close();
         console.log(chalkInfo(MODULE_ID_PREFIX
           + " | ARCHIVED: " + archivedCount
           + " | archivedUsers\n" + tcUtils.jsonPrint(archivedUsers)
         ));
         clearInterval(catCursorInterval);
-        return resolve();
+        return resolve({archivedCount: archivedCount});
       }
 
       if (ready && (archiveUserQueue.length < 100)){
@@ -1416,8 +1426,9 @@ function categoryCursorStream(params){
         const user = await catCursor.next();
 
         if (!user || (user === undefined)) {
+          catCursor.close();
           clearInterval(catCursorInterval);
-          return resolve();
+          return resolve({archivedCount: archivedCount});
         }
 
         if (!user.screenName){
@@ -1898,7 +1909,34 @@ async function generateGlobalTrainingTestSet(){
 
   await initArchiveUserQueue({interval: 5});
   await initArchiver();
-  await categoryCursorStream({query: catUsersQuery});
+
+  let maxCategoryArchivedCount;
+
+  if (configuration.testMode) {
+    maxCategoryArchivedCount = parseInt(configuration.maxTestCount/3);
+  }
+
+  let accumulatedArchiveTotal = 0;
+
+  for(const category of ["left", "neutral", "right"]){
+
+    console.log(chalkLog(MODULE_ID_PREFIX + " | ==================================================================="));
+    console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZE USERS | CATEGORY: " + category + " | MAX ARCHIVED COUNT: " + maxCategoryArchivedCount));
+    console.log(chalkLog(MODULE_ID_PREFIX + " | ==================================================================="));
+
+    const query = { 
+      "$and": [
+        { "screenName": { "$nin": [false, null] } }, 
+        { "ignored": { "$nin": [true, "true"] } }, 
+        { "category": category }
+      ]
+    };
+
+    const results = await categoryCursorStream({query: query, maxArchivedCount: maxCategoryArchivedCount});
+    accumulatedArchiveTotal += results.archivedCount;
+
+  }
+  statsObj.archiveTotal = accumulatedArchiveTotal;
   await endAppendUsers();
 
   // inc total to account for future append
