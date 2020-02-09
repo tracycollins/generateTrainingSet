@@ -1492,7 +1492,7 @@ function archiveUser(params){
 
       statsObj.usersAppendedToArchive += 1;
 
-      if (configuration.verbose || configuration.testMode) {
+      if (configuration.verbose) {
         console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | USER"
           + " [" + statsObj.usersAppendedToArchive + " APPENDED]"
           + " | @" + params.user.screenName
