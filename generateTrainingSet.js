@@ -1,5 +1,5 @@
 const MODULE_NAME = "generateTrainingSet";
-
+const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
 const DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM = 2;
@@ -152,26 +152,28 @@ const chalkInfo = chalk.black;
 let categorizedUsersPercent = 0;
 
 const DEFAULT_USER_PROPERTY_PICK_ARRAY = [
-  "userId", 
-  "screenName", 
-  "nodeId", 
-  "name",
-  "description",
-  "lang",
-  "statusesCount",
-  "followersCount",
-  "friendsCount",
-  "friends",
-  "languageAnalysis", 
+  "ageDays", 
   "category", 
   "categoryAuto", 
-  "histograms", 
-  "profileHistograms", 
-  "tweetHistograms", 
-  "location", 
-  "ignored", 
+  "description",
+  "followersCount",
   "following", 
-  "threeceeFollowing"
+  "friends",
+  "friendsCount",
+  "histograms", 
+  "ignored", 
+  "lang",
+  "languageAnalysis", 
+  "location", 
+  "name",
+  "nodeId", 
+  "profileHistograms", 
+  "screenName", 
+  "statusesCount",
+  "threeceeFollowing",
+  "tweetHistograms", 
+  "tweetsPerDay", 
+  "userId"
 ];
 
 const maxInputHashMap = {};
@@ -255,6 +257,7 @@ process.on("unhandledRejection", function(err, promise) {
 let initMainInterval;
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
+configuration.reSaveUserDocsFlag = DEFAULT_RESAVE_USER_DOCS_FLAG;
 configuration.verbose = false;
 configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
@@ -973,6 +976,19 @@ async function loadConfigFile(params) {
       }
     }
 
+    if (loadedConfigObj.GTS_RESAVE_USER_DOCS_FLAG !== undefined) {
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_RESAVE_USER_DOCS_FLAG: " + loadedConfigObj.GTS_RESAVE_USER_DOCS_FLAG);
+      if ((loadedConfigObj.GTS_RESAVE_USER_DOCS_FLAG === false) || (loadedConfigObj.GTS_RESAVE_USER_DOCS_FLAG === "false")) {
+        newConfiguration.reSaveUserDocsFlag = false;
+      }
+      else if ((loadedConfigObj.GTS_RESAVE_USER_DOCS_FLAG === true) || (loadedConfigObj.GTS_RESAVE_USER_DOCS_FLAG === "true")) {
+        newConfiguration.reSaveUserDocsFlag = true;
+      }
+      else {
+        newConfiguration.reSaveUserDocsFlag = false;
+      }
+    }
+
     if (loadedConfigObj.GTS_QUIT_ON_COMPLETE !== undefined) {
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_QUIT_ON_COMPLETE: " + loadedConfigObj.GTS_QUIT_ON_COMPLETE);
       if (!loadedConfigObj.GTS_QUIT_ON_COMPLETE || (loadedConfigObj.GTS_QUIT_ON_COMPLETE === "false")) {
@@ -1401,14 +1417,18 @@ function categoryCursorStream(params){
   return new Promise(function(resolve){
 
     const catCursor = global.wordAssoDb.User.find(params.query).lean().cursor();
-
     let ready = true;
     let archivedCount = 0;
     const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.maxTestCount;
 
+    const reSaveUserDocsFlag = params.reSaveUserDocsFlag || false;
+
+    if (reSaveUserDocsFlag) {
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
+    }
+
     const catCursorInterval = setInterval(async function(){
 
-      // if (configuration.testMode && (archivedCount >= configuration.maxTestCount)) {
       if (configuration.testMode && (archivedCount >= maxArchivedCount)) {
         catCursor.close();
         console.log(chalkInfo(MODULE_ID_PREFIX
@@ -1423,7 +1443,15 @@ function categoryCursorStream(params){
 
         ready = false;
 
-        const user = await catCursor.next();
+        let user = await catCursor.next();
+
+        if (reSaveUserDocsFlag) {
+          await global.wordAssoDb.User.deleteOne({nodeId: user.nodeId});
+          delete user._id;
+          const newUserDoc = new global.wordAssoDb.User(user);
+          await newUserDoc.save();
+          user = await global.wordAssoDb.User.findOne({nodeId: newUserDoc.nodeId});
+        }
 
         if (!user || (user === undefined)) {
           catCursor.close();
@@ -1472,7 +1500,10 @@ function categoryCursorStream(params){
           if (archivedCount % 100 === 0){
             console.log(chalkInfo(MODULE_ID_PREFIX
               + " | ARCHIVED: " + archivedCount
-              + " | archivedUsers\n" + tcUtils.jsonPrint(archivedUsers)
+              + " | L: " + archivedUsers.left
+              + " | N: " + archivedUsers.neutral
+              + " | R: " + archivedUsers.right
+              // + " | archivedUsers\n" + tcUtils.jsonPrint(archivedUsers)
             ));
           }
 
@@ -1932,7 +1963,7 @@ async function generateGlobalTrainingTestSet(){
       ]
     };
 
-    const results = await categoryCursorStream({query: query, maxArchivedCount: maxCategoryArchivedCount});
+    const results = await categoryCursorStream({query: query, reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, maxArchivedCount: maxCategoryArchivedCount});
     accumulatedArchiveTotal += results.archivedCount;
 
   }
