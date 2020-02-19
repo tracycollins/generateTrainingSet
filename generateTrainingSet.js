@@ -1446,11 +1446,19 @@ function categoryCursorStream(params){
         let user = await catCursor.next();
 
         if (reSaveUserDocsFlag) {
-          await global.wordAssoDb.User.deleteOne({nodeId: user.nodeId});
-          delete user._id;
-          const newUserDoc = new global.wordAssoDb.User(user);
-          await newUserDoc.save();
-          user = await global.wordAssoDb.User.findOne({nodeId: newUserDoc.nodeId});
+          try{
+            await global.wordAssoDb.User.deleteOne({nodeId: user.nodeId});
+            delete user._id;
+            const newUserDoc = new global.wordAssoDb.User(user);
+            await newUserDoc.save();
+            user = await global.wordAssoDb.User.findOne({nodeId: newUserDoc.nodeId});
+          }
+          catch(e){
+            console.log(chalkError(MODULE_ID_PREFIX + " | *** RESAVE USER DOC ERROR"
+              + " | " + user.nodeId
+              + " | @" + user.screenName
+            ));
+          }
         }
 
         if (!user || (user === undefined)) {
