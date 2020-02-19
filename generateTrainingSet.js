@@ -1407,18 +1407,20 @@ async function categorizeUser(params){
   }
 }
 
-const archivedUsers = {};
-archivedUsers.left = 0;
-archivedUsers.neutral = 0;
-archivedUsers.right = 0;
+const categorizedUsers = {};
+categorizedUsers.left = 0;
+categorizedUsers.neutral = 0;
+categorizedUsers.right = 0;
 
 function categoryCursorStream(params){
 
-  return new Promise(function(resolve){
+  return new Promise(function(resolve, reject){
 
-    const catCursor = global.wordAssoDb.User.find(params.query).lean().cursor();
-    let ready = true;
-    let archivedCount = 0;
+    const startTimeStamp = moment().valueOf();
+    let errorTimeStamp = startTimeStamp;
+
+    // let ready = true;
+    let categorizedCount = 0;
     const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.maxTestCount;
 
     const reSaveUserDocsFlag = params.reSaveUserDocsFlag || false;
@@ -1427,106 +1429,232 @@ function categoryCursorStream(params){
       console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
     }
 
-    const catCursorInterval = setInterval(async function(){
+    const cursor = global.wordAssoDb.User.find(params.query).lean().cursor();
 
-      if (configuration.testMode && (archivedCount > maxArchivedCount)) {
-        catCursor.close();
-        console.log(chalkInfo(MODULE_ID_PREFIX
-          + " | ARCHIVED: " + archivedCount
-          + " | archivedUsers\n" + tcUtils.jsonPrint(archivedUsers)
-        ));
-        clearInterval(catCursorInterval);
-        return resolve({archivedCount: archivedCount});
-      }
+    cursor.on("end", function() {
+      console.log(chalkInfo(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
+    });
 
-      if (ready && (archiveUserQueue.length < 100)){
+    cursor.on("error", function(err) {
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
+      throw err;
+    });
 
-        ready = false;
+    cursor.on("close", function() {
+      console.log(chalkInfo(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
+    });
 
-        let user = await catCursor.next();
+    cursor.eachAsync(async function(u){
 
-        if (reSaveUserDocsFlag) {
-          try{
-            await global.wordAssoDb.User.deleteOne({nodeId: user.nodeId});
-            delete user._id;
-            const newUserDoc = new global.wordAssoDb.User(user);
-            await newUserDoc.save();
-            user = await global.wordAssoDb.User.findOne({nodeId: newUserDoc.nodeId});
-          }
-          catch(e){
-            console.log(chalkError(MODULE_ID_PREFIX + " | *** RESAVE USER DOC ERROR"
-              + " | " + user.nodeId
-              + " | @" + user.screenName
-            ));
-          }
+      let user;
+
+      if (reSaveUserDocsFlag) {
+        try{
+          await global.wordAssoDb.User.deleteOne({nodeId: u.nodeId});
+          delete u._id;
+          const newUserDoc = new global.wordAssoDb.User(u);
+          await newUserDoc.save();
+          user = await global.wordAssoDb.User.findOne({nodeId: newUserDoc.nodeId});
         }
-
-        if (!user || (user === undefined)) {
-          catCursor.close();
-          clearInterval(catCursorInterval);
-          return resolve({archivedCount: archivedCount});
-        }
-
-        if (!user.screenName){
-          console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + tcUtils.jsonPrint(user)));
-          statsObj.userErrorCount += 1;
-          ready = true;
-        }
-        else if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
-          statsObj.userEmptyCount += 1;
-          console.log(chalkWarn(MODULE_ID_PREFIX 
-            + " | --- EMPTY HISTOGRAMS"
-            + " | SKIPPING"
-            + " | PRCSD/REM/MT/ERR/TOT: " 
-            + statsObj.usersAppendedToArchive 
-            + "/" + statsObj.archiveRemainUsers 
-            + "/" + statsObj.userEmptyCount 
-            + "/" + statsObj.userErrorCount 
-            + "/" + statsObj.archiveGrandTotal
-            + " | @" + user.screenName 
+        catch(e){
+          console.log(chalkError(MODULE_ID_PREFIX + " | *** RESAVE USER DOC ERROR | " + e
+            // + " | " + u.nodeId
+            // + " | @" + u.screenName
           ));
-          ready = true;
         }
-        else {
+      }
+      else{
+        user = u;
+      }
 
-          if (!user.friends || user.friends == undefined) {
-            user.friends = [];
-          }
-          else{
-            user.friends = _.slice(user.friends, 0,5000);
-          }
+      if (!user.screenName){
+        console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + tcUtils.jsonPrint(user)));
+        statsObj.userErrorCount += 1;
+      }
+      else if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
+        statsObj.userEmptyCount += 1;
+        console.log(chalkWarn(MODULE_ID_PREFIX 
+          + " | --- EMPTY HISTOGRAMS"
+          + " | SKIPPING"
+          + " | PRCSD/REM/MT/ERR/TOT: " 
+          + statsObj.usersAppendedToArchive 
+          + "/" + statsObj.archiveRemainUsers 
+          + "/" + statsObj.userEmptyCount 
+          + "/" + statsObj.userErrorCount 
+          + "/" + statsObj.archiveGrandTotal
+          + " | @" + user.screenName 
+        ));
+      }
+      else {
 
-          const catUser = await categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
+        if (!user.friends || user.friends == undefined) {
+          user.friends = [];
+        }
+        else{
+          user.friends = _.slice(user.friends, 0,5000);
+        }
 
-          if (!configuration.testMode){
-            archiveUserQueue.push(catUser);
-            archivedUsers[catUser.category] += 1;
-            archivedCount += 1;
-          }
-          else if (configuration.testMode && (archivedUsers[user.category] < 0.34*configuration.maxTestCount)){
-            archiveUserQueue.push(catUser);
-            archivedUsers[catUser.category] += 1;
-            archivedCount += 1;
-          }
+        const catUser = await categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
 
-          ready = true;
+        if (!configuration.testMode){
+          archiveUserQueue.push(catUser);
+          categorizedUsers[catUser.category] += 1;
+          categorizedCount += 1;
+        }
+        else if (configuration.testMode && (categorizedUsers[user.category] < 0.34*configuration.maxTestCount)){
+          archiveUserQueue.push(catUser);
+          categorizedUsers[catUser.category] += 1;
+          categorizedCount += 1;
+        }
 
-          if (archivedCount % 100 === 0){
-            console.log(chalkInfo(MODULE_ID_PREFIX
-              + " | ARCHIVED: " + archivedCount
-              + " | L: " + archivedUsers.left
-              + " | N: " + archivedUsers.neutral
-              + " | R: " + archivedUsers.right
-              // + " | archivedUsers\n" + tcUtils.jsonPrint(archivedUsers)
-            ));
-          }
+        if (categorizedCount % 100 === 0){
+          console.log(chalkInfo(MODULE_ID_PREFIX
+            + " | CATEGORIZED: " + categorizedCount
+            + " | L: " + categorizedUsers.left
+            + " | N: " + categorizedUsers.neutral
+            + " | R: " + categorizedUsers.right
+          ));
+        }
+
+        if (configuration.testMode && (categorizedCount > maxArchivedCount)) {
+          cursor.close();
+          console.log(chalkInfo(MODULE_ID_PREFIX
+            + " | CATEGORIZED: " + categorizedCount
+            + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
+          ));
+          return resolve({categorizedCount: categorizedCount});
         }
       }
 
-    }, 2);
+    }).
+    then(async function(){
+      console.log(chalkInfo(MODULE_ID_PREFIX + " | categoryCursorStream eachAsync END"));
+      return resolve({categorizedCount: categorizedCount});
+    }).
+    catch(function(err){
+      errorTimeStamp = moment().valueOf();
+      console.log(chalkError("*** ERROR categoryCursorStream: catch error: " + err));
+      console.log(chalkError("categoryCursorStream CURSOR"
+        + " | START: " + moment(startTimeStamp).format(compactDateTimeFormat) 
+        + " | ERROR: " + moment(errorTimeStamp).format(compactDateTimeFormat)
+        + " | ELAPSED: " + tcUtils.msToTime(errorTimeStamp - startTimeStamp)
+      ));
+      reject(err);
+    });
 
   });
+
 }
+
+// function categoryCursorStream(params){
+
+//   return new Promise(function(resolve){
+
+//     const catCursor = global.wordAssoDb.User.find(params.query).lean().cursor();
+//     let ready = true;
+//     let categorizedCount = 0;
+//     const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.maxTestCount;
+
+//     const reSaveUserDocsFlag = params.reSaveUserDocsFlag || false;
+
+//     if (reSaveUserDocsFlag) {
+//       console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
+//     }
+
+//     const catCursorInterval = setInterval(async function(){
+
+//       if (configuration.testMode && (categorizedCount > maxArchivedCount)) {
+//         catCursor.close();
+//         console.log(chalkInfo(MODULE_ID_PREFIX
+//           + " | CATEGORIZED: " + categorizedCount
+//           + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
+//         ));
+//         clearInterval(catCursorInterval);
+//         return resolve({categorizedCount: categorizedCount});
+//       }
+
+//       if (ready && (archiveUserQueue.length < 100)){
+
+//         ready = false;
+
+//         let user = await catCursor.next();
+
+//         if (reSaveUserDocsFlag) {
+//           try{
+//             await global.wordAssoDb.User.deleteOne({nodeId: user.nodeId});
+//             delete user._id;
+//             const newUserDoc = new global.wordAssoDb.User(user);
+//             await newUserDoc.save();
+//             user = await global.wordAssoDb.User.findOne({nodeId: newUserDoc.nodeId});
+//           }
+//           catch(e){
+//             console.log(chalkError(MODULE_ID_PREFIX + " | *** RESAVE USER DOC ERROR"
+//               + " | " + user.nodeId
+//               + " | @" + user.screenName
+//             ));
+//           }
+//         }
+
+//         if (!user.screenName){
+//           console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + tcUtils.jsonPrint(user)));
+//           statsObj.userErrorCount += 1;
+//           ready = true;
+//         }
+//         else if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
+//           statsObj.userEmptyCount += 1;
+//           console.log(chalkWarn(MODULE_ID_PREFIX 
+//             + " | --- EMPTY HISTOGRAMS"
+//             + " | SKIPPING"
+//             + " | PRCSD/REM/MT/ERR/TOT: " 
+//             + statsObj.usersAppendedToArchive 
+//             + "/" + statsObj.archiveRemainUsers 
+//             + "/" + statsObj.userEmptyCount 
+//             + "/" + statsObj.userErrorCount 
+//             + "/" + statsObj.archiveGrandTotal
+//             + " | @" + user.screenName 
+//           ));
+//           ready = true;
+//         }
+//         else {
+
+//           if (!user.friends || user.friends == undefined) {
+//             user.friends = [];
+//           }
+//           else{
+//             user.friends = _.slice(user.friends, 0,5000);
+//           }
+
+//           const catUser = await categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
+
+//           if (!configuration.testMode){
+//             archiveUserQueue.push(catUser);
+//             categorizedUsers[catUser.category] += 1;
+//             categorizedCount += 1;
+//           }
+//           else if (configuration.testMode && (categorizedUsers[user.category] < 0.34*configuration.maxTestCount)){
+//             archiveUserQueue.push(catUser);
+//             categorizedUsers[catUser.category] += 1;
+//             categorizedCount += 1;
+//           }
+
+//           ready = true;
+
+//           if (categorizedCount % 100 === 0){
+//             console.log(chalkInfo(MODULE_ID_PREFIX
+//               + " | CATEGORIZED: " + categorizedCount
+//               + " | L: " + categorizedUsers.left
+//               + " | N: " + categorizedUsers.neutral
+//               + " | R: " + categorizedUsers.right
+//               // + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
+//             ));
+//           }
+//         }
+//       }
+
+//     }, 2);
+
+//   });
+// }
 
 function archiveUser(params){
 
