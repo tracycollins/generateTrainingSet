@@ -1813,7 +1813,7 @@ async function initArchiver(){
 
     statsObj.archiveElapsed = (moment().valueOf() - statsObj.archiveStartMoment.valueOf()); // mseconds
     statsObj.archiveRate = statsObj.archiveElapsed/statsObj.usersAppendedToArchive; // msecs/usersArchived
-    statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersProcessed + statsObj.userErrorCount);
+    statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userErrorCount);
     statsObj.archiveRemainMS = statsObj.archiveRemainUsers * statsObj.archiveRate; // mseconds
     statsObj.archiveEndMoment = moment();
     statsObj.archiveEndMoment.add(statsObj.archiveRemainMS, "ms");
