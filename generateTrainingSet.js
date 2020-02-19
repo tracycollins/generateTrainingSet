@@ -1956,7 +1956,7 @@ async function generateGlobalTrainingTestSet(){
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | CATEGORIZED USERS IN DB: " + statsObj.archiveGrandTotal));
   console.log(chalkBlueBold(MODULE_ID_PREFIX 
-    + " | L: " + statsObj.statsObj.archiveCategoryTotal.left 
+    + " | L: " + statsObj.archiveCategoryTotal.left 
     + " | N: " + statsObj.archiveCategoryTotal.neutral
     + " | R: " + statsObj.archiveCategoryTotal.right
   ));
