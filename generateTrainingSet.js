@@ -1523,7 +1523,7 @@ function categoryCursorStream(params){
         }
       }
 
-    }, 20);
+    }, 2);
 
   });
 }
@@ -1952,7 +1952,7 @@ async function generateGlobalTrainingTestSet(){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveTotal + " USERS"));
   }
 
-  await initArchiveUserQueue({interval: 5});
+  await initArchiveUserQueue({interval: 2});
   await initArchiver();
 
   let maxCategoryArchivedCount;
