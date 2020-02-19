@@ -1105,12 +1105,12 @@ async function updateUserAndMaxInputHashMap(params){
   dbUpdateParams.profileHistograms = {};
   dbUpdateParams.tweetHistograms = {};
 
-  dbUpdateParams.profileHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.profileHistograms});
-  dbUpdateParams.tweetHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.tweetHistograms});
+  user.profileHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.profileHistograms});
+  user.tweetHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.tweetHistograms});
 
-  const dbUpdatedUser = await global.wordAssoDb.User.findOneAndUpdate({userId: user.userId}, dbUpdateParams, {new: true, lean: true});
+  const dbUpdatedUser = await userServerController.findOneUserV2({user: user});
 
-  const mergedHistograms = await mergeHistograms.merge({ histogramA: dbUpdatedUser.profileHistograms, histogramB: dbUpdatedUser.tweetHistograms });
+  const mergedHistograms = await mergeHistograms.merge({ histogramA: user.profileHistograms, histogramB: user.tweetHistograms });
 
   const histogramTypes = Object.keys(mergedHistograms);
 
