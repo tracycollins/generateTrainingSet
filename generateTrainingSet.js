@@ -1461,6 +1461,7 @@ function categoryCursorStream(params){
             // + " | " + u.nodeId
             // + " | @" + u.screenName
           ));
+          return;
         }
       }
       else{
@@ -1524,6 +1525,7 @@ function categoryCursorStream(params){
           ));
           return resolve({categorizedCount: categorizedCount});
         }
+        return;
       }
 
     }).
