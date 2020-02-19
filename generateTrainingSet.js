@@ -1429,7 +1429,7 @@ function categoryCursorStream(params){
 
     const catCursorInterval = setInterval(async function(){
 
-      if (configuration.testMode && (archivedCount >= maxArchivedCount)) {
+      if (configuration.testMode && (archivedCount > maxArchivedCount)) {
         catCursor.close();
         console.log(chalkInfo(MODULE_ID_PREFIX
           + " | ARCHIVED: " + archivedCount
@@ -1475,12 +1475,18 @@ function categoryCursorStream(params){
         else if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
           statsObj.userEmptyCount += 1;
           console.log(chalkWarn(MODULE_ID_PREFIX 
-            + " | !!! EMPTY USER HISTOGRAMS [" + statsObj.userEmptyCount + "] @" + user.screenName 
+            + " | !!! EMPTY USER HISTOGRAMS"
             + " | SKIPPING ..."
+            + " | PRCSD/REM/MT/ERR/TOT: " 
+            + statsObj.usersProcessed 
+            + "/" + statsObj.archiveRemainUsers 
+            + "/" + statsObj.userEmptyCount 
+            + "/" + statsObj.userErrorCount 
+            + "/" + statsObj.archiveTotal
+            + " | @" + user.screenName 
           ));
           ready = true;
         }
-
         else {
 
           if (!user.friends || user.friends == undefined) {
@@ -1514,11 +1520,10 @@ function categoryCursorStream(params){
               // + " | archivedUsers\n" + tcUtils.jsonPrint(archivedUsers)
             ));
           }
-
         }
       }
 
-    }, 10);
+    }, 20);
 
   });
 }
@@ -1808,7 +1813,8 @@ async function initArchiver(){
 
     statsObj.archiveElapsed = (moment().valueOf() - statsObj.archiveStartMoment.valueOf()); // mseconds
     statsObj.archiveRate = statsObj.archiveElapsed/statsObj.usersProcessed; // msecs/usersArchived
-    statsObj.archiveRemainUsers = statsObj.archiveTotal - (statsObj.usersProcessed + statsObj.userErrorCount + statsObj.userEmptyCount);
+    // statsObj.archiveRemainUsers = statsObj.archiveTotal - (statsObj.usersProcessed + statsObj.userErrorCount + statsObj.userEmptyCount);
+    statsObj.archiveRemainUsers = statsObj.archiveTotal - (statsObj.usersProcessed + statsObj.userErrorCount);
     statsObj.archiveRemainMS = statsObj.archiveRemainUsers * statsObj.archiveRate; // mseconds
     statsObj.archiveEndMoment = moment();
     statsObj.archiveEndMoment.add(statsObj.archiveRemainMS, "ms");
