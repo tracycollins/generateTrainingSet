@@ -10,13 +10,13 @@ const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 const TEST_MODE_LENGTH = 1000;
 
-const catUsersQuery = { 
-  "$and": [
-    { "screenName": { "$nin": [false, null] } }, 
-    { "ignored": { "$nin": [true, "true"] } }, 
-    { "category": { "$in": ["left", "right", "neutral"] } }
-  ]
-};
+// const catUsersQuery = { 
+//   "$and": [
+//     { "screenName": { "$nin": [false, null] } }, 
+//     { "ignored": { "$nin": [true, "true"] } }, 
+//     { "category": { "$in": ["left", "right", "neutral"] } }
+//   ]
+// };
 
 const os = require("os");
 let hostname = os.hostname();
@@ -206,7 +206,7 @@ statsObj.endAppendUsersFlag = false;
 statsObj.initcategorizedNodeQueueFlag = false;
 
 statsObj.archiveEntries = 0;
-statsObj.archiveTotal = 0;
+statsObj.archiveGrandTotal = 0;
 statsObj.archiveElapsed = 0;
 statsObj.archiveRate = 0;
 statsObj.archiveRemainUsers = Infinity;
@@ -746,9 +746,9 @@ function showStats(options){
       + "\nGTS | >+- ARCHIVE | PROGRESS"
       + " | " + tcUtils.getTimeStamp()
       + " | APPNDD: " + statsObj.usersAppendedToArchive
-      + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
+      + " | ENTRIES ARCVD/REM/TOT: " + statsObj.usersAppendedToArchive + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveGrandTotal
       + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
-      + " (" + (100*statsObj.usersProcessed/statsObj.archiveTotal).toFixed(2) + "%)"
+      + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
       + " [ RATE: " + (statsObj.archiveRate/1000).toFixed(3) + " SEC/USER ]"
       + " S: " + tcUtils.getTimeStamp(statsObj.archiveStartMoment)
       + " E: " + tcUtils.msToTime(statsObj.archiveElapsed)
@@ -1274,7 +1274,7 @@ async function updateCategorizedUser(params){
 
     statsObj.users.updatedCategorized += 1;
 
-    categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/statsObj.archiveTotal;
+    categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/statsObj.archiveGrandTotal;
 
     if (configuration.verbose 
       // || configuration.testMode 
@@ -1283,7 +1283,7 @@ async function updateCategorizedUser(params){
       categorizedUserHistogramTotal();
 
       console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
-        + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + statsObj.archiveTotal
+        + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + statsObj.archiveGrandTotal
         + " (" + categorizedUsersPercent.toFixed(1) + "%)"
         + " | TOTAL: " + categorizedUserHistogram.total
         + " | L: " + categorizedUserHistogram.left 
@@ -1475,14 +1475,14 @@ function categoryCursorStream(params){
         else if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
           statsObj.userEmptyCount += 1;
           console.log(chalkWarn(MODULE_ID_PREFIX 
-            + " | !!! EMPTY USER HISTOGRAMS"
-            + " | SKIPPING ..."
+            + " | --- EMPTY HISTOGRAMS"
+            + " | SKIPPING"
             + " | PRCSD/REM/MT/ERR/TOT: " 
-            + statsObj.usersProcessed 
+            + statsObj.usersAppendedToArchive 
             + "/" + statsObj.archiveRemainUsers 
             + "/" + statsObj.userEmptyCount 
             + "/" + statsObj.userErrorCount 
-            + "/" + statsObj.archiveTotal
+            + "/" + statsObj.archiveGrandTotal
             + " | @" + user.screenName 
           ));
           ready = true;
@@ -1570,9 +1570,9 @@ function endAppendUsers(){
 
       if ((statsObj.usersAppendedToArchive > 0) && (statsObj.archiveRemainUsers <= 0)){
         console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX END APPEND"
-          + " | " + statsObj.archiveTotal + " USERS"
+          + " | " + statsObj.archiveGrandTotal + " USERS"
           + " | " + statsObj.usersAppendedToArchive + " APPENDED"
-          + " | " + statsObj.usersProcessed + " PROCESSED"
+          + " | " + statsObj.usersAppendedToArchive + " PROCESSED"
           + " | " + statsObj.userEmptyCount + " EMPTY SKIPPED"
           + " | " + statsObj.userErrorCount + " ERRORS"
           + " | " + statsObj.archiveRemainUsers + " REMAIN"
@@ -1812,20 +1812,19 @@ async function initArchiver(){
     statsObj.totalMbytes = toMegabytes(archive.pointer());
 
     statsObj.archiveElapsed = (moment().valueOf() - statsObj.archiveStartMoment.valueOf()); // mseconds
-    statsObj.archiveRate = statsObj.archiveElapsed/statsObj.usersProcessed; // msecs/usersArchived
-    // statsObj.archiveRemainUsers = statsObj.archiveTotal - (statsObj.usersProcessed + statsObj.userErrorCount + statsObj.userEmptyCount);
-    statsObj.archiveRemainUsers = statsObj.archiveTotal - (statsObj.usersProcessed + statsObj.userErrorCount);
+    statsObj.archiveRate = statsObj.archiveElapsed/statsObj.usersAppendedToArchive; // msecs/usersArchived
+    statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersProcessed + statsObj.userErrorCount);
     statsObj.archiveRemainMS = statsObj.archiveRemainUsers * statsObj.archiveRate; // mseconds
     statsObj.archiveEndMoment = moment();
     statsObj.archiveEndMoment.add(statsObj.archiveRemainMS, "ms");
 
-    if ((statsObj.usersProcessed % 100 === 0) || configuration.verbose) {
+    if ((statsObj.usersAppendedToArchive % 100 === 0) || configuration.verbose) {
       console.log(chalkInfo(MODULE_ID_PREFIX + " | >+- ARCHIVE | PROGRESS"
         + " | " + tcUtils.getTimeStamp()
         + " | APPNDD: " + statsObj.usersAppendedToArchive
-        + " | ENTRIES PRCSSD/REM/TOT: " + statsObj.usersProcessed + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveTotal
+        + " | ENTRIES ARCVD/REM/TOT: " + statsObj.usersAppendedToArchive + "/" + statsObj.archiveRemainUsers + "/" + statsObj.archiveGrandTotal
         + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
-        + " (" + (100*statsObj.usersProcessed/statsObj.archiveTotal).toFixed(2) + "%)"
+        + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
         + " [ RATE: " + (statsObj.archiveRate/1000).toFixed(3) + " SEC/USER ]"
         + " S: " + tcUtils.getTimeStamp(statsObj.archiveStartMoment)
         + " E: " + tcUtils.msToTime(statsObj.archiveElapsed)
@@ -1858,8 +1857,8 @@ async function initArchiver(){
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | +++ ARCHIVE | FINISHED | " + tcUtils.getTimeStamp()
       + "\nGTS | +++ ARCHIVE | FINISHED | TEST MODE: " + configuration.testMode
       + "\nGTS | +++ ARCHIVE | FINISHED | ARCHIVE:   " + userArchivePath
-      + "\nGTS | +++ ARCHIVE | FINISHED | ENTRIES:   " + statsObj.usersAppendedToArchive + "/" + statsObj.archiveTotal + " APPENDED"
-      + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveTotal).toFixed(2) + "%)"
+      + "\nGTS | +++ ARCHIVE | FINISHED | ENTRIES:   " + statsObj.usersAppendedToArchive + "/" + statsObj.archiveGrandTotal + " APPENDED"
+      + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
       + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
     ));
   });
@@ -1940,16 +1939,27 @@ async function generateGlobalTrainingTestSet(){
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | GENERATE TRAINING SET | " + tcUtils.getTimeStamp()));
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
 
-  statsObj.totalCategorizedUsersInDB = await global.wordAssoDb.User.find(catUsersQuery).countDocuments();
-  statsObj.archiveTotal = statsObj.totalCategorizedUsersInDB;
+  statsObj.archiveCategoryTotal = {};
+
+  for(const category of ["left", "neutral", "right"]){
+    const query = { 
+      "$and": [
+        { "screenName": { "$nin": [false, null] } }, 
+        { "ignored": { "$nin": [true, "true"] } }, 
+        { "category": category }
+      ]
+    };
+    statsObj.archiveCategoryTotal[category] = await global.wordAssoDb.User.find(query).countDocuments();
+    statsObj.archiveGrandTotal += statsObj.archiveCategoryTotal[category];
+  }
 
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
-  console.log(chalkBlueBold(MODULE_ID_PREFIX + " | CATEGORIZED USERS IN DB: " + statsObj.totalCategorizedUsersInDB));
+  console.log(chalkBlueBold(MODULE_ID_PREFIX + " | CATEGORIZED USERS IN DB: " + statsObj.archiveGrandTotal));
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
 
   if (configuration.testMode) {
-    statsObj.archiveTotal = Math.min(statsObj.archiveTotal, configuration.maxTestCount);
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveTotal + " USERS"));
+    statsObj.archiveGrandTotal = Math.min(statsObj.archiveGrandTotal, configuration.maxTestCount);
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveGrandTotal + " USERS"));
   }
 
   await initArchiveUserQueue({interval: 2});
@@ -1961,12 +1971,10 @@ async function generateGlobalTrainingTestSet(){
     maxCategoryArchivedCount = parseInt(configuration.maxTestCount/3);
   }
 
-  let accumulatedArchiveTotal = 0;
-
   for(const category of ["left", "neutral", "right"]){
 
     console.log(chalkLog(MODULE_ID_PREFIX + " | ==================================================================="));
-    console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZE USERS | CATEGORY: " + category + " | MAX ARCHIVED COUNT: " + maxCategoryArchivedCount));
+    console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZE USERS | CATEGORY: " + category + ": " + statsObj.archiveCategoryTotal[category] + " | MAX ARCHIVED COUNT: " + maxCategoryArchivedCount));
     console.log(chalkLog(MODULE_ID_PREFIX + " | ==================================================================="));
 
     const query = { 
@@ -1977,15 +1985,13 @@ async function generateGlobalTrainingTestSet(){
       ]
     };
 
-    const results = await categoryCursorStream({query: query, reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, maxArchivedCount: maxCategoryArchivedCount});
-    accumulatedArchiveTotal += results.archivedCount;
-
+    await categoryCursorStream({query: query, reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, maxArchivedCount: maxCategoryArchivedCount});
   }
-  statsObj.archiveTotal = accumulatedArchiveTotal;
+
   await endAppendUsers();
 
   // inc total to account for future append
-  statsObj.archiveTotal += 1;
+  statsObj.archiveGrandTotal += 1;
 
   const mihmObj = {};
 
