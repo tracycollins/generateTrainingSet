@@ -1,4 +1,5 @@
 const MODULE_NAME = "generateTrainingSet";
+const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 5;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
@@ -264,6 +265,7 @@ configuration.testSetRatio = DEFAULT_TEST_RATIO;
 configuration.maxTestCount = TEST_MODE_LENGTH;
 configuration.maxHistogramValue = DEFAULT_MAX_HISTOGRAM_VALUE;
 configuration.slackChannel = {};
+configuration.archiveUserQueueIntervalPeriod = DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
 
 let defaultConfiguration = {}; // general configuration for GTS
 let hostConfiguration = {}; // host-specific configuration for GTS
@@ -1012,6 +1014,11 @@ async function loadConfigFile(params) {
     if (loadedConfigObj.GTS_ENABLE_STDIN !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_ENABLE_STDIN: " + loadedConfigObj.GTS_ENABLE_STDIN);
       newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
+    }
+
+    if (loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD: " + loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD);
+      newConfiguration.archiveUserQueueIntervalPeriod = loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
     }
 
     if (loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE !== undefined){
@@ -2010,7 +2017,7 @@ async function generateGlobalTrainingTestSet(){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveGrandTotal + " USERS"));
   }
 
-  await initArchiveUserQueue({interval: 2});
+  await initArchiveUserQueue({interval: configuration.archiveUserQueueIntervalPeriod});
   await initArchiver();
 
   let maxCategoryArchivedCount;
