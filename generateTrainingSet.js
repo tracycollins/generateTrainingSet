@@ -1,5 +1,5 @@
 const MODULE_NAME = "generateTrainingSet";
-const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 5;
+const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 10;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
@@ -1086,12 +1086,13 @@ async function clampHistogram(params){
 
     for (const entity of entities){
 
-      if (params.histogram[type][entity] > configuration.maxHistogramValue){
+      if (params.histogram[type][entity] > maxValue){
 
         console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: " + maxValue
           + " | @" + params.screenName
           + " | TYPE: " + type
           + " | ENTITY: " + entity
+          + " | MAX VALUE: " + maxValue
           + " | VALUE: " + params.histogram[type][entity]
         ));
 
