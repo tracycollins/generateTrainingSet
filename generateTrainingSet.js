@@ -1483,7 +1483,6 @@ async function cursorDataHandler(user){
   catch(err){
     throw err;
   }
-
 }
 
 function categoryCursorStream(params){
