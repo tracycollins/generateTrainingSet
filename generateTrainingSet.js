@@ -1856,10 +1856,10 @@ async function initArchiver(){
     statsObj.archiveEndMoment.add(statsObj.archiveRemainMS, "ms");
 
     if ((statsObj.usersAppendedToArchive % 100 === 0) || configuration.verbose) {
-      console.log(chalkInfo(MODULE_ID_PREFIX + " | >+- ARCHIVE | PROGRESS"
+      console.log(chalkInfo(MODULE_ID_PREFIX + " | >+- ARCHV"
         + " | " + tcUtils.getTimeStamp()
-        + " | APPNDD: " + statsObj.usersAppendedToArchive
-        + " | ENTRIES ARCVD/REM/MT/ERR/TOT: " 
+        + " | APND: " + statsObj.usersAppendedToArchive
+        + " | ARCVD/REM/MT/ERR/TOT: " 
         + statsObj.usersAppendedToArchive 
         + "/" + statsObj.archiveRemainUsers 
         + "/" + statsObj.userEmptyCount 
@@ -1867,7 +1867,7 @@ async function initArchiver(){
         + "/" + statsObj.archiveGrandTotal
         + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
         + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
-        + " [ RATE: " + (statsObj.archiveRate/1000).toFixed(3) + " SEC/USER ]"
+        + " [ " + (statsObj.archiveRate/1000).toFixed(3) + " s/user ]"
         + " S: " + tcUtils.getTimeStamp(statsObj.archiveStartMoment)
         + " E: " + tcUtils.msToTime(statsObj.archiveElapsed)
         + " | ETC: " + tcUtils.msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
