@@ -679,7 +679,7 @@ console.log(MODULE_ID_PREFIX + " | =================================");
 // ==================================================================
 
 const dropboxConfigFolder = "/config/utility";
-const dropboxConfigDefaultFolder = "/config/utility/default";
+// configonst dropboxConfigDefaultFolder = "/config/utility/default";
 const dropboxConfigHostFolder = "/config/utility/" + hostname;
 
 const dropboxConfigDefaultFile = "default_" + configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE;
@@ -703,9 +703,8 @@ debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_ACCESS_TOKEN :" + configuration.D
 debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_KEY :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_KEY);
 debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_SECRET :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_SECRET);
 
-
-const globalCategorizedUsersFolder = dropboxConfigDefaultFolder + "/categorizedUsers";
-const categorizedUsersFile = "categorizedUsers_manual.json";
+// const globalCategorizedUsersFolder = dropboxConfigDefaultFolder + "/categorizedUsers";
+// const categorizedUsersFile = "categorizedUsers_manual.json";
 
 function showStats(options){
 
@@ -1427,70 +1426,64 @@ categorizedUsers.right = 0;
 
 async function cursorDataHandler(user){
 
-  try{
+  if (!user.screenName){
+    console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + tcUtils.jsonPrint(user)));
+    statsObj.userErrorCount += 1;
+    return;
+  }
+  
+  if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
 
-    if (!user.screenName){
-      console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + tcUtils.jsonPrint(user)));
-      statsObj.userErrorCount += 1;
-      return;
-    }
-    
-    if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
+    statsObj.userEmptyCount += 1;
 
-      statsObj.userEmptyCount += 1;
-
-      if (statsObj.userEmptyCount % 100 === 0){
-        console.log(chalkWarn(MODULE_ID_PREFIX 
-          + " | --- EMPTY HISTOGRAMS"
-          + " | SKIPPING"
-          + " | PRCSD/REM/MT/ERR/TOT: " 
-          + statsObj.usersAppendedToArchive 
-          + "/" + statsObj.archiveRemainUsers 
-          + "/" + statsObj.userEmptyCount 
-          + "/" + statsObj.userErrorCount 
-          + "/" + statsObj.archiveGrandTotal
-          + " | @" + user.screenName 
-        ));
-      }
-
-      return;
-
-    }
-
-    if (!user.friends || user.friends == undefined) {
-      user.friends = [];
-    }
-    else{
-      user.friends = _.slice(user.friends, 0,5000);
-    }
-
-    const catUser = await categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
-
-    if (!configuration.testMode){
-      archiveUserQueue.push(catUser);
-      categorizedUsers[catUser.category] += 1;
-      statsObj.categorizedCount += 1;
-    }
-    else if (configuration.testMode && (categorizedUsers[user.category] < 0.34*configuration.maxTestCount)){
-      archiveUserQueue.push(catUser);
-      categorizedUsers[catUser.category] += 1;
-      statsObj.categorizedCount += 1;
-    }
-
-    if (statsObj.categorizedCount % 100 === 0){
-      console.log(chalkInfo(MODULE_ID_PREFIX
-        + " | CATEGORIZED: " + statsObj.categorizedCount
-        + " | L: " + categorizedUsers.left
-        + " | N: " + categorizedUsers.neutral
-        + " | R: " + categorizedUsers.right
+    if (statsObj.userEmptyCount % 100 === 0){
+      console.log(chalkWarn(MODULE_ID_PREFIX 
+        + " | --- EMPTY HISTOGRAMS"
+        + " | SKIPPING"
+        + " | PRCSD/REM/MT/ERR/TOT: " 
+        + statsObj.usersAppendedToArchive 
+        + "/" + statsObj.archiveRemainUsers 
+        + "/" + statsObj.userEmptyCount 
+        + "/" + statsObj.userErrorCount 
+        + "/" + statsObj.archiveGrandTotal
+        + " | @" + user.screenName 
       ));
     }
 
     return;
+
   }
-  catch(err){
-    throw err;
+
+  if (!user.friends || user.friends == undefined) {
+    user.friends = [];
   }
+  else{
+    user.friends = _.slice(user.friends, 0,5000);
+  }
+
+  const catUser = await categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
+
+  if (!configuration.testMode){
+    archiveUserQueue.push(catUser);
+    categorizedUsers[catUser.category] += 1;
+    statsObj.categorizedCount += 1;
+  }
+  else if (configuration.testMode && (categorizedUsers[user.category] < 0.34*configuration.maxTestCount)){
+    archiveUserQueue.push(catUser);
+    categorizedUsers[catUser.category] += 1;
+    statsObj.categorizedCount += 1;
+  }
+
+  if (statsObj.categorizedCount % 100 === 0){
+    console.log(chalkInfo(MODULE_ID_PREFIX
+      + " | CATEGORIZED: " + statsObj.categorizedCount
+      + " | L: " + categorizedUsers.left
+      + " | N: " + categorizedUsers.neutral
+      + " | R: " + categorizedUsers.right
+    ));
+  }
+
+  return;
 }
 
 function categoryCursorStream(params){
@@ -1951,11 +1944,11 @@ async function initialize(cnf){
     }
   }
 
-  cnf.categorizedUsersFile = process.env.GTS_CATEGORIZED_USERS_FILE || categorizedUsersFile;
-  cnf.categorizedUsersFolder = globalCategorizedUsersFolder;
+  // cnf.categorizedUsersFile = process.env.GTS_CATEGORIZED_USERS_FILE || categorizedUsersFile;
+  // cnf.categorizedUsersFolder = globalCategorizedUsersFolder;
 
-  debug(chalkWarn("dropboxConfigDefaultFolder: " + dropboxConfigDefaultFolder));
-  debug(chalkWarn("dropboxConfigDefaultFile  : " + dropboxConfigDefaultFile));
+  // debug(chalkWarn("dropboxConfigDefaultFolder: " + dropboxConfigDefaultFolder));
+  // debug(chalkWarn("dropboxConfigDefaultFile  : " + dropboxConfigDefaultFile));
 
   await initStdIn();
   
