@@ -721,6 +721,7 @@ function showStats(options){
     console.log(chalkLog(MODULE_ID_PREFIX + " | ============================================================"
       + "\nGTS | S"
       + " | STATUS: " + statsObj.status
+      + " [ AUQ: " + archiveUserQueue.length + " ]"
       + " | CPUs: " + statsObj.cpus
       + " | " + testObj.testRunId
       + " | HEAP: " + statsObj.heap.toFixed(3) + " GB"
