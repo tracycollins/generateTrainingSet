@@ -1476,6 +1476,7 @@ async function cursorDataHandler(user){
 
   if (statsObj.categorizedCount % 100 === 0){
     console.log(chalkInfo(MODULE_ID_PREFIX
+      + " [ AUQ: " + archiveUserQueue.length + " ]"
       + " | CATEGORIZED: " + statsObj.categorizedCount
       + " | L: " + categorizedUsers.left
       + " | N: " + categorizedUsers.neutral
@@ -1943,12 +1944,6 @@ async function initialize(cnf){
     }
   }
 
-  // cnf.categorizedUsersFile = process.env.GTS_CATEGORIZED_USERS_FILE || categorizedUsersFile;
-  // cnf.categorizedUsersFolder = globalCategorizedUsersFolder;
-
-  // debug(chalkWarn("dropboxConfigDefaultFolder: " + dropboxConfigDefaultFolder));
-  // debug(chalkWarn("dropboxConfigDefaultFile  : " + dropboxConfigDefaultFile));
-
   await initStdIn();
   
   configuration = await loadAllConfigFiles(configuration);
@@ -2039,7 +2034,11 @@ async function generateGlobalTrainingTestSet(){
       ]
     };
 
-    await categoryCursorStream({query: query, reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, maxArchivedCount: maxCategoryArchivedCount});
+    await categoryCursorStream({
+      query: query, 
+      reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, 
+      maxArchivedCount: maxCategoryArchivedCount
+    });
   }
 
   await endAppendUsers();
