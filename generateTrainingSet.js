@@ -1,5 +1,5 @@
 const MODULE_NAME = "generateTrainingSet";
-const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 50;
+const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 100;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
@@ -1605,7 +1605,6 @@ function endAppendUsers(){
 
     endArchiveUsersInterval = setInterval(function(){
 
-      // if ((statsObj.usersAppendedToArchive > 0) && (statsObj.archiveRemainUsers <= 0)){
       if ((statsObj.usersAppendedToArchive > 0) && (archiveUserQueue.length === 0)){
         console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX END APPEND"
           + " | " + statsObj.archiveGrandTotal + " USERS"
