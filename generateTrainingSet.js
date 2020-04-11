@@ -1,6 +1,6 @@
 const MODULE_NAME = "generateTrainingSet";
 const DEFAULT_MAX_ARCHIVE_USER_QUEUE = 100;
-const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 100;
+const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 200;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
@@ -10,7 +10,8 @@ const DEFAULT_INPUT_TYPE_MIN_MEDIA = 3;
 const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
-const TEST_MODE_LENGTH = 1000;
+
+const MAX_TEST_COUNT = 500;
 
 // const catUsersQuery = { 
 //   "$and": [
@@ -34,13 +35,16 @@ hostname = hostname.replace(/word/g, "google");
 const PRIMARY_HOST = process.env.PRIMARY_HOST || "google";
 const HOST = (hostname === PRIMARY_HOST) ? "default" : "local";
 
+let TEMP_ROOT_FOLDER;
 let DROPBOX_ROOT_FOLDER;
 
 if (hostname === "google") {
   DROPBOX_ROOT_FOLDER = "/home/tc/Dropbox/Apps/wordAssociation";
+  TEMP_ROOT_FOLDER = "/home/tc/temp";
 }
 else {
   DROPBOX_ROOT_FOLDER = "/Users/tc/Dropbox/Apps/wordAssociation";
+  TEMP_ROOT_FOLDER = "/Users/tc/temp";
 }
 
 const DEFAULT_INPUT_TYPES = [
@@ -100,31 +104,30 @@ const ONE_GIGABYTE = 1024 * ONE_MEGABYTE;
 const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 
 const DEFAULT_SERVER_MODE = false;
-const DEFAULT_WAIT_UNLOCK_INTERVAL = 15*ONE_SECOND;
-const DEFAULT_WAIT_UNLOCK_TIMEOUT = 10*ONE_MINUTE;
-const DEFAULT_FILELOCK_RETRY_WAIT = DEFAULT_WAIT_UNLOCK_INTERVAL;
-const DEFAULT_FILELOCK_STALE = 2*DEFAULT_WAIT_UNLOCK_TIMEOUT;
-const DEFAULT_FILELOCK_WAIT = DEFAULT_WAIT_UNLOCK_TIMEOUT;
+// const DEFAULT_WAIT_UNLOCK_INTERVAL = 15*ONE_SECOND;
+// const DEFAULT_WAIT_UNLOCK_TIMEOUT = 10*ONE_MINUTE;
+// const DEFAULT_FILELOCK_RETRY_WAIT = DEFAULT_WAIT_UNLOCK_INTERVAL;
+// const DEFAULT_FILELOCK_STALE = 2*DEFAULT_WAIT_UNLOCK_TIMEOUT;
+// const DEFAULT_FILELOCK_WAIT = DEFAULT_WAIT_UNLOCK_TIMEOUT;
 const DEFAULT_QUIT_ON_COMPLETE = false;
 const DEFAULT_TEST_RATIO = 0.20;
 const MODULE_ID_PREFIX = "GTS";
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
-const fileLockOptions = { 
-  retries: DEFAULT_FILELOCK_WAIT,
-  retryWait: DEFAULT_FILELOCK_RETRY_WAIT,
-  stale: DEFAULT_FILELOCK_STALE,
-  wait: DEFAULT_FILELOCK_WAIT
-};
+// const fileLockOptions = { 
+//   retries: DEFAULT_FILELOCK_WAIT,
+//   retryWait: DEFAULT_FILELOCK_RETRY_WAIT,
+//   stale: DEFAULT_FILELOCK_STALE,
+//   wait: DEFAULT_FILELOCK_WAIT
+// };
 
 const path = require("path");
 const moment = require("moment");
-const lockFile = require("lockfile");
+// const lockFile = require("lockfile");
 const merge = require("deepmerge");
 const archiver = require("archiver");
 const fs = require("fs");
 const { promisify } = require("util");
-// const renameFileAsync = promisify(fs.rename);
 const unlinkFileAsync = promisify(fs.unlink);
 const MergeHistograms = require("@threeceelabs/mergehistograms");
 const mergeHistograms = new MergeHistograms();
@@ -132,7 +135,6 @@ const util = require("util");
 const _ = require("lodash");
 const sizeof = require("object-sizeof");
 const pick = require("object.pick");
-// const Slack = require("slack-node");
 const EventEmitter3 = require("eventemitter3");
 const debug = require("debug")("gts");
 const commandLineArgs = require("command-line-args");
@@ -264,7 +266,7 @@ configuration.maxArchiveUserQueue = DEFAULT_MAX_ARCHIVE_USER_QUEUE;
 configuration.verbose = false;
 configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
-configuration.maxTestCount = TEST_MODE_LENGTH;
+configuration.maxTestCount = MAX_TEST_COUNT;
 configuration.maxHistogramValue = DEFAULT_MAX_HISTOGRAM_VALUE;
 configuration.slackChannel = {};
 configuration.archiveUserQueueIntervalPeriod = DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
@@ -292,6 +294,7 @@ configuration.DROPBOX.DROPBOX_GTS_STATS_FILE = process.env.DROPBOX_GTS_STATS_FIL
 
 const configDefaultFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility/default");
 const configHostFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility", hostname);
+const tempHostFolder = TEMP_ROOT_FOLDER;
 
 const localHistogramsFolder = configHostFolder + "/histograms";
 const defaultHistogramsFolder = configDefaultFolder + "/histograms";
@@ -309,19 +312,31 @@ configuration.local = {};
 configuration.local.trainingSetsFolder = path.join(configHostFolder, "trainingSets");
 configuration.local.histogramsFolder = path.join(configHostFolder, "histograms");
 configuration.local.userArchiveFolder = path.join(configHostFolder, "trainingSets/users");
+configuration.local.userTempArchiveFolder = path.join(tempHostFolder, "trainingSets/users");
 configuration.local.userArchivePath = path.join(configuration.local.userArchiveFolder, configuration.userArchiveFile);
+configuration.local.userTempArchivePath = path.join(configuration.local.userTempArchiveFolder, configuration.userArchiveFile);
 
 configuration.default = {};
 configuration.default.trainingSetsFolder = path.join(configDefaultFolder, "trainingSets");
 configuration.default.histogramsFolder = path.join(configDefaultFolder, "histograms");
 configuration.default.userArchiveFolder = path.join(configDefaultFolder, "trainingSets/users");
+configuration.default.userTempArchiveFolder = path.join(tempHostFolder, "trainingSets/users");
 configuration.default.userArchivePath = path.join(configuration.default.userArchiveFolder, configuration.userArchiveFile);
+configuration.default.userTempArchivePath = path.join(configuration.default.userTempArchiveFolder, configuration.userArchiveFile);
 
 configuration.trainingSetsFolder = configuration[HOST].trainingSetsFolder;
 configuration.archiveFileUploadCompleteFlagFolder = path.join(configuration[HOST].trainingSetsFolder, "users");
 configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
+configuration.userTempArchiveFolder = configuration[HOST].userTempArchiveFolder;
 configuration.userArchivePath = configuration[HOST].userArchivePath;
+configuration.userTempArchivePath = configuration[HOST].userTempArchivePath;
+
+fs.mkdirSync(configuration.default.userArchiveFolder, { recursive: true });
+fs.mkdirSync(configuration.default.userTempArchiveFolder, { recursive: true });
+
+fs.mkdirSync(configuration.local.userArchiveFolder, { recursive: true });
+fs.mkdirSync(configuration.local.userTempArchiveFolder, { recursive: true });
 
 global.wordAssoDb = require("@threeceelabs/mongoose-twitter");
 
@@ -1489,83 +1504,6 @@ async function cursorDataHandler(user){
   return;
 }
 
-// function categoryCursorStream(params){
-
-//   return new Promise(function(resolve, reject){
-
-//     const startTimeStamp = moment().valueOf();
-//     let errorTimeStamp = startTimeStamp;
-
-//     statsObj.categorizedCount = 0;
-//     const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.maxTestCount;
-
-//     const reSaveUserDocsFlag = params.reSaveUserDocsFlag || false;
-
-//     if (reSaveUserDocsFlag) {
-//       console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
-//     }
-
-//     const cursor = global.wordAssoDb.User.find(params.query).lean().cursor();
-
-//     cursor.on("end", function() {
-//       console.log(chalkInfo(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
-//       return resolve();
-//     });
-
-//     cursor.on("error", function(err) {
-//       console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
-//       throw err;
-//     });
-
-//     cursor.on("close", function() {
-//       console.log(chalkInfo(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
-//     });
-
-//     cursor.eachAsync(async function(user){
-
-//       await cursorDataHandler(user);
-
-//       if (configuration.testMode && (statsObj.categorizedCount > maxArchivedCount)) {
-//         cursor.close();
-//         console.log(chalkInfo(MODULE_ID_PREFIX
-//           + " | CATEGORIZED: " + statsObj.categorizedCount
-//           + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
-//         ));
-//         return resolve();
-//       }
-//     }).
-//     then(async function(){
-//       console.log(chalkBlue(MODULE_ID_PREFIX
-//         + " | CATEGORIZED: " + statsObj.categorizedCount
-//         + " | L: " + categorizedUsers.left
-//         + " | N: " + categorizedUsers.neutral
-//         + " | R: " + categorizedUsers.right
-//       ));
-//       console.log(chalkBlue(MODULE_ID_PREFIX 
-//         + " | CURSOR ASYNC END"
-//         + " | PRCSD/REM/MT/ERR/TOT: " 
-//         + statsObj.usersAppendedToArchive 
-//         + "/" + statsObj.archiveRemainUsers 
-//         + "/" + statsObj.userEmptyCount 
-//         + "/" + statsObj.userErrorCount 
-//         + "/" + statsObj.archiveGrandTotal
-//       ));
-//       return resolve();
-//     }).
-//     catch(function(err){
-//       errorTimeStamp = moment().valueOf();
-//       console.log(chalkError("*** ERROR categoryCursorStream: catch error: " + err));
-//       console.log(chalkError("categoryCursorStream CURSOR"
-//         + " | START: " + moment(startTimeStamp).format(compactDateTimeFormat) 
-//         + " | ERROR: " + moment(errorTimeStamp).format(compactDateTimeFormat)
-//         + " | ELAPSED: " + tcUtils.msToTime(errorTimeStamp - startTimeStamp)
-//       ));
-//       reject(err);
-//     });
-
-//   });
-// }
-
 async function categoryCursorStream(params){
 
   const startTimeStamp = moment().valueOf();
@@ -1580,7 +1518,7 @@ async function categoryCursorStream(params){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
   }
 
-  const cursor = global.wordAssoDb.User.find(params.query).lean().cursor();
+  const cursor = global.wordAssoDb.User.find(params.query).lean().limit(maxArchivedCount).cursor();
 
   cursor.on("end", function() {
     console.log(chalkInfo(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
@@ -1594,6 +1532,7 @@ async function categoryCursorStream(params){
 
   cursor.on("close", function() {
     console.log(chalkInfo(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
+    return;
   });
 
   await cursor.eachAsync(async function(user){
@@ -1604,11 +1543,12 @@ async function categoryCursorStream(params){
       .then(function(){
 
         if (configuration.testMode && (statsObj.categorizedCount > maxArchivedCount)) {
-          cursor.close();
           console.log(chalkInfo(MODULE_ID_PREFIX
             + " | CATEGORIZED: " + statsObj.categorizedCount
             + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
           ));
+          // cursorResolve();
+          cursor.close();
           return;
         }
         else{
@@ -1632,7 +1572,6 @@ async function categoryCursorStream(params){
         return cursorReject(err);
       });
     });
-
   });
 
   console.log(chalkBlue(MODULE_ID_PREFIX
@@ -1694,9 +1633,11 @@ let endArchiveUsersInterval;
 function endAppendUsers(){
   return new Promise(function(resolve){
 
+    console.log(chalkLog(MODULE_ID_PREFIX + " | ... WAIT END APPEND"));
+
     endArchiveUsersInterval = setInterval(function(){
 
-      if ((statsObj.usersAppendedToArchive > 0) && (archiveUserQueue.length === 0)){
+      if ((statsObj.usersAppendedToArchive > 0) && (archiveUserQueue.length === 0) && archiveUserQueueReady){
         console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX END APPEND"
           + " | " + statsObj.archiveGrandTotal + " USERS"
           + " | " + statsObj.usersAppendedToArchive + " APPENDED"
@@ -1714,34 +1655,34 @@ function endAppendUsers(){
   });
 }
 
-function getFileLock(params){
+// function getFileLock(params){
 
-  return new Promise(function(resolve, reject){
+//   return new Promise(function(resolve, reject){
 
-    try {
+//     try {
 
-      console.log(chalkBlue(MODULE_ID_PREFIX + " | ... GET LOCK FILE | " + params.file));
+//       console.log(chalkBlue(MODULE_ID_PREFIX + " | ... GET LOCK FILE | " + params.file));
 
-      lockFile.lock(params.file, params.options, function(err){
+//       lockFile.lock(params.file, params.options, function(err){
 
-        if (err) {
-          console.log(chalkError(MODULE_ID_PREFIX + " | *** FILE LOCK FAIL: " + params.file + "\n" + err));
-          // return reject(err);
-          return resolve(false);
-        }
+//         if (err) {
+//           console.log(chalkError(MODULE_ID_PREFIX + " | *** FILE LOCK FAIL: " + params.file + "\n" + err));
+//           // return reject(err);
+//           return resolve(false);
+//         }
 
-        console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ FILE LOCK: " + params.file));
-        resolve(true);
-      });
+//         console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ FILE LOCK: " + params.file));
+//         resolve(true);
+//       });
 
-    }
-    catch(err){
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** GET FILE LOCK ERROR: " + err));
-      return reject(err);
-    }
+//     }
+//     catch(err){
+//       console.log(chalkError(MODULE_ID_PREFIX + " | *** GET FILE LOCK ERROR: " + err));
+//       return reject(err);
+//     }
 
-  });
-}
+//   });
+// }
 
 function delay(params){
   return new Promise(function(resolve){
@@ -1755,30 +1696,30 @@ function delay(params){
   });
 }
 
-async function releaseFileLock(params){
+// async function releaseFileLock(params){
 
-  const delayPeriod = params.delay || 5;
+//   const delayPeriod = params.delay || 5;
 
-  await delay(delayPeriod);
+//   await delay(delayPeriod);
 
-  const fileIsLocked = lockFile.checkSync(params.file);
+//   const fileIsLocked = lockFile.checkSync(params.file);
 
-  if (!fileIsLocked) {
-    return true;
-  }
+//   if (!fileIsLocked) {
+//     return true;
+//   }
 
-  lockFile.unlock(params.file, function(err){
+//   lockFile.unlock(params.file, function(err){
 
-    if (err) {
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** FILE UNLOCK FAIL: " + params.file + "\n" + err));
-      throw err;
-    }
+//     if (err) {
+//       console.log(chalkError(MODULE_ID_PREFIX + " | *** FILE UNLOCK FAIL: " + params.file + "\n" + err));
+//       throw err;
+//     }
 
-    console.log(chalkLog(MODULE_ID_PREFIX + " | --- FILE UNLOCK: " + params.file));
-    return true;
+//     console.log(chalkLog(MODULE_ID_PREFIX + " | --- FILE UNLOCK: " + params.file));
+//     return true;
 
-  });
-}
+//   });
+// }
 
 async function deleteOldArchives(p){
 
@@ -1790,7 +1731,6 @@ async function deleteOldArchives(p){
   const userArchiveEntryArray = await tcUtils.filesListFolder({folder: folder});
 
   for(const entry of userArchiveEntryArray.entries){
-    // console.log(chalkLog(MODULE_ID_PREFIX + " | ENTRY: " + entry.name));
 
     if (!entry.name.startsWith(hostname + "_")) {
       console.log(chalkLog(MODULE_ID_PREFIX + " | ... SKIPPING DELETE OF " + entry.name));
@@ -1800,16 +1740,10 @@ async function deleteOldArchives(p){
     }
     else{
 
-      // configuration.userArchiveFile = hostname + "_" + statsObj.startTimeMoment.format(compactDateTimeFormat) + "_users.zip";
-
       const namePartsArray = entry.name.split("_");
 
       const entryDate = namePartsArray[1] + "_" + namePartsArray[2];
-
-      // console.log(chalkInfo(MODULE_ID_PREFIX + " | ENTRY DATE: " + entryDate));
-
       const entryMoment = new moment(entryDate, "YYYYMMDD_HHmmss");
-
       const entryAge = moment.duration(statsObj.startTimeMoment.diff(entryMoment));
 
       if (entryAge > maxAgeMs) {
@@ -1837,15 +1771,19 @@ async function deleteOldArchives(p){
 
 }
 
-configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userArchivePath){
+configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userTempArchivePath){
 
   try{
 
-    await delay({message: "... WAIT FOR DROPBOX FILE SYNC | " + userArchivePath, period: ONE_MINUTE});
+    fs.renameSync(userTempArchivePath, configuration.userArchivePath);
 
-    await releaseFileLock({file: userArchivePath + ".lock"});
+    // await moveFile({sourcePath: userTempArchivePath, destinationPath: configuration.userArchivePath});
 
-    const stats = fs.statSync(userArchivePath);
+    await delay({message: "... WAIT FOR DROPBOX FILE SYNC | " + configuration.userArchivePath, period: ONE_MINUTE});
+
+    // await releaseFileLock({file: configuration.userArchivePath + ".lock"});
+
+    const stats = fs.statSync(configuration.userArchivePath);
     const fileSizeInBytes = stats.size;
     const savedSize = fileSizeInBytes/ONE_MEGABYTE;
 
@@ -1866,7 +1804,11 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userArchivePath){
     fileSizeObj.histogram = {};
     fileSizeObj.histogram = categorizedUserHistogram;
 
-    await tcUtils.saveFile({folder: configuration.userArchiveFolder, file: configuration.archiveFileUploadCompleteFlagFile, obj: fileSizeObj });
+    await tcUtils.saveFile({
+      folder: configuration.userArchiveFolder, 
+      file: configuration.archiveFileUploadCompleteFlagFile, 
+      obj: fileSizeObj 
+    });
 
     await delay({message: "... WAIT FOR DROPBOX FLAG FILE SYNC | " + tcUtils.getTimeStamp(), period: ONE_MINUTE});
 
@@ -1883,30 +1825,30 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userArchivePath){
 
 async function initArchiver(){
 
-  let userArchivePath = configuration.userArchivePath;
+  let userTempArchivePath = configuration.userTempArchivePath;
 
   if (configuration.testMode) {
-    userArchivePath = configuration.userArchivePath.replace(/\.zip/, "_test.zip");
+    userTempArchivePath = configuration.userTempArchivePath.replace(/\.zip/, "_test.zip");
   }
 
-  console.log(chalkBlue(MODULE_ID_PREFIX + " | ... INIT ARCHIVER | " + userArchivePath));
+  console.log(chalkBlue(MODULE_ID_PREFIX + " | ... INIT ARCHIVER | " + userTempArchivePath));
 
   if (archive && archive.isOpen) {
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | ARCHIVE ALREADY OPEN | " + userArchivePath));
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | ARCHIVE ALREADY OPEN | " + userTempArchivePath));
     return;
   }
 
-  const lockFileName = userArchivePath + ".lock";
+  // const lockFileName = userTempArchivePath + ".lock";
 
-  const archiveFileLocked = await getFileLock({file: lockFileName, options: fileLockOptions});
+  // const archiveFileLocked = await getFileLock({file: lockFileName, options: fileLockOptions});
 
-  if (!archiveFileLocked) {
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | *** FILE LOCK FAILED | SKIP INIT ARCHIVE: " + userArchivePath));
-    statsObj.archiveOpen = false;
-    return;
-  }
+  // if (!archiveFileLocked) {
+  //   console.log(chalkAlert(MODULE_ID_PREFIX + " | *** FILE LOCK FAILED | SKIP INIT ARCHIVE: " + userTempArchivePath));
+  //   statsObj.archiveOpen = false;
+  //   return;
+  // }
 
-  const output = fs.createWriteStream(userArchivePath);
+  const output = fs.createWriteStream(userTempArchivePath);
 
   archive = archiver("zip", {
     zlib: { level: 9 } // Sets the compression level.
@@ -1915,7 +1857,7 @@ async function initArchiver(){
   output.on("close", function() {
     const archiveSize = toMegabytes(archive.pointer());
     console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX ARCHIVE OUTPUT | CLOSED | " + archiveSize.toFixed(2) + " MB"));
-    configEvents.emit("ARCHIVE_OUTPUT_CLOSED", userArchivePath);
+    configEvents.emit("ARCHIVE_OUTPUT_CLOSED", userTempArchivePath);
   });
    
   output.on("end", function() {
@@ -1982,14 +1924,14 @@ async function initArchiver(){
   });
    
   archive.on("close", function() {
-    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX ARCHIVE | CLOSED | " + userArchivePath));
+    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX ARCHIVE | CLOSED | " + userTempArchivePath));
   });
    
   archive.on("finish", function() {
 
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | +++ ARCHIVE | FINISHED | " + tcUtils.getTimeStamp()
       + "\nGTS | +++ ARCHIVE | FINISHED | TEST MODE: " + configuration.testMode
-      + "\nGTS | +++ ARCHIVE | FINISHED | ARCHIVE:   " + userArchivePath
+      + "\nGTS | +++ ARCHIVE | FINISHED | ARCHIVE:   " + userTempArchivePath
       + "\nGTS | +++ ARCHIVE | FINISHED | ENTRIES:   " + statsObj.usersAppendedToArchive + "/" + statsObj.archiveGrandTotal + " APPENDED"
       + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
       + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
@@ -2108,13 +2050,12 @@ async function generateGlobalTrainingTestSet(){
       maxCategoryArchivedCount = statsObj.archiveCategoryTotal[category];
     }
 
-
-    console.log(chalkLog(MODULE_ID_PREFIX + " | ========================================================================"));
-    console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZE USERS | CATEGORY: " + category + ": " + statsObj.archiveCategoryTotal[category] 
-      + " | MAX ARCHIVED COUNT: " + maxCategoryArchivedCount
-      + " | GRAND TOTAL CATEGORIZED USERS: " + statsObj.archiveGrandTotal
+    console.log(chalkGreen("\n" + MODULE_ID_PREFIX + " | ========================================================================"));
+    console.log(chalkGreen(MODULE_ID_PREFIX + " | CATEGORIZE | CATEGORY: " + category + ": " + statsObj.archiveCategoryTotal[category] 
+      + " | MAX COUNT: " + maxCategoryArchivedCount
+      + " | TOTAL CATEGORIZED: " + statsObj.archiveGrandTotal
     ));
-    console.log(chalkLog(MODULE_ID_PREFIX + " | ========================================================================"));
+    console.log(chalkGreen(MODULE_ID_PREFIX + " | ========================================================================\n"));
 
     const query = { 
       "$and": [
