@@ -13,14 +13,6 @@ const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 
 const MAX_TEST_COUNT = 500;
 
-// const catUsersQuery = { 
-//   "$and": [
-//     { "screenName": { "$nin": [false, null] } }, 
-//     { "ignored": { "$nin": [true, "true"] } }, 
-//     { "category": { "$in": ["left", "right", "neutral"] } }
-//   ]
-// };
-
 const os = require("os");
 let hostname = os.hostname();
 hostname = hostname.replace(/.tld/g, ""); // amtrak wifi
@@ -32,7 +24,7 @@ hostname = hostname.replace(/word0-instance-1/g, "google");
 hostname = hostname.replace(/word-1/g, "google");
 hostname = hostname.replace(/word/g, "google");
 
-const PRIMARY_HOST = process.env.PRIMARY_HOST || "google";
+const PRIMARY_HOST = process.env.PRIMARY_HOST || "mms3";
 const HOST = (hostname === PRIMARY_HOST) ? "default" : "local";
 
 let TEMP_ROOT_FOLDER;
@@ -104,26 +96,13 @@ const ONE_GIGABYTE = 1024 * ONE_MEGABYTE;
 const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 
 const DEFAULT_SERVER_MODE = false;
-// const DEFAULT_WAIT_UNLOCK_INTERVAL = 15*ONE_SECOND;
-// const DEFAULT_WAIT_UNLOCK_TIMEOUT = 10*ONE_MINUTE;
-// const DEFAULT_FILELOCK_RETRY_WAIT = DEFAULT_WAIT_UNLOCK_INTERVAL;
-// const DEFAULT_FILELOCK_STALE = 2*DEFAULT_WAIT_UNLOCK_TIMEOUT;
-// const DEFAULT_FILELOCK_WAIT = DEFAULT_WAIT_UNLOCK_TIMEOUT;
 const DEFAULT_QUIT_ON_COMPLETE = false;
 const DEFAULT_TEST_RATIO = 0.20;
 const MODULE_ID_PREFIX = "GTS";
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
-// const fileLockOptions = { 
-//   retries: DEFAULT_FILELOCK_WAIT,
-//   retryWait: DEFAULT_FILELOCK_RETRY_WAIT,
-//   stale: DEFAULT_FILELOCK_STALE,
-//   wait: DEFAULT_FILELOCK_WAIT
-// };
-
 const path = require("path");
 const moment = require("moment");
-// const lockFile = require("lockfile");
 const merge = require("deepmerge");
 const archiver = require("archiver");
 const fs = require("fs");
@@ -279,26 +258,21 @@ configuration.serverMode = DEFAULT_SERVER_MODE;
 console.log(chalkLog(MODULE_ID_PREFIX + " | SERVER MODE: " + configuration.serverMode));
 
 configuration.userPropertyPickArray = DEFAULT_USER_PROPERTY_PICK_ARRAY;
-
 configuration.processName = process.env.GTS_PROCESS_NAME || "node_gts";
-
 configuration.interruptFlag = false;
 configuration.enableRequiredTrainingSet = false;
 configuration.quitOnComplete = DEFAULT_QUIT_ON_COMPLETE;
 configuration.globalTrainingSetId = GLOBAL_TRAINING_SET_ID;
 
 configuration.DROPBOX = {};
-
 configuration.DROPBOX.DROPBOX_CONFIG_FILE = process.env.DROPBOX_GTS_CONFIG_FILE || "generateTrainingSetConfig.json";
 configuration.DROPBOX.DROPBOX_GTS_STATS_FILE = process.env.DROPBOX_GTS_STATS_FILE || "generateTrainingSetStats.json";
 
 const configDefaultFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility/default");
 const configHostFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility", hostname);
 const tempHostFolder = TEMP_ROOT_FOLDER;
-
 const localHistogramsFolder = configHostFolder + "/histograms";
 const defaultHistogramsFolder = configDefaultFolder + "/histograms";
-
 const configDefaultFile = "default_" + configuration.DROPBOX.DROPBOX_CONFIG_FILE;
 const configHostFile = hostname + "_" + configuration.DROPBOX.DROPBOX_CONFIG_FILE;
 
@@ -306,7 +280,6 @@ configuration.archiveFileUploadCompleteFlagFile = "usersZipUploadComplete.json";
 configuration.trainingSetFile = "trainingSet.json";
 configuration.requiredTrainingSetFile = "requiredTrainingSet.txt";
 configuration.userArchiveFile = hostname + "_" + statsObj.startTimeMoment.format(compactDateTimeFormat) + "_users.zip";
-
 
 configuration.local = {};
 configuration.local.trainingSetsFolder = path.join(configHostFolder, "trainingSets");
@@ -615,16 +588,12 @@ async function initSlackRtmClient(){
   });
 }
 
-
 const maxHistogramValue = { name: "maxHistogramValue", alias: "M", type: Number };
-
 const help = { name: "help", alias: "h", type: Boolean};
-
 const enableStdin = { name: "enableStdin", alias: "S", type: Boolean, defaultValue: true };
 const quitOnComplete = { name: "quitOnComplete", alias: "q", type: Boolean };
 const quitOnError = { name: "quitOnError", alias: "Q", type: Boolean, defaultValue: true };
 const verbose = { name: "verbose", alias: "v", type: Boolean };
-
 const testMode = { name: "testMode", alias: "X", type: Boolean };
 
 const optionDefinitions = [
@@ -696,7 +665,6 @@ console.log(MODULE_ID_PREFIX + " | =================================");
 // ==================================================================
 
 const dropboxConfigFolder = "/config/utility";
-// configonst dropboxConfigDefaultFolder = "/config/utility/default";
 const dropboxConfigHostFolder = "/config/utility/" + hostname;
 
 const dropboxConfigDefaultFile = "default_" + configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE;
@@ -719,9 +687,6 @@ debug("dropboxConfigHostFile : " + dropboxConfigHostFile);
 debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_ACCESS_TOKEN :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN);
 debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_KEY :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_KEY);
 debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_SECRET :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_SECRET);
-
-// const globalCategorizedUsersFolder = dropboxConfigDefaultFolder + "/categorizedUsers";
-// const categorizedUsersFile = "categorizedUsers_manual.json";
 
 function showStats(options){
 
@@ -1380,7 +1345,6 @@ function initArchiveUserQueue(params){
   });
 }
 
-
 let userIndex = 0;
 
 async function categorizeUser(params){
@@ -1591,9 +1555,7 @@ async function categoryCursorStream(params){
   ));
 
   return;
-
 }
-
 
 function archiveUser(params){
 
@@ -1655,35 +1617,6 @@ function endAppendUsers(){
   });
 }
 
-// function getFileLock(params){
-
-//   return new Promise(function(resolve, reject){
-
-//     try {
-
-//       console.log(chalkBlue(MODULE_ID_PREFIX + " | ... GET LOCK FILE | " + params.file));
-
-//       lockFile.lock(params.file, params.options, function(err){
-
-//         if (err) {
-//           console.log(chalkError(MODULE_ID_PREFIX + " | *** FILE LOCK FAIL: " + params.file + "\n" + err));
-//           // return reject(err);
-//           return resolve(false);
-//         }
-
-//         console.log(chalkGreen(MODULE_ID_PREFIX + " | +++ FILE LOCK: " + params.file));
-//         resolve(true);
-//       });
-
-//     }
-//     catch(err){
-//       console.log(chalkError(MODULE_ID_PREFIX + " | *** GET FILE LOCK ERROR: " + err));
-//       return reject(err);
-//     }
-
-//   });
-// }
-
 function delay(params){
   return new Promise(function(resolve){
 
@@ -1695,31 +1628,6 @@ function delay(params){
     }, params.period);
   });
 }
-
-// async function releaseFileLock(params){
-
-//   const delayPeriod = params.delay || 5;
-
-//   await delay(delayPeriod);
-
-//   const fileIsLocked = lockFile.checkSync(params.file);
-
-//   if (!fileIsLocked) {
-//     return true;
-//   }
-
-//   lockFile.unlock(params.file, function(err){
-
-//     if (err) {
-//       console.log(chalkError(MODULE_ID_PREFIX + " | *** FILE UNLOCK FAIL: " + params.file + "\n" + err));
-//       throw err;
-//     }
-
-//     console.log(chalkLog(MODULE_ID_PREFIX + " | --- FILE UNLOCK: " + params.file));
-//     return true;
-
-//   });
-// }
 
 async function deleteOldArchives(p){
 
@@ -1768,7 +1676,6 @@ async function deleteOldArchives(p){
   }
 
   return;
-
 }
 
 configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userTempArchivePath){
@@ -1820,7 +1727,6 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userTempArchivePath){
     console.log(chalkError(MODULE_ID_PREFIX + " | *** ARCHIVE_OUTPUT_CLOSED ERROR", err));
     quit();
   }
-
 });
 
 async function initArchiver(){
