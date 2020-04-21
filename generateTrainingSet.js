@@ -11,7 +11,7 @@ const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 
-const MAX_TEST_COUNT = 500;
+const MAX_TEST_COUNT = 1000;
 
 const os = require("os");
 let hostname = os.hostname();
