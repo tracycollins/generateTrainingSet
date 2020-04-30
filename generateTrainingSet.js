@@ -11,7 +11,7 @@ const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 
-const MAX_TEST_COUNT = 1000;
+const MAX_TEST_COUNT = 2500;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -1064,19 +1064,31 @@ async function clampHistogram(params){
 
     for (const entity of entities){
 
-      if (params.histogram[type][entity] > maxValue){
-
-        console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: " + maxValue
-          + " | @" + params.screenName
+      if (entity.startsWith("[")){
+        console.log(chalkError(MODULE_ID_PREFIX + " | *** ENITY ERROR ... SKIPPING"
           + " | TYPE: " + type
-          + " | ENTITY: " + entity
-          + " | MAX VALUE: " + maxValue
-          + " | VALUE: " + params.histogram[type][entity]
+          + " | USER: " + params.screenName
+          + " | ENITY: " + entity
+          + " | params.histogram[type][entity]: " + params.histogram[type][entity]
         ));
+      }
+      else{
 
+        if (params.histogram[type][entity] > maxValue){
+
+          console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: " + maxValue
+            + " | @" + params.screenName
+            + " | TYPE: " + type
+            + " | ENTITY: " + entity
+            + " | MAX VALUE: " + maxValue
+            + " | VALUE: " + params.histogram[type][entity]
+          ));
+
+        }
+
+        histogram[type][entity] = Math.min(maxValue, params.histogram[type][entity]) || 1;
       }
 
-      histogram[type][entity] = Math.min(maxValue, params.histogram[type][entity]) || 1;
     }
   }
 
@@ -1096,8 +1108,17 @@ async function updateUserAndMaxInputHashMap(params){
   dbUpdateParams.profileHistograms = {};
   dbUpdateParams.tweetHistograms = {};
 
-  user.profileHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.profileHistograms});
-  user.tweetHistograms = await clampHistogram({screenName: params.user.screenName, histogram: params.user.tweetHistograms});
+  user.profileHistograms = await clampHistogram({
+    nodeId: params.user.nodeId, 
+    screenName: params.user.screenName, 
+    histogram: params.user.profileHistograms
+  });
+
+  user.tweetHistograms = await clampHistogram({
+    nodeId: params.user.nodeId, 
+    screenName: params.user.screenName,
+    histogram: params.user.tweetHistograms
+  });
 
   const dbUpdatedUser = await userServerController.findOneUserV2({user: user});
 
