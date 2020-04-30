@@ -1,6 +1,6 @@
 const MODULE_NAME = "generateTrainingSet";
 const DEFAULT_MAX_ARCHIVE_USER_QUEUE = 100;
-const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 200;
+const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 10;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
@@ -192,7 +192,7 @@ statsObj.archiveEntries = 0;
 statsObj.archiveGrandTotal = 0;
 statsObj.archiveElapsed = 0;
 statsObj.archiveRate = 0;
-statsObj.archiveRemainUsers = Infinity;
+statsObj.archiveRemainUsers = 0;
 statsObj.archiveRemainMS = 0;
 statsObj.archiveStartMoment = 0;
 statsObj.archiveEndMoment = moment();
@@ -236,8 +236,6 @@ process.on("unhandledRejection", function(err, promise) {
   console.trace("Unhandled rejection (promise: ", promise, ", reason: ", err, ").");
   process.exit();
 });
-
-let initMainInterval;
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 configuration.reSaveUserDocsFlag = DEFAULT_RESAVE_USER_DOCS_FLAG;
@@ -487,7 +485,6 @@ function slackMessageHandler(message){
         break;
         case "PING":
           console.log(chalkInfo("PING"));
-          // slackSendWebMessage(hostname + " | " + MODULE_ID_PREFIX + " | PONG");
           resolve();
         break;
         case "NONE":
@@ -495,7 +492,6 @@ function slackMessageHandler(message){
         break;
         default:
           console.log(chalkAlert(MODULE_ID_PREFIX + " | *** UNDEFINED SLACK MESSAGE: " + message.text));
-          // reject(new Error("UNDEFINED SLACK MESSAGE TYPE: " + message.text));
           resolve({text: "UNDEFINED SLACK MESSAGE", message: message});
       }
     }
@@ -751,7 +747,7 @@ function quit(options){
 
   console.log(chalkAlert(MODULE_ID_PREFIX + " | QUITTING ..." ));
 
-  clearInterval(initMainInterval);
+  clearInterval(archiveUserQueueInterval);
 
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
 
@@ -765,7 +761,7 @@ function quit(options){
       slackText = slackText + " | RUN " + tcUtils.msToTime(statsObj.elapsed);
       slackText = slackText + " | QUIT CAUSE: " + options;
       debug(MODULE_ID_PREFIX + " | SLACK TEXT: " + slackText);
-      slackSendWebMessage(slackChannel, slackText);
+      slackSendWebMessage({channel: slackChannel, text: slackText});
     }
   }
 
@@ -1788,7 +1784,7 @@ async function initArchiver(){
     statsObj.totalMbytes = toMegabytes(archive.pointer());
 
     statsObj.archiveElapsed = (moment().valueOf() - statsObj.archiveStartMoment.valueOf()); // mseconds
-    statsObj.archiveRate = statsObj.archiveElapsed/statsObj.usersAppendedToArchive; // msecs/usersArchived
+    statsObj.archiveRate = (statsObj.usersAppendedToArchive >0) ? statsObj.archiveElapsed/statsObj.usersAppendedToArchive : 0; // msecs/usersArchived
     statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userEmptyCount + statsObj.userErrorCount);
     statsObj.archiveRemainMS = statsObj.archiveRemainUsers * statsObj.archiveRate; // mseconds
     statsObj.archiveEndMoment = moment();
@@ -2047,6 +2043,13 @@ setTimeout(async function(){
 
     let slackText = "\n*" + MODULE_ID_PREFIX + " | TRAINING SET*";
     slackText = slackText + "\n" + configuration.userArchivePath;
+    slackText = slackText + "\nUSERS ARCHIVED: " + statsObj.archiveGrandTotal;
+    slackText = slackText + "\nLEFT: " + categorizedUserHistogram.left;
+    slackText = slackText + "\nRIGHT: " + categorizedUserHistogram.right;
+    slackText = slackText + "\nNEUTRAL: " + categorizedUserHistogram.neutral;
+    slackText = slackText + "\nPOSITIVE: " + categorizedUserHistogram.positive;
+    slackText = slackText + "\nNEGATIVE: " + categorizedUserHistogram.negative;
+    slackText = slackText + "\nNONE: " + categorizedUserHistogram.none;
 
     await slackSendWebMessage({channel: slackChannel, text: slackText});
 
