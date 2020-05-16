@@ -46,6 +46,7 @@
     "is-url-superb": "^3.0.0",
     "isomorphic-fetch": "^2.2.1",
     "json-parse-safe": "^2.0.0",
+    "jszip": "^3.4.0",
     "lockfile": "^1.0.4",
     "mongoose": "^5.9.14",
     "object-path": "^0.11.4",

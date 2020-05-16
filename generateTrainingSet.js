@@ -1,6 +1,7 @@
 const MODULE_NAME = "generateTrainingSet";
 const DEFAULT_MAX_ARCHIVE_USER_QUEUE = 100;
 const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 10;
+const DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD = 5;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
@@ -247,6 +248,7 @@ configuration.maxTestCount = MAX_TEST_COUNT;
 configuration.maxHistogramValue = DEFAULT_MAX_HISTOGRAM_VALUE;
 configuration.slackChannel = {};
 configuration.archiveUserQueueIntervalPeriod = DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
+configuration.waitCursorInterval = DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD;
 
 let defaultConfiguration = {}; // general configuration for GTS
 let hostConfiguration = {}; // host-specific configuration for GTS
@@ -1383,6 +1385,7 @@ let userIndex = 0;
 async function categorizeUser(params){
 
   try{
+
     const user = await updateCategorizedUser({user: params.user});
 
     if (!user || user === undefined) {
@@ -1515,7 +1518,8 @@ async function categoryCursorStream(params){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
   }
 
-  const cursor = global.wordAssoDb.User.find(params.query).lean().limit(maxArchivedCount).cursor();
+  // const cursor = global.wordAssoDb.User.find(params.query).lean().limit(maxArchivedCount).cursor();
+  const cursor = global.wordAssoDb.User.find(params.query).lean().cursor();
 
   cursor.on("end", function() {
     console.log(chalkInfo(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
@@ -1548,14 +1552,16 @@ async function categoryCursorStream(params){
           cursor.close();
           return;
         }
+        else if (archiveUserQueue.length < configuration.maxArchiveUserQueue){
+          cursorResolve();
+        }
         else{
-
           const waitCursorInterval = setInterval(function(){
             if (archiveUserQueue.length < configuration.maxArchiveUserQueue){
               clearInterval(waitCursorInterval);
               cursorResolve();
             }
-          }, 100);
+          }, configuration.waitCursorInterval);
         }
       })
       .catch(function(err){
