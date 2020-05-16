@@ -1777,16 +1777,6 @@ async function initArchiver(){
     return;
   }
 
-  // const lockFileName = userTempArchivePath + ".lock";
-
-  // const archiveFileLocked = await getFileLock({file: lockFileName, options: fileLockOptions});
-
-  // if (!archiveFileLocked) {
-  //   console.log(chalkAlert(MODULE_ID_PREFIX + " | *** FILE LOCK FAILED | SKIP INIT ARCHIVE: " + userTempArchivePath));
-  //   statsObj.archiveOpen = false;
-  //   return;
-  // }
-
   const output = fs.createWriteStream(userTempArchivePath);
 
   archive = archiver("zip", {
