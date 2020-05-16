@@ -12,7 +12,7 @@ const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 
-const MAX_TEST_COUNT = 2500;
+const TOTAL_MAX_TEST_COUNT = 1000;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -244,7 +244,19 @@ configuration.maxArchiveUserQueue = DEFAULT_MAX_ARCHIVE_USER_QUEUE;
 configuration.verbose = false;
 configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
-configuration.maxTestCount = MAX_TEST_COUNT;
+configuration.totalMaxTestCount = TOTAL_MAX_TEST_COUNT;
+
+configuration.maxTestCount = {};
+configuration.maxTestCount.left = parseInt(0.333333*TOTAL_MAX_TEST_COUNT);
+configuration.maxTestCount.neutral = parseInt(0.333333*TOTAL_MAX_TEST_COUNT);
+configuration.maxTestCount.right = parseInt(0.333333*TOTAL_MAX_TEST_COUNT);
+
+let sum = configuration.maxTestCount.left + configuration.maxTestCount.neutral + configuration.maxTestCount.right;
+while(sum < TOTAL_MAX_TEST_COUNT){
+  configuration.maxTestCount.left += 1;
+  sum = configuration.maxTestCount.left + configuration.maxTestCount.neutral + configuration.maxTestCount.right;
+}
+
 configuration.maxHistogramValue = DEFAULT_MAX_HISTOGRAM_VALUE;
 configuration.slackChannel = {};
 configuration.archiveUserQueueIntervalPeriod = DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
@@ -1485,7 +1497,7 @@ async function cursorDataHandler(user){
     categorizedUsers[catUser.category] += 1;
     statsObj.categorizedCount += 1;
   }
-  else if (configuration.testMode && (categorizedUsers[user.category] < 0.34*configuration.maxTestCount)){
+  else if (configuration.testMode && (categorizedUsers[user.category] <= 0.333333*configuration.totalMaxTestCount)){
     archiveUserQueue.push(catUser);
     categorizedUsers[catUser.category] += 1;
     statsObj.categorizedCount += 1;
@@ -1510,7 +1522,7 @@ async function categoryCursorStream(params){
   let errorTimeStamp = startTimeStamp;
 
   statsObj.categorizedCount = 0;
-  const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.maxTestCount;
+  const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
 
   const reSaveUserDocsFlag = params.reSaveUserDocsFlag || false;
 
@@ -1518,8 +1530,14 @@ async function categoryCursorStream(params){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
   }
 
-  // const cursor = global.wordAssoDb.User.find(params.query).lean().limit(maxArchivedCount).cursor();
-  const cursor = global.wordAssoDb.User.find(params.query).lean().cursor();
+  let cursor;
+
+  if (configuration.testMode) {
+    cursor = global.wordAssoDb.User.find(params.query).lean().limit(maxArchivedCount).cursor();
+  }
+  else{
+    cursor = global.wordAssoDb.User.find(params.query).lean().cursor();
+  }
 
   cursor.on("end", function() {
     console.log(chalkInfo(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
@@ -1544,15 +1562,15 @@ async function categoryCursorStream(params){
       // cursorDataHandler(user)
       // .then(function(){
 
-      //   if (configuration.testMode && (statsObj.categorizedCount > maxArchivedCount)) {
-      //     console.log(chalkInfo(MODULE_ID_PREFIX
-      //       + " | CATEGORIZED: " + statsObj.categorizedCount
-      //       + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
-      //     ));
-      //     // cursorResolve();
-      //     cursor.close();
-      //     return;
-      //   }
+  if (configuration.testMode && (statsObj.categorizedCount >= maxArchivedCount)) {
+    console.log(chalkInfo(MODULE_ID_PREFIX
+      + " | CATEGORIZED: " + statsObj.categorizedCount
+      + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
+    ));
+    // cursorResolve();
+    // cursor.close();
+    // return;
+  }
       //   else if (archiveUserQueue.length < configuration.maxArchiveUserQueue){
       //     cursorResolve();
       //   }
@@ -1663,6 +1681,8 @@ function endAppendUsers(){
     console.log(chalkLog(MODULE_ID_PREFIX + " | ... WAIT END APPEND"));
 
     endArchiveUsersInterval = setInterval(function(){
+
+      statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userEmptyCount + statsObj.userErrorCount);
 
       if ((statsObj.usersAppendedToArchive > 0) && (archiveUserQueue.length === 0) && archiveUserQueueReady){
         console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX END APPEND"
@@ -1872,6 +1892,7 @@ async function initArchiver(){
   archive.on("entry", function(entryData) {
 
     statsObj.archiveEntries += 1;
+    statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userEmptyCount + statsObj.userErrorCount);
 
     if (configuration.verbose) {
       console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | ENTRY"
@@ -1993,7 +2014,7 @@ async function generateGlobalTrainingTestSet(){
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
 
   if (configuration.testMode) {
-    statsObj.archiveGrandTotal = Math.min(statsObj.archiveGrandTotal, configuration.maxTestCount);
+    statsObj.archiveGrandTotal = Math.min(statsObj.archiveGrandTotal, configuration.totalMaxTestCount);
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveGrandTotal + " USERS"));
   }
 
@@ -2005,7 +2026,8 @@ async function generateGlobalTrainingTestSet(){
   for(const category of ["left", "neutral", "right"]){
 
     if (configuration.testMode) {
-      maxCategoryArchivedCount = parseInt(configuration.maxTestCount/3);
+      // maxCategoryArchivedCount = parseInt(0.333333*configuration.totalMaxTestCount);
+      maxCategoryArchivedCount = configuration.maxTestCount[category];
     }
     else{
       maxCategoryArchivedCount = statsObj.archiveCategoryTotal[category];
