@@ -514,14 +514,17 @@ function slackMessageHandler(message){
 async function initSlackWebClient(){
   try {
 
+    console.log(chalkLog(MODULE_ID_PREFIX + " | INIT SLACK WEB CLIENT"));
+
     const { WebClient } = require("@slack/client");
+
     slackWebClient = new WebClient(slackRtmToken);
 
     const conversationsListResponse = await slackWebClient.conversations.list({token: slackOAuthAccessToken});
 
     conversationsListResponse.channels.forEach(async function(channel){
 
-      console.log(chalkLog(MODULE_ID_PREFIX + " | SLACK CHANNEL | " + channel.id + " | " + channel.name));
+      debug(chalkLog(MODULE_ID_PREFIX + " | SLACK CHANNEL | " + channel.id + " | " + channel.name));
 
       if (channel.name === slackChannel) {
         configuration.slackChannel = channel;
@@ -732,7 +735,7 @@ function showStats(options){
     ));
 
     console.log(chalkInfo(MODULE_ID_PREFIX + " | ============================================================"
-      + "\nGTS | >+- ARCHV"
+      + "\n" + MODULE_ID_PREFIX + " | ARCHIVE"
       + " | " + tcUtils.getTimeStamp()
       + " | APND: " + statsObj.usersAppendedToArchive
       + " | ARCVD/REM/MT/ERR/TOT: " 
@@ -1597,7 +1600,7 @@ function archiveUser(params){
 
     archive.append(userBuffer, { name: fileName});
 
-    tcUtils.waitEvent({ event: "append_" + fileName})
+    tcUtils.waitEvent({event: "append_" + fileName})
     .then(function(){
 
       statsObj.usersAppendedToArchive += 1;
@@ -1611,7 +1614,11 @@ function archiveUser(params){
 
       resolve();
 
-    });
+    })
+    .catch(function(err){
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** archiveUser ERROR: " + err));
+      reject(err);
+    })
 
   });
 }
