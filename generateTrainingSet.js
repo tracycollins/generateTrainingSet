@@ -314,6 +314,10 @@ global.wordAssoDb = require("@threeceelabs/mongoose-twitter");
 const tcuChildName = MODULE_ID_PREFIX + "_TCU";
 const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
 const tcUtils = new ThreeceeUtilities(tcuChildName);
+const getTimeStamp = tcUtils.getTimeStamp;
+const msToTime = tcUtils.msToTime;
+const formatBoolean = tcUtils.formatBoolean;
+const formatCategory = tcUtils.formatCategory;
 
 const UserServerController = require("@threeceelabs/user-server-controller");
 const userServerController = new UserServerController(MODULE_ID_PREFIX + "_USC");
@@ -570,9 +574,9 @@ async function initSlackRtmClient(){
   slackRtmClient.on("slack_event", async function(eventType, event){
     switch (eventType) {
       case "pong":
-        debug(chalkLog(MODULE_ID_PREFIX + " | SLACK RTM PONG | " + tcUtils.getTimeStamp() + " | " + event.reply_to));
+        debug(chalkLog(MODULE_ID_PREFIX + " | SLACK RTM PONG | " + getTimeStamp() + " | " + event.reply_to));
       break;
-      default: debug(chalkInfo(MODULE_ID_PREFIX + " | SLACK RTM EVENT | " + tcUtils.getTimeStamp() + " | " + eventType + "\n" + tcUtils.jsonPrint(event)));
+      default: debug(chalkInfo(MODULE_ID_PREFIX + " | SLACK RTM EVENT | " + getTimeStamp() + " | " + eventType + "\n" + tcUtils.jsonPrint(event)));
     }
   });
 
@@ -716,7 +720,7 @@ function showStats(options){
       + " | " + testObj.testRunId
       + " | HEAP: " + statsObj.heap.toFixed(3) + " GB"
       + " | MAX HEAP: " + statsObj.maxHeap.toFixed(3) + " GB"
-      + " | RUN " + tcUtils.msToTime(statsObj.elapsed)
+      + " | RUN " + msToTime(statsObj.elapsed)
       + " | NOW " + moment().format(compactDateTimeFormat)
       + " | STRT " + moment(parseInt(statsObj.startTime)).format(compactDateTimeFormat)
       + "\nGTS | ============================================================"
@@ -736,7 +740,7 @@ function showStats(options){
 
     console.log(chalkInfo(MODULE_ID_PREFIX + " | ============================================================"
       + "\n" + MODULE_ID_PREFIX + " | ARCHIVE"
-      + " | " + tcUtils.getTimeStamp()
+      + " | " + getTimeStamp()
       + " | APND: " + statsObj.usersAppendedToArchive
       + " | ARCVD/REM/MT/ERR/TOT: " 
       + statsObj.usersAppendedToArchive 
@@ -747,9 +751,9 @@ function showStats(options){
       + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
       + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
       + " [ " + (statsObj.archiveRate/1000).toFixed(3) + " SPU ]"
-      + " S: " + tcUtils.getTimeStamp(statsObj.archiveStartMoment)
-      + " E: " + tcUtils.msToTime(statsObj.archiveElapsed)
-      + " | ETC: " + tcUtils.msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
+      + " S: " + getTimeStamp(statsObj.archiveStartMoment)
+      + " E: " + msToTime(statsObj.archiveElapsed)
+      + " | ETC: " + msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
       + "\nGTS | ============================================================"
     ));
   }
@@ -770,7 +774,7 @@ function quit(options){
     }
     else {
       let slackText = "\n*" + statsObj.runId + "*";
-      slackText = slackText + " | RUN " + tcUtils.msToTime(statsObj.elapsed);
+      slackText = slackText + " | RUN " + msToTime(statsObj.elapsed);
       slackText = slackText + " | QUIT CAUSE: " + options;
       debug(MODULE_ID_PREFIX + " | SLACK TEXT: " + slackText);
       slackSendWebMessage({channel: slackChannel, text: slackText});
@@ -1560,7 +1564,7 @@ async function categoryCursorStream(params){
         console.log(chalkError("categoryCursorStream CURSOR"
           + " | START: " + moment(startTimeStamp).format(compactDateTimeFormat) 
           + " | ERROR: " + moment(errorTimeStamp).format(compactDateTimeFormat)
-          + " | ELAPSED: " + tcUtils.msToTime(errorTimeStamp - startTimeStamp)
+          + " | ELAPSED: " + msToTime(errorTimeStamp - startTimeStamp)
         ));
         return cursorReject(err);
       });
@@ -1586,6 +1590,28 @@ async function categoryCursorStream(params){
   return;
 }
 
+function printUserObj(title, user, chalkFormat) {
+
+  const chlk = chalkFormat || chalkInfo;
+
+  console.log(chlk(title
+    + " | " + user.nodeId
+    + " | @" + user.screenName
+    + " | N: " + user.name 
+    + " | FLWRs: " + user.followersCount
+    + " | FRNDs: " + user.friendsCount
+    + " | FRND IDs: " + user.friends.length
+    + " | Ts: " + user.statusesCount
+    + " | M: " + user.mentions
+    + " | FW: " + formatBoolean(user.following) 
+    + " | LS: " + getTimeStamp(user.lastSeen)
+    + " | CN: " + user.categorizeNetwork
+    + " | V: " + formatBoolean(user.categoryVerified)
+    + " | M: " + formatCategory(user.category)
+    + " | A: " + formatCategory(user.categoryAuto)
+  ));
+}
+
 function archiveUser(params){
 
   return new Promise(function(resolve, reject){
@@ -1606,10 +1632,7 @@ function archiveUser(params){
       statsObj.usersAppendedToArchive += 1;
 
       if (configuration.verbose) {
-        console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | USER"
-          + " [" + statsObj.usersAppendedToArchive + " APPENDED]"
-          + " | @" + params.user.screenName
-        ));
+        printUserObj(MODULE_ID_PREFIX + " | >-- ARCHIVE", params.user);
       }
 
       resolve();
@@ -1654,7 +1677,7 @@ function delay(params){
   return new Promise(function(resolve){
 
     if (params.message) {
-      console.log(chalkLog(MODULE_ID_PREFIX + " | " + params.message + " | PERIOD: " + tcUtils.msToTime(params.period)));
+      console.log(chalkLog(MODULE_ID_PREFIX + " | " + params.message + " | PERIOD: " + msToTime(params.period)));
     }
     setTimeout(function(){
       resolve(true);
@@ -1690,8 +1713,8 @@ async function deleteOldArchives(p){
       if (entryAge > maxAgeMs) {
         console.log(chalkAlert(MODULE_ID_PREFIX
           + " | DELETE ENTRY: " + entry.path_display
-          + " | MAX AGE: " + tcUtils.msToTime(maxAgeMs)
-          + " | ENTRY AGE: " + tcUtils.msToTime(entryAge)
+          + " | MAX AGE: " + msToTime(maxAgeMs)
+          + " | ENTRY AGE: " + msToTime(entryAge)
         ));
 
         await unlinkFileAsync(entry.path_display);
@@ -1700,8 +1723,8 @@ async function deleteOldArchives(p){
       else{
         console.log(chalkInfo(MODULE_ID_PREFIX
           + " | SKIP DEL ENTRY: " + entry.name
-          + " | MAX AGE: " + tcUtils.msToTime(maxAgeMs)
-          + " | ENTRY AGE: " + tcUtils.msToTime(entryAge)
+          + " | MAX AGE: " + msToTime(maxAgeMs)
+          + " | ENTRY AGE: " + msToTime(entryAge)
         ));
       }
       
@@ -1750,7 +1773,7 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userTempArchivePath){
       obj: fileSizeObj 
     });
 
-    await delay({message: "... WAIT FOR DROPBOX FLAG FILE SYNC | " + tcUtils.getTimeStamp(), period: ONE_MINUTE});
+    await delay({message: "... WAIT FOR DROPBOX FLAG FILE SYNC | " + getTimeStamp(), period: ONE_MINUTE});
 
     await deleteOldArchives();
 
@@ -1819,7 +1842,7 @@ async function initArchiver(){
 
     if ((statsObj.usersAppendedToArchive % 1000 === 0) || configuration.verbose) {
       console.log(chalkInfo(MODULE_ID_PREFIX + " | >+- ARCHV"
-        + " | " + tcUtils.getTimeStamp()
+        + " | " + getTimeStamp()
         + " | APND: " + statsObj.usersAppendedToArchive
         + " | ARCVD/REM/MT/ERR/TOT: " 
         + statsObj.usersAppendedToArchive 
@@ -1830,9 +1853,9 @@ async function initArchiver(){
         + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
         + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
         + " [ " + (statsObj.archiveRate/1000).toFixed(3) + " SPU ]"
-        + " S: " + tcUtils.getTimeStamp(statsObj.archiveStartMoment)
-        + " E: " + tcUtils.msToTime(statsObj.archiveElapsed)
-        + " | ETC: " + tcUtils.msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
+        + " S: " + getTimeStamp(statsObj.archiveStartMoment)
+        + " E: " + msToTime(statsObj.archiveElapsed)
+        + " | ETC: " + msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
       ));
     }
   });
@@ -1858,7 +1881,7 @@ async function initArchiver(){
    
   archive.on("finish", function() {
 
-    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | +++ ARCHIVE | FINISHED | " + tcUtils.getTimeStamp()
+    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | +++ ARCHIVE | FINISHED | " + getTimeStamp()
       + "\nGTS | +++ ARCHIVE | FINISHED | TEST MODE: " + configuration.testMode
       + "\nGTS | +++ ARCHIVE | FINISHED | ARCHIVE:   " + userTempArchivePath
       + "\nGTS | +++ ARCHIVE | FINISHED | ENTRIES:   " + statsObj.usersAppendedToArchive + "/" + statsObj.archiveGrandTotal + " APPENDED"
@@ -1934,7 +1957,7 @@ async function generateGlobalTrainingTestSet(){
   statsObj.status = "GENERATE TRAINING SET";
 
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
-  console.log(chalkBlueBold(MODULE_ID_PREFIX + " | GENERATE TRAINING SET | " + tcUtils.getTimeStamp()));
+  console.log(chalkBlueBold(MODULE_ID_PREFIX + " | GENERATE TRAINING SET | " + getTimeStamp()));
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
 
   statsObj.archiveCategoryTotal = {};
