@@ -1,6 +1,6 @@
 const MODULE_NAME = "generateTrainingSet";
-const DEFAULT_MAX_ARCHIVE_USER_QUEUE = 100;
-const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 10;
+const DEFAULT_MAX_ARCHIVE_USER_QUEUE = 1000;
+const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 5;
 const DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD = 5;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
@@ -1138,7 +1138,7 @@ async function updateUserAndMaxInputHashMap(params){
     histogram: params.user.tweetHistograms
   });
 
-  const dbUpdatedUser = await userServerController.findOneUserV2({user: user});
+  // const dbUpdatedUser = await userServerController.findOneUserV2({user: user});
 
   const mergedHistograms = await mergeHistograms.merge({ histogramA: user.profileHistograms, histogramB: user.tweetHistograms });
 
@@ -1178,7 +1178,7 @@ async function updateUserAndMaxInputHashMap(params){
     }
   }
 
-  return dbUpdatedUser;
+  return user;
 }
 
 async function updateCategorizedUser(params){
@@ -1538,43 +1538,46 @@ async function categoryCursorStream(params){
 
   await cursor.eachAsync(async function(user){
 
-    await new Promise(function(cursorResolve, cursorReject){
+    await cursorDataHandler(user);
+    // await new Promise(function(cursorResolve, cursorReject){
 
-      cursorDataHandler(user)
-      .then(function(){
+      // cursorDataHandler(user)
+      // .then(function(){
 
-        if (configuration.testMode && (statsObj.categorizedCount > maxArchivedCount)) {
-          console.log(chalkInfo(MODULE_ID_PREFIX
-            + " | CATEGORIZED: " + statsObj.categorizedCount
-            + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
-          ));
-          // cursorResolve();
-          cursor.close();
-          return;
-        }
-        else if (archiveUserQueue.length < configuration.maxArchiveUserQueue){
-          cursorResolve();
-        }
-        else{
-          const waitCursorInterval = setInterval(function(){
-            if (archiveUserQueue.length < configuration.maxArchiveUserQueue){
-              clearInterval(waitCursorInterval);
-              cursorResolve();
-            }
-          }, configuration.waitCursorInterval);
-        }
-      })
-      .catch(function(err){
-        errorTimeStamp = moment().valueOf();
-        console.log(chalkError("*** ERROR categoryCursorStream: catch error: " + err));
-        console.log(chalkError("categoryCursorStream CURSOR"
-          + " | START: " + moment(startTimeStamp).format(compactDateTimeFormat) 
-          + " | ERROR: " + moment(errorTimeStamp).format(compactDateTimeFormat)
-          + " | ELAPSED: " + msToTime(errorTimeStamp - startTimeStamp)
-        ));
-        return cursorReject(err);
-      });
-    });
+      //   if (configuration.testMode && (statsObj.categorizedCount > maxArchivedCount)) {
+      //     console.log(chalkInfo(MODULE_ID_PREFIX
+      //       + " | CATEGORIZED: " + statsObj.categorizedCount
+      //       + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
+      //     ));
+      //     // cursorResolve();
+      //     cursor.close();
+      //     return;
+      //   }
+      //   else if (archiveUserQueue.length < configuration.maxArchiveUserQueue){
+      //     cursorResolve();
+      //   }
+      //   else{
+      //     const waitCursorInterval = setInterval(function(){
+      //       if (archiveUserQueue.length < configuration.maxArchiveUserQueue){
+      //         clearInterval(waitCursorInterval);
+      //         cursorResolve();
+      //       }
+      //     }, configuration.waitCursorInterval);
+      //   }
+      // })
+      // .catch(function(err){
+      //   errorTimeStamp = moment().valueOf();
+      //   console.log(chalkError("*** ERROR categoryCursorStream: catch error: " + err));
+      //   console.log(chalkError("categoryCursorStream CURSOR"
+      //     + " | START: " + moment(startTimeStamp).format(compactDateTimeFormat) 
+      //     + " | ERROR: " + moment(errorTimeStamp).format(compactDateTimeFormat)
+      //     + " | ELAPSED: " + msToTime(errorTimeStamp - startTimeStamp)
+      //   ));
+      //   return cursorReject(err);
+      // });
+
+    // });
+
   });
 
   console.log(chalkBlue(MODULE_ID_PREFIX
