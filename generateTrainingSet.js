@@ -1780,7 +1780,7 @@ configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userTempArchivePath){
     const savedSize = fileSizeInBytes/ONE_MEGABYTE;
 
     if (configuration.testMode) {
-      configuration.userArchiveFile = configuration.userArchiveFile.replace(/\.zip/, "_test.zip");
+      // configuration.userArchiveFile = configuration.userArchiveFile.replace(/\.zip/, "_test.zip");
       configuration.archiveFileUploadCompleteFlagFile = configuration.archiveFileUploadCompleteFlagFile.replace(/\.json/, "_test.json");
     }
 
