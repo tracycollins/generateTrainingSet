@@ -138,7 +138,8 @@ let categorizedUsersPercent = 0;
 const DEFAULT_USER_PROPERTY_PICK_ARRAY = [
   "ageDays", 
   "category", 
-  "categoryAuto", 
+  "categoryAuto",
+  "categorizeNetwork", 
   "description",
   "followersCount",
   "following", 
@@ -151,7 +152,9 @@ const DEFAULT_USER_PROPERTY_PICK_ARRAY = [
   "location", 
   "name",
   "nodeId", 
-  "profileHistograms", 
+  "profileHistograms",
+  "rate",
+  "mentions",
   "screenName", 
   "statusesCount",
   "threeceeFollowing",
@@ -2056,13 +2059,14 @@ async function generateGlobalTrainingTestSet(){
   statsObj.userCategoryTotal = {};
 
   for(const category of ["left", "neutral", "right"]){
-    const query = { 
-      "$and": [
-        { "screenName": { "$nin": [false, null] } }, 
-        { "ignored": { "$nin": [true, "true"] } }, 
-        { "category": category }
-      ]
-    };
+    const query = { "category": category };
+    // const query = { 
+    //   "$and": [
+    //     { "screenName": { "$nin": [false, null] } }, 
+    //     { "ignored": { "$nin": [true, "true"] } }, 
+    //     { "category": category }
+    //   ]
+    // };
     statsObj.userCategoryTotal[category] = await global.wordAssoDb.User.find(query).countDocuments();
     statsObj.users.grandTotal += statsObj.userCategoryTotal[category];
   }
@@ -2105,14 +2109,16 @@ async function generateGlobalTrainingTestSet(){
     ));
     console.log(chalkGreen(MODULE_ID_PREFIX + " | ========================================================================\n"));
 
-    const query = { 
-      "$and": [
-        // { "screenName": { "$nin": [false, null] } }, 
-        // { "ignored": { "$nin": [true, "true"] } }, 
-        { "ignored": false }, 
-        { "category": category }
-      ]
-    };
+    // const query = { 
+    //   "$and": [
+    //     // { "screenName": { "$nin": [false, null] } }, 
+    //     // { "ignored": { "$nin": [true, "true"] } }, 
+    //     { "ignored": false }, 
+    //     { "category": category }
+    //   ]
+    // };
+
+    const query = { "category": category };
 
     await categoryCursorStream({
       query: query, 
