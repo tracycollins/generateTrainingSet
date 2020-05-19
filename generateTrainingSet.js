@@ -1637,7 +1637,7 @@ async function categoryCursorStream(params){
         + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
       ));
     }
-  });
+  }, {parallel: 10});
 
   console.log(chalkBlue(MODULE_ID_PREFIX
     + " | CATEGORIZED: " + statsObj.categorizedCount
