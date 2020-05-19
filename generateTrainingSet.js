@@ -1,5 +1,5 @@
 const MODULE_NAME = "generateTrainingSet";
-const DEFAULT_MAX_ARCHIVE_USER_QUEUE = 1000;
+const DEFAULT_MAX_SAVE_FILE_QUEUE = 1000;
 const DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD = 5;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
@@ -10,7 +10,7 @@ const DEFAULT_INPUT_TYPE_MIN_MEDIA = 3;
 const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
-const DEFAULT_BATCH_SIZE = 20;
+const DEFAULT_BATCH_SIZE = 100;
 
 const TOTAL_MAX_TEST_COUNT = 100;
 
@@ -236,7 +236,7 @@ process.on("unhandledRejection", function(err, promise) {
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 configuration.reSaveUserDocsFlag = DEFAULT_RESAVE_USER_DOCS_FLAG;
 configuration.batchSize = DEFAULT_BATCH_SIZE;
-configuration.maxArchiveUserQueue = DEFAULT_MAX_ARCHIVE_USER_QUEUE;
+configuration.maxSaveFileQueue = DEFAULT_MAX_SAVE_FILE_QUEUE;
 configuration.verbose = false;
 configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
@@ -1493,12 +1493,12 @@ function waitValue(){
 
       statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
 
-      if (statsObj.saveFileQueue < 100){
+      if (statsObj.saveFileQueue <= configuration.maxSaveFileQueue){
         clearInterval(interval);
         resolve();
       }
 
-    }, 100);
+    }, 20);
 
   });
 
@@ -1603,10 +1603,10 @@ async function categoryCursorStream(params){
   let cursor;
 
   if (configuration.testMode) {
-    cursor = global.wordAssoDb.User.find(params.query).lean().batchSize(batchSize).limit(maxArchivedCount).cursor();
+    cursor = global.wordAssoDb.User.find(params.query, {timeout: false}).lean().batchSize(batchSize).limit(maxArchivedCount).cursor();
   }
   else{
-    cursor = global.wordAssoDb.User.find(params.query).lean().batchSize(batchSize).cursor();
+    cursor = global.wordAssoDb.User.find(params.query, {timeout: false}).lean().batchSize(batchSize).cursor();
   }
 
   cursor.on("end", function() {
@@ -2098,7 +2098,9 @@ async function generateGlobalTrainingTestSet(){
 
     console.log(chalkGreen("\n" + MODULE_ID_PREFIX + " | ========================================================================"));
     console.log(chalkGreen(MODULE_ID_PREFIX + " | CATEGORIZE | CATEGORY: " + category + ": " + statsObj.userCategoryTotal[category] 
-      + " | MAX COUNT: " + maxCategoryArchivedCount
+      + "\nMAX COUNT: " + maxCategoryArchivedCount
+      + " | BATCH SIZE: " + configuration.batchSize
+      + " | MAX SFQ: " + configuration.maxSaveFileQueue
       + " | TOTAL CATEGORIZED: " + statsObj.users.grandTotal
     ));
     console.log(chalkGreen(MODULE_ID_PREFIX + " | ========================================================================\n"));
@@ -2106,7 +2108,8 @@ async function generateGlobalTrainingTestSet(){
     const query = { 
       "$and": [
         // { "screenName": { "$nin": [false, null] } }, 
-        { "ignored": { "$nin": [true, "true"] } }, 
+        // { "ignored": { "$nin": [true, "true"] } }, 
+        { "ignored": false }, 
         { "category": category }
       ]
     };
