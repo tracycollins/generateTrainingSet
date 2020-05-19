@@ -1,6 +1,5 @@
 const MODULE_NAME = "generateTrainingSet";
 const DEFAULT_MAX_ARCHIVE_USER_QUEUE = 1000;
-const DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD = 5;
 const DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD = 5;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
@@ -179,39 +178,34 @@ statsObj.hostname = hostname;
 statsObj.pid = process.pid;
 statsObj.cpus = os.cpus().length;
 statsObj.commandLineArgsLoaded = false;
-statsObj.usersAppendedToArchive = 0;
-statsObj.usersProcessed = 0;
-statsObj.userErrorCount = 0;
-statsObj.userEmptyCount = 0;
 
-statsObj.archiveOpen = false;
-statsObj.archiveModifiedMoment = moment("2010-01-01");
-statsObj.endAppendUsersFlag = false;
+statsObj.users = {};
+statsObj.users.grandTotal = 0;
 
-statsObj.initcategorizedNodeQueueFlag = false;
+statsObj.users.notCategorized = 0;
+statsObj.users.notFound = 0;
+statsObj.users.screenNameUndefined = 0;
 
-statsObj.archiveEntries = 0;
-statsObj.archiveGrandTotal = 0;
-statsObj.archiveElapsed = 0;
-statsObj.archiveRate = 0;
-statsObj.archiveRemainUsers = 0;
-statsObj.archiveRemainMS = 0;
-statsObj.archiveStartMoment = 0;
-statsObj.archiveEndMoment = moment();
-statsObj.totalMbytes = 0;
+statsObj.users.processed = {};
+
+statsObj.users.processed.total = 0;
+statsObj.users.processed.empty = 0;
+statsObj.users.processed.errors = 0;
+statsObj.users.processed.elapsed = 0;
+statsObj.users.processed.rate = 0;
+statsObj.users.processed.remain = 0;
+statsObj.users.processed.remainMS = 0;
+statsObj.users.processed.startMoment = 0;
+statsObj.users.processed.endMoment = moment();
+
 statsObj.serverConnected = false;
 
 statsObj.startTimeMoment = moment();
 statsObj.startTime = moment().valueOf();
 statsObj.elapsed = moment().valueOf() - statsObj.startTime;
 
-statsObj.users = {};
-statsObj.users.notCategorized = 0;
-statsObj.users.updatedCategorized = 0;
-statsObj.users.notFound = 0;
-statsObj.users.screenNameUndefined = 0;
-statsObj.users.unzipped = 0;
-statsObj.users.zipHashMapHit = 0;
+statsObj.endAppendUsersFlag = false;
+statsObj.initcategorizedNodeQueueFlag = false;
 
 statsObj.errors = {};
 statsObj.errors.users = {};
@@ -756,24 +750,22 @@ async function showStats(options){
       + " | 0: " + categorizedUserHistogram.none
     ));
 
-    // console.log(chalkInfo(MODULE_ID_PREFIX + " | ============================================================"
-    //   + "\n" + MODULE_ID_PREFIX + " | ARCHIVE"
-    //   + " | " + getTimeStamp()
-    //   + " | APND: " + statsObj.usersAppendedToArchive
-    //   + " | ARCVD/REM/MT/ERR/TOT: " 
-    //   + statsObj.usersAppendedToArchive 
-    //   + "/" + statsObj.archiveRemainUsers 
-    //   + "/" + statsObj.userEmptyCount 
-    //   + "/" + statsObj.userErrorCount 
-    //   + "/" + statsObj.archiveGrandTotal
-    //   + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
-    //   + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
-    //   + " [ " + (statsObj.archiveRate/1000).toFixed(3) + " SPU ]"
-    //   + " S: " + getTimeStamp(statsObj.archiveStartMoment)
-    //   + " E: " + msToTime(statsObj.archiveElapsed)
-    //   + " | ETC: " + msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
-    //   + "\nGTS | ============================================================"
-    // ));
+    console.log(chalkInfo(MODULE_ID_PREFIX + " | ============================================================"
+      + "\n" + MODULE_ID_PREFIX + " | PROCESSED"
+      + " | " + getTimeStamp()
+      + " | PRCSD/REM/MT/ERR/TOT: " 
+      + statsObj.users.processed.total 
+      + "/" + statsObj.users.processed.remain 
+      + "/" + statsObj.users.processed.empty 
+      + "/" + statsObj.users.processed.errors
+      + "/" + statsObj.users.grandTotal
+      + " (" + (100*statsObj.users.processed.total/statsObj.users.grandTotal).toFixed(2) + "%)"
+      + " [ " + (statsObj.users.processed.rate/1000).toFixed(3) + " SPU ]"
+      + " S: " + getTimeStamp(statsObj.users.processed.startMoment)
+      + " E: " + msToTime(statsObj.users.processed.elapsed)
+      + " | ETC: " + msToTime(statsObj.users.processed.remainMS) + " " + statsObj.users.processed.endMoment.format(compactDateTimeFormat)
+      + "\nGTS | ============================================================"
+    ));
   }
 }
 
@@ -1103,20 +1095,28 @@ async function clampHistogram(params){
 
     for (const entity of entities){
 
+
       if (entity.startsWith("[") || typeof entity !== "string"){
-        console.log(chalkError(MODULE_ID_PREFIX + " | *** ENITY ERROR"
+
+        console.log(chalkAlert(MODULE_ID_PREFIX + " | *** ENTITY ERROR"
           + " | TYPE: " + type
           + " | NID: " + params.nodeId
           + " | @" + params.screenName
-          + " | ENITY: " + entity
-          + " | typeof ENITY: " + typeof entity
+          + " | ENTITY: " + entity
+          + " | typeof ENTITY: " + typeof entity
           + " | params.histogram[type][entity]: " + params.histogram[type][entity]
         ));
+
+        if (type === "media" && entity.startsWith("[object Object]")){
+          delete params.histogram[type][entity];
+        }
 
         if (type === "hashtag" && entity.startsWith("[#")){
           const newEntity = entity.slice(1);
           // if (histogram[type][newEntity] === undefined) { histogram[type][newEntity] = 1; }
           histogram[type][newEntity] = Math.min(maxValue, params.histogram[type][entity]) || 1;
+          params.histogram[type][newEntity] = histogram[type][newEntity];
+          delete params.histogram[type][entity];
         }
       }
       else{
@@ -1215,6 +1215,7 @@ async function updateCategorizedUser(params){
   if (!params.user || params.user === undefined) {
     console.error(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER UNDEFINED"));
     statsObj.errors.users.findOne += 1;
+    statsObj.users.processed.errors += 1;
     throw new Error("USER UNDEFINED");
   }
 
@@ -1331,18 +1332,25 @@ async function updateCategorizedUser(params){
       + " | FRNDs: " + user.friendsCount
     ));
 
-    statsObj.users.updatedCategorized += 1;
+    statsObj.users.processed.total += 1;
 
-    categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.updatedCategorized)/statsObj.archiveGrandTotal;
+    statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
+    statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
+    statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.empty + statsObj.users.processed.errors);
+    statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
+    statsObj.users.processed.endMoment = moment();
+    statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
+
+    categorizedUsersPercent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
 
     if (configuration.verbose 
       // || configuration.testMode 
-      || ((statsObj.users.notCategorized + statsObj.users.updatedCategorized) % 1000 === 0)){
+      || ((statsObj.users.notCategorized + statsObj.users.processed.total) % 1000 === 0)){
 
       categorizedUserHistogramTotal();
 
       console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
-        + " | " + (statsObj.users.notCategorized + statsObj.users.updatedCategorized) + "/" + statsObj.archiveGrandTotal
+        + " | " + (statsObj.users.notCategorized + statsObj.users.processed.total) + "/" + statsObj.users.grandTotal
         + " (" + categorizedUsersPercent.toFixed(1) + "%)"
         + " | TOTAL: " + categorizedUserHistogram.total
         + " | L: " + categorizedUserHistogram.left 
@@ -1360,6 +1368,7 @@ async function updateCategorizedUser(params){
   catch(err){
     console.error(chalkError(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USER ERROR: " + err));
     statsObj.errors.users.findOne += 1;
+    statsObj.users.processed.errors += 1;
     throw err;
   }
 }
@@ -1419,11 +1428,11 @@ async function categorizeUser(params){
 
     if (!user || user === undefined) {
 
-      statsObj.userErrorCount += 1;
+      statsObj.users.processed.errors += 1;
 
       console.log(chalkAlert(MODULE_ID_PREFIX + " | *** UPDATE CL USR NOT FOUND: "
         + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
-        + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + " ]"
+        + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.users.processed.errors + " ]"
         + " | USER ID: " + params.nodeId
       ));
 
@@ -1446,13 +1455,13 @@ async function categorizeUser(params){
     if (params.verbose) {
       console.log(chalkInfo(MODULE_ID_PREFIX + " | -<- UPDATE CL USR <DB"
         + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
-        + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.userErrorCount + "]"
+        + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.users.processed.errors + "]"
         + " | " + user.nodeId
         + " | @" + user.screenName
       ));
     }
 
-    if (statsObj.archiveStartMoment === 0) { statsObj.archiveStartMoment = moment(); }
+    if (statsObj.users.processed.startMoment === 0) { statsObj.users.processed.startMoment = moment(); }
 
     return subUser;
 
@@ -1472,7 +1481,7 @@ categorizedUsers.neutral = 0;
 categorizedUsers.right = 0;
 
 
-function waitValue(params){
+function waitValue(){
 
   return new Promise(function(resolve){
 
@@ -1499,24 +1508,24 @@ async function cursorDataHandler(user){
 
   if (!user.screenName){
     console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + tcUtils.jsonPrint(user)));
-    statsObj.userErrorCount += 1;
+    statsObj.users.processed.errors += 1;
     return;
   }
   
   if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
 
-    statsObj.userEmptyCount += 1;
+    statsObj.users.processed.empty += 1;
 
-    if (statsObj.userEmptyCount % 100 === 0){
+    if (statsObj.users.processed.empty % 100 === 0){
       console.log(chalkWarn(MODULE_ID_PREFIX 
         + " | --- EMPTY HISTOGRAMS"
         + " | SKIPPING"
         + " | PRCSD/REM/MT/ERR/TOT: " 
         + statsObj.usersAppendedToArchive 
-        + "/" + statsObj.archiveRemainUsers 
-        + "/" + statsObj.userEmptyCount 
-        + "/" + statsObj.userErrorCount 
-        + "/" + statsObj.archiveGrandTotal
+        + "/" + statsObj.users.processed.remain 
+        + "/" + statsObj.users.processed.empty 
+        + "/" + statsObj.users.processed.errors
+        + "/" + statsObj.users.grandTotal
         + " | @" + user.screenName 
       ));
     }
@@ -1637,10 +1646,10 @@ async function categoryCursorStream(params){
     + " | CURSOR ASYNC END"
     + " | PRCSD/REM/MT/ERR/TOT: " 
     + statsObj.usersAppendedToArchive 
-    + "/" + statsObj.archiveRemainUsers 
-    + "/" + statsObj.userEmptyCount 
-    + "/" + statsObj.userErrorCount 
-    + "/" + statsObj.archiveGrandTotal
+    + "/" + statsObj.users.processed.remain 
+    + "/" + statsObj.users.processed.empty 
+    + "/" + statsObj.users.processed.errors 
+    + "/" + statsObj.users.grandTotal
   ));
 
   return;
@@ -1711,16 +1720,16 @@ async function categoryCursorStream(params){
 
 //     endArchiveUsersInterval = setInterval(function(){
 
-//       statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userEmptyCount + statsObj.userErrorCount);
+//       statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.usersAppendedToArchive + statsObj.users.processed.empty + statsObj.users.processed.errors);
 
 //       if ((statsObj.usersAppendedToArchive > 0) && (archiveUserQueue.length === 0) && archiveUserQueueReady){
 //         console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX END APPEND"
-//           + " | " + statsObj.archiveGrandTotal + " USERS"
+//           + " | " + statsObj.users.grandTotal + " USERS"
 //           + " | " + statsObj.usersAppendedToArchive + " APPENDED"
 //           + " | " + statsObj.usersProcessed + " PROCESSED"
-//           + " | " + statsObj.userEmptyCount + " EMPTY SKIPPED"
-//           + " | " + statsObj.userErrorCount + " ERRORS"
-//           + " | " + statsObj.archiveRemainUsers + " REMAIN"
+//           + " | " + statsObj.users.processed.empty + " EMPTY SKIPPED"
+//           + " | " + statsObj.users.processed.errors + " ERRORS"
+//           + " | " + statsObj.users.processed.remain + " REMAIN"
 //         ));
 //         clearInterval(endArchiveUsersInterval);
 //         return resolve();
@@ -1916,12 +1925,12 @@ function delay(params){
 //     statsObj.progressMbytes = toMegabytes(progress.fs.processedBytes);
 //     statsObj.totalMbytes = toMegabytes(archive.pointer());
 
-//     statsObj.archiveElapsed = (moment().valueOf() - statsObj.archiveStartMoment.valueOf()); // mseconds
-//     statsObj.archiveRate = (statsObj.usersAppendedToArchive >0) ? statsObj.archiveElapsed/statsObj.usersAppendedToArchive : 0; // msecs/usersArchived
-//     statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userEmptyCount + statsObj.userErrorCount);
-//     statsObj.archiveRemainMS = statsObj.archiveRemainUsers * statsObj.archiveRate; // mseconds
-//     statsObj.archiveEndMoment = moment();
-//     statsObj.archiveEndMoment.add(statsObj.archiveRemainMS, "ms");
+//     statsObj.users.processed.Elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
+//     statsObj.users.processed.Rate = (statsObj.usersAppendedToArchive >0) ? statsObj.users.processed.Elapsed/statsObj.usersAppendedToArchive : 0; // msecs/usersArchived
+//     statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.usersAppendedToArchive + statsObj.users.processed.empty + statsObj.users.processed.errors);
+//     statsObj.users.processed.RemainMS = statsObj.users.processed.remain * statsObj.users.processed.Rate; // mseconds
+//     statsObj.users.processed.endMoment = moment();
+//     statsObj.users.processed.endMoment.add(statsObj.users.processed.RemainMS, "ms");
 
 //     if ((statsObj.usersAppendedToArchive % 1000 === 0) || configuration.verbose) {
 //       console.log(chalkInfo(MODULE_ID_PREFIX + " | >+- ARCHV"
@@ -1929,29 +1938,29 @@ function delay(params){
 //         + " | APND: " + statsObj.usersAppendedToArchive
 //         + " | ARCVD/REM/MT/ERR/TOT: " 
 //         + statsObj.usersAppendedToArchive 
-//         + "/" + statsObj.archiveRemainUsers 
-//         + "/" + statsObj.userEmptyCount 
-//         + "/" + statsObj.userErrorCount 
-//         + "/" + statsObj.archiveGrandTotal
+//         + "/" + statsObj.users.processed.remain 
+//         + "/" + statsObj.users.processed.empty 
+//         + "/" + statsObj.users.processed.errors 
+//         + "/" + statsObj.users.grandTotal
 //         + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
-//         + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
-//         + " [ " + (statsObj.archiveRate/1000).toFixed(3) + " SPU ]"
-//         + " S: " + getTimeStamp(statsObj.archiveStartMoment)
-//         + " E: " + msToTime(statsObj.archiveElapsed)
-//         + " | ETC: " + msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
+//         + " (" + (100*statsObj.usersAppendedToArchive/statsObj.users.grandTotal).toFixed(2) + "%)"
+//         + " [ " + (statsObj.users.processed.Rate/1000).toFixed(3) + " SPU ]"
+//         + " S: " + getTimeStamp(statsObj.users.processed.startMoment)
+//         + " E: " + msToTime(statsObj.users.processed.Elapsed)
+//         + " | ETC: " + msToTime(statsObj.users.processed.RemainMS) + " " + statsObj.users.processed.endMoment.format(compactDateTimeFormat)
 //       ));
 //     }
 //   });
    
 //   archive.on("entry", function(entryData) {
 
-//     statsObj.archiveEntries += 1;
-//     statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userEmptyCount + statsObj.userErrorCount);
+//     statsObj.users.processed.Entries += 1;
+//     statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.usersAppendedToArchive + statsObj.users.processed.empty + statsObj.users.processed.errors);
 
 //     if (configuration.verbose) {
 //       console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | ENTRY"
 //         + " [ " + statsObj.usersAppendedToArchive + " APPENDED ]"
-//         + " [ " + statsObj.archiveEntries + " ENTRIES ]"
+//         + " [ " + statsObj.users.processed.Entries + " ENTRIES ]"
 //         + " | " + entryData.name
 //       ));
 //     }
@@ -1968,8 +1977,8 @@ function delay(params){
 //     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | +++ ARCHIVE | FINISHED | " + getTimeStamp()
 //       + "\nGTS | +++ ARCHIVE | FINISHED | TEST MODE: " + configuration.testMode
 //       + "\nGTS | +++ ARCHIVE | FINISHED | ARCHIVE:   " + userTempArchivePath
-//       + "\nGTS | +++ ARCHIVE | FINISHED | ENTRIES:   " + statsObj.usersAppendedToArchive + "/" + statsObj.archiveGrandTotal + " APPENDED"
-//       + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
+//       + "\nGTS | +++ ARCHIVE | FINISHED | ENTRIES:   " + statsObj.usersAppendedToArchive + "/" + statsObj.users.grandTotal + " APPENDED"
+//       + " (" + (100*statsObj.usersAppendedToArchive/statsObj.users.grandTotal).toFixed(2) + "%)"
 //       + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
 //     ));
 //   });
@@ -1980,7 +1989,7 @@ function delay(params){
 //   });
    
 //   archive.pipe(output);
-//   statsObj.archiveOpen = true;
+//   statsObj.users.processed.Open = true;
   
 //   return;
 // }
@@ -2044,7 +2053,7 @@ async function generateGlobalTrainingTestSet(){
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | GENERATE TRAINING SET | " + getTimeStamp()));
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
 
-  statsObj.archiveCategoryTotal = {};
+  statsObj.userCategoryTotal = {};
 
   for(const category of ["left", "neutral", "right"]){
     const query = { 
@@ -2054,22 +2063,22 @@ async function generateGlobalTrainingTestSet(){
         { "category": category }
       ]
     };
-    statsObj.archiveCategoryTotal[category] = await global.wordAssoDb.User.find(query).countDocuments();
-    statsObj.archiveGrandTotal += statsObj.archiveCategoryTotal[category];
+    statsObj.userCategoryTotal[category] = await global.wordAssoDb.User.find(query).countDocuments();
+    statsObj.users.grandTotal += statsObj.userCategoryTotal[category];
   }
 
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
-  console.log(chalkBlueBold(MODULE_ID_PREFIX + " | CATEGORIZED USERS IN DB: " + statsObj.archiveGrandTotal));
+  console.log(chalkBlueBold(MODULE_ID_PREFIX + " | CATEGORIZED USERS IN DB: " + statsObj.users.grandTotal));
   console.log(chalkBlueBold(MODULE_ID_PREFIX 
-    + " | L: " + statsObj.archiveCategoryTotal.left 
-    + " | N: " + statsObj.archiveCategoryTotal.neutral
-    + " | R: " + statsObj.archiveCategoryTotal.right
+    + " | L: " + statsObj.userCategoryTotal.left 
+    + " | N: " + statsObj.userCategoryTotal.neutral
+    + " | R: " + statsObj.userCategoryTotal.right
   ));
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
 
   if (configuration.testMode) {
-    statsObj.archiveGrandTotal = Math.min(statsObj.archiveGrandTotal, configuration.totalMaxTestCount);
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveGrandTotal + " USERS"));
+    statsObj.users.grandTotal = Math.min(statsObj.users.grandTotal, configuration.totalMaxTestCount);
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.users.grandTotal + " USERS"));
   }
 
   // await initArchiveUserQueue({interval: configuration.archiveUserQueueIntervalPeriod});
@@ -2084,13 +2093,13 @@ async function generateGlobalTrainingTestSet(){
       maxCategoryArchivedCount = configuration.maxTestCount[category];
     }
     else{
-      maxCategoryArchivedCount = statsObj.archiveCategoryTotal[category];
+      maxCategoryArchivedCount = statsObj.userCategoryTotal[category];
     }
 
     console.log(chalkGreen("\n" + MODULE_ID_PREFIX + " | ========================================================================"));
-    console.log(chalkGreen(MODULE_ID_PREFIX + " | CATEGORIZE | CATEGORY: " + category + ": " + statsObj.archiveCategoryTotal[category] 
+    console.log(chalkGreen(MODULE_ID_PREFIX + " | CATEGORIZE | CATEGORY: " + category + ": " + statsObj.userCategoryTotal[category] 
       + " | MAX COUNT: " + maxCategoryArchivedCount
-      + " | TOTAL CATEGORIZED: " + statsObj.archiveGrandTotal
+      + " | TOTAL CATEGORIZED: " + statsObj.users.grandTotal
     ));
     console.log(chalkGreen(MODULE_ID_PREFIX + " | ========================================================================\n"));
 
@@ -2114,7 +2123,7 @@ async function generateGlobalTrainingTestSet(){
   await endSaveFileQueue();
 
   // inc total to account for future append
-  // statsObj.archiveGrandTotal += 1;
+  // statsObj.users.grandTotal += 1;
 
   const mihmObj = {};
 
@@ -2182,7 +2191,7 @@ setTimeout(async function(){
 
     let slackText = "\n*" + MODULE_ID_PREFIX + " | TRAINING SET*";
     slackText = slackText + "\n" + configuration.userArchivePath;
-    slackText = slackText + "\nUSERS ARCHIVED: " + statsObj.archiveGrandTotal;
+    slackText = slackText + "\nUSERS ARCHIVED: " + statsObj.users.grandTotal;
     slackText = slackText + "\nLEFT: " + categorizedUserHistogram.left;
     slackText = slackText + "\nRIGHT: " + categorizedUserHistogram.right;
     slackText = slackText + "\nNEUTRAL: " + categorizedUserHistogram.neutral;
