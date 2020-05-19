@@ -11,7 +11,7 @@ const DEFAULT_INPUT_TYPE_MIN_MEDIA = 3;
 const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
-const DEFAULT_BATCH_SIZE = 100;
+const DEFAULT_BATCH_SIZE = 20;
 
 const TOTAL_MAX_TEST_COUNT = 100;
 
@@ -261,7 +261,7 @@ while(sum < TOTAL_MAX_TEST_COUNT){
 
 configuration.maxHistogramValue = DEFAULT_MAX_HISTOGRAM_VALUE;
 configuration.slackChannel = {};
-configuration.archiveUserQueueIntervalPeriod = DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
+// configuration.archiveUserQueueIntervalPeriod = DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
 configuration.waitCursorInterval = DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD;
 
 let defaultConfiguration = {}; // general configuration for GTS
@@ -1028,10 +1028,15 @@ async function loadConfigFile(params) {
       newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
     }
 
-    if (loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD !== undefined){
-      console.log(MODULE_ID_PREFIX + " | LOADED GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD: " + loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD);
-      newConfiguration.archiveUserQueueIntervalPeriod = loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
+    if (loadedConfigObj.GTS_BATCH_SIZE !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_BATCH_SIZE: " + loadedConfigObj.GTS_BATCH_SIZE);
+      newConfiguration.batchSize = loadedConfigObj.GTS_BATCH_SIZE;
     }
+
+    // if (loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD !== undefined){
+    //   console.log(MODULE_ID_PREFIX + " | LOADED GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD: " + loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD);
+    //   newConfiguration.archiveUserQueueIntervalPeriod = loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
+    // }
 
     if (loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_MAX_HISTOGRAM_VALUE: " + loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE);
