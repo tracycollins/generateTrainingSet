@@ -13,7 +13,7 @@ const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 const DEFAULT_BATCH_SIZE = 100;
 
-const TOTAL_MAX_TEST_COUNT = 1000;
+const TOTAL_MAX_TEST_COUNT = 100;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -88,8 +88,8 @@ const testInputTypeMinHash = {
 
 const ONE_SECOND = 1000;
 const ONE_MINUTE = 60 * ONE_SECOND;
-const ONE_HOUR = 60 * ONE_MINUTE;
-const ONE_DAY = 24 * ONE_HOUR;
+// const ONE_HOUR = 60 * ONE_MINUTE;
+// const ONE_DAY = 24 * ONE_HOUR;
 
 const ONE_KILOBYTE = 1024;
 const ONE_MEGABYTE = 1024 * ONE_KILOBYTE;
@@ -106,10 +106,10 @@ const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 const path = require("path");
 const moment = require("moment");
 const merge = require("deepmerge");
-const archiver = require("archiver");
+// const archiver = require("archiver");
 const fs = require("fs");
-const { promisify } = require("util");
-const unlinkFileAsync = promisify(fs.unlink);
+// const { promisify } = require("util");
+// const unlinkFileAsync = promisify(fs.unlink);
 const MergeHistograms = require("@threeceelabs/mergehistograms");
 const mergeHistograms = new MergeHistograms();
 const util = require("util");
@@ -121,7 +121,7 @@ const debug = require("debug")("gts");
 const commandLineArgs = require("command-line-args");
 const empty = require("is-empty");
 
-let archive;
+// let archive;
 
 const chalk = require("chalk");
 const chalkAlert = chalk.red;
@@ -332,8 +332,8 @@ const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
 const tcUtils = new ThreeceeUtilities(tcuChildName);
 const getTimeStamp = tcUtils.getTimeStamp;
 const msToTime = tcUtils.msToTime;
-const formatBoolean = tcUtils.formatBoolean;
-const formatCategory = tcUtils.formatCategory;
+// const formatBoolean = tcUtils.formatBoolean;
+// const formatCategory = tcUtils.formatCategory;
 
 const UserServerController = require("@threeceelabs/user-server-controller");
 const userServerController = new UserServerController(MODULE_ID_PREFIX + "_USC");
@@ -346,9 +346,9 @@ userServerController.on("ready", function(appname){
   console.log(chalk.green(MODULE_ID_PREFIX + " | USC READY | " + appname));
 });
 
-function toMegabytes(sizeInBytes) {
-  return sizeInBytes/ONE_MEGABYTE;
-}
+// function toMegabytes(sizeInBytes) {
+//   return sizeInBytes/ONE_MEGABYTE;
+// }
 
 const DEFAULT_RUN_ID = hostname + "_" + process.pid + "_" + statsObj.startTimeMoment.format(compactDateTimeFormat);
 
@@ -716,13 +716,15 @@ debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_ACCESS_TOKEN :" + configuration.D
 debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_KEY :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_KEY);
 debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_SECRET :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_SECRET);
 
-function showStats(options){
+async function showStats(options){
 
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
   statsObj.heap = process.memoryUsage().heapUsed/ONE_GIGABYTE;
   statsObj.maxHeap = Math.max(statsObj.maxHeap, statsObj.heap);
 
   statsObjSmall = pick(statsObj, statsPickArray);
+
+  statsObj.saveFileQueue = await tcUtils.getSaveFileQueue();
 
   if (options) {
     console.log(MODULE_ID_PREFIX + " | STATS\nGTS | " + tcUtils.jsonPrint(statsObjSmall));
@@ -731,7 +733,7 @@ function showStats(options){
     console.log(chalkLog(MODULE_ID_PREFIX + " | ============================================================"
       + "\nGTS | S"
       + " | STATUS: " + statsObj.status
-      + " [ AUQ: " + archiveUserQueue.length + " ]"
+      + " [ SFQ: " + statsObj.saveFileQueue + " ]"
       + " | CPUs: " + statsObj.cpus
       + " | " + testObj.testRunId
       + " | HEAP: " + statsObj.heap.toFixed(3) + " GB"
@@ -754,24 +756,24 @@ function showStats(options){
       + " | 0: " + categorizedUserHistogram.none
     ));
 
-    console.log(chalkInfo(MODULE_ID_PREFIX + " | ============================================================"
-      + "\n" + MODULE_ID_PREFIX + " | ARCHIVE"
-      + " | " + getTimeStamp()
-      + " | APND: " + statsObj.usersAppendedToArchive
-      + " | ARCVD/REM/MT/ERR/TOT: " 
-      + statsObj.usersAppendedToArchive 
-      + "/" + statsObj.archiveRemainUsers 
-      + "/" + statsObj.userEmptyCount 
-      + "/" + statsObj.userErrorCount 
-      + "/" + statsObj.archiveGrandTotal
-      + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
-      + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
-      + " [ " + (statsObj.archiveRate/1000).toFixed(3) + " SPU ]"
-      + " S: " + getTimeStamp(statsObj.archiveStartMoment)
-      + " E: " + msToTime(statsObj.archiveElapsed)
-      + " | ETC: " + msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
-      + "\nGTS | ============================================================"
-    ));
+    // console.log(chalkInfo(MODULE_ID_PREFIX + " | ============================================================"
+    //   + "\n" + MODULE_ID_PREFIX + " | ARCHIVE"
+    //   + " | " + getTimeStamp()
+    //   + " | APND: " + statsObj.usersAppendedToArchive
+    //   + " | ARCVD/REM/MT/ERR/TOT: " 
+    //   + statsObj.usersAppendedToArchive 
+    //   + "/" + statsObj.archiveRemainUsers 
+    //   + "/" + statsObj.userEmptyCount 
+    //   + "/" + statsObj.userErrorCount 
+    //   + "/" + statsObj.archiveGrandTotal
+    //   + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
+    //   + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
+    //   + " [ " + (statsObj.archiveRate/1000).toFixed(3) + " SPU ]"
+    //   + " S: " + getTimeStamp(statsObj.archiveStartMoment)
+    //   + " E: " + msToTime(statsObj.archiveElapsed)
+    //   + " | ETC: " + msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
+    //   + "\nGTS | ============================================================"
+    // ));
   }
 }
 
@@ -779,7 +781,7 @@ function quit(options){
 
   console.log(chalkAlert(MODULE_ID_PREFIX + " | QUITTING ..." ));
 
-  clearInterval(archiveUserQueueInterval);
+  clearInterval(endSaveFileQueueInterval);
 
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
 
@@ -1350,49 +1352,49 @@ async function updateCategorizedUser(params){
 }
 
 const categorizedNodeQueue = [];
-const archiveUserQueue = [];
-let archiveUserQueueReady = true;
-let archiveUserQueueInterval;
+// const archiveUserQueue = [];
+// let archiveUserQueueReady = true;
+// let archiveUserQueueInterval;
 
-function initArchiveUserQueue(params){
+// function initArchiveUserQueue(params){
 
-  return new Promise(function(resolve){
+//   return new Promise(function(resolve){
 
-    const interval = params.interval;
+//     const interval = params.interval;
 
-    clearInterval(archiveUserQueueInterval);
+//     clearInterval(archiveUserQueueInterval);
 
-    archiveUserQueueInterval = setInterval(function(){
+//     archiveUserQueueInterval = setInterval(function(){
 
-      if (archiveUserQueueReady && (archiveUserQueue.length > 0)) {
+//       if (archiveUserQueueReady && (archiveUserQueue.length > 0)) {
 
-        archiveUserQueueReady = false;
+//         archiveUserQueueReady = false;
 
-        const user = archiveUserQueue.shift();
+//         const user = archiveUserQueue.shift();
 
-        archiveUser({user: user})
-        .then(function(){
+//         archiveUser({user: user})
+//         .then(function(){
 
-          debug(chalkAlert(MODULE_ID_PREFIX + " | +++ ARCHIVED USER"
-            + " [ AUQ: " + archiveUserQueue.length + "]"
-            + " | USER ID: " + user.nodeId
-            + " | @" + user.screenName
-          ));
+//           debug(chalkAlert(MODULE_ID_PREFIX + " | +++ ARCHIVED USER"
+//             + " [ AUQ: " + archiveUserQueue.length + "]"
+//             + " | USER ID: " + user.nodeId
+//             + " | @" + user.screenName
+//           ));
 
-          archiveUserQueueReady = true;
-        })
-        .catch(function(err){
-          console.log(chalkError(MODULE_ID_PREFIX + " | *** archiveUser ERROR: " + err));
-          archiveUserQueueReady = true;
-        });
-      }
+//           archiveUserQueueReady = true;
+//         })
+//         .catch(function(err){
+//           console.log(chalkError(MODULE_ID_PREFIX + " | *** archiveUser ERROR: " + err));
+//           archiveUserQueueReady = true;
+//         });
+//       }
 
-    }, interval);
+//     }, interval);
 
-    resolve();
+//     resolve();
 
-  });
-}
+//   });
+// }
 
 let userIndex = 0;
 
@@ -1494,20 +1496,38 @@ async function cursorDataHandler(user){
 
   const catUser = await categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
 
+  const folder = path.join(configuration.userArchiveFolder, "data");
+  const file = catUser.nodeId + ".json";
+
   if (!configuration.testMode){
-    archiveUserQueue.push(catUser);
+    // archiveUserQueue.push(catUser);
+    statsObj.saveFileQueue = tcUtils.saveFileQueue({
+      folder: folder,
+      file: file,
+      obj: catUser, 
+      verbose: configuration.verbose
+    });
+
     categorizedUsers[catUser.category] += 1;
     statsObj.categorizedCount += 1;
   }
   else if (configuration.testMode && (categorizedUsers[user.category] <= 0.333333*configuration.totalMaxTestCount)){
-    archiveUserQueue.push(catUser);
+    // archiveUserQueue.push(catUser);
+
+    statsObj.saveFileQueue = tcUtils.saveFileQueue({
+      folder: folder,
+      file: file,
+      obj: catUser, 
+      verbose: configuration.verbose
+    });
+
     categorizedUsers[catUser.category] += 1;
     statsObj.categorizedCount += 1;
   }
 
   if (statsObj.categorizedCount % 100 === 0){
     console.log(chalkInfo(MODULE_ID_PREFIX
-      + " [ AUQ: " + archiveUserQueue.length + " ]"
+      + " [ SFQ: " + statsObj.saveFileQueue + " ]"
       + " | CATEGORIZED: " + statsObj.categorizedCount
       + " | L: " + categorizedUsers.left
       + " | N: " + categorizedUsers.neutral
@@ -1590,84 +1610,109 @@ async function categoryCursorStream(params){
   return;
 }
 
-function printUserObj(title, user, chalkFormat) {
+// function printUserObj(title, user, chalkFormat) {
 
-  const chlk = chalkFormat || chalkInfo;
+//   const chlk = chalkFormat || chalkInfo;
 
-  console.log(chlk(title
-    + " | " + user.nodeId
-    + " | @" + user.screenName
-    + " | N: " + user.name 
-    + " | FLWRs: " + user.followersCount
-    + " | FRNDs: " + user.friendsCount
-    + " | FRND IDs: " + user.friends.length
-    + " | Ts: " + user.statusesCount
-    + " | M: " + user.mentions
-    + " | FW: " + formatBoolean(user.following) 
-    + " | LS: " + getTimeStamp(user.lastSeen)
-    + " | CN: " + user.categorizeNetwork
-    + " | V: " + formatBoolean(user.categoryVerified)
-    + " | M: " + formatCategory(user.category)
-    + " | A: " + formatCategory(user.categoryAuto)
-  ));
-}
+//   console.log(chlk(title
+//     + " | " + user.nodeId
+//     + " | @" + user.screenName
+//     + " | N: " + user.name 
+//     + " | FLWRs: " + user.followersCount
+//     + " | FRNDs: " + user.friendsCount
+//     + " | FRND IDs: " + user.friends.length
+//     + " | Ts: " + user.statusesCount
+//     + " | M: " + user.mentions
+//     + " | FW: " + formatBoolean(user.following) 
+//     + " | LS: " + getTimeStamp(user.lastSeen)
+//     + " | CN: " + user.categorizeNetwork
+//     + " | V: " + formatBoolean(user.categoryVerified)
+//     + " | M: " + formatCategory(user.category)
+//     + " | A: " + formatCategory(user.categoryAuto)
+//   ));
+// }
 
-function archiveUser(params){
+// function archiveUser(params){
 
-  return new Promise(function(resolve, reject){
+//   return new Promise(function(resolve, reject){
 
-    if (archive === undefined) { 
-      return reject(new Error("ARCHIVE UNDEFINED"));
-    }
+//     if (archive === undefined) { 
+//       return reject(new Error("ARCHIVE UNDEFINED"));
+//     }
 
-    const fileName = "user_" + params.user.userId + ".json";
+//     const fileName = "user_" + params.user.userId + ".json";
 
-    const userBuffer = Buffer.from(JSON.stringify(params.user));
+//     const userBuffer = Buffer.from(JSON.stringify(params.user));
 
-    archive.append(userBuffer, { name: fileName});
+//     archive.append(userBuffer, { name: fileName});
 
-    tcUtils.waitEvent({event: "append_" + fileName})
-    .then(function(){
+//     tcUtils.waitEvent({event: "append_" + fileName})
+//     .then(function(){
 
-      statsObj.usersAppendedToArchive += 1;
+//       statsObj.usersAppendedToArchive += 1;
 
-      if (configuration.verbose) {
-        printUserObj(MODULE_ID_PREFIX + " | >-- ARCHIVE", params.user);
-      }
+//       if (configuration.verbose) {
+//         printUserObj(MODULE_ID_PREFIX + " | >-- ARCHIVE", params.user);
+//       }
 
-      resolve();
+//       resolve();
 
-    })
-    .catch(function(err){
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** archiveUser ERROR: " + err));
-      reject(err);
-    })
+//     })
+//     .catch(function(err){
+//       console.log(chalkError(MODULE_ID_PREFIX + " | *** archiveUser ERROR: " + err));
+//       reject(err);
+//     })
 
-  });
-}
+//   });
+// }
 
-let endArchiveUsersInterval;
+// let endArchiveUsersInterval;
 
-function endAppendUsers(){
+// function endAppendUsers(){
+//   return new Promise(function(resolve){
+
+//     console.log(chalkLog(MODULE_ID_PREFIX + " | ... WAIT END APPEND"));
+
+//     endArchiveUsersInterval = setInterval(function(){
+
+//       statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userEmptyCount + statsObj.userErrorCount);
+
+//       if ((statsObj.usersAppendedToArchive > 0) && (archiveUserQueue.length === 0) && archiveUserQueueReady){
+//         console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX END APPEND"
+//           + " | " + statsObj.archiveGrandTotal + " USERS"
+//           + " | " + statsObj.usersAppendedToArchive + " APPENDED"
+//           + " | " + statsObj.usersProcessed + " PROCESSED"
+//           + " | " + statsObj.userEmptyCount + " EMPTY SKIPPED"
+//           + " | " + statsObj.userErrorCount + " ERRORS"
+//           + " | " + statsObj.archiveRemainUsers + " REMAIN"
+//         ));
+//         clearInterval(endArchiveUsersInterval);
+//         return resolve();
+//       }
+
+//     }, 10*ONE_SECOND);
+
+//   });
+// }
+
+let endSaveFileQueueInterval;
+
+function endSaveFileQueue(){
   return new Promise(function(resolve){
 
-    console.log(chalkLog(MODULE_ID_PREFIX + " | ... WAIT END APPEND"));
+    console.log(chalkLog(MODULE_ID_PREFIX + " | ... WAIT END SAVE FILE QUEUE"));
 
-    endArchiveUsersInterval = setInterval(function(){
+    endSaveFileQueueInterval = setInterval(function(){
 
-      statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userEmptyCount + statsObj.userErrorCount);
+      const saveFileQueue = tcUtils.getSaveFileQueue();
 
-      if ((statsObj.usersAppendedToArchive > 0) && (archiveUserQueue.length === 0) && archiveUserQueueReady){
-        console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX END APPEND"
-          + " | " + statsObj.archiveGrandTotal + " USERS"
-          + " | " + statsObj.usersAppendedToArchive + " APPENDED"
-          + " | " + statsObj.usersProcessed + " PROCESSED"
-          + " | " + statsObj.userEmptyCount + " EMPTY SKIPPED"
-          + " | " + statsObj.userErrorCount + " ERRORS"
-          + " | " + statsObj.archiveRemainUsers + " REMAIN"
-        ));
-        clearInterval(endArchiveUsersInterval);
-        return resolve();
+      if (saveFileQueue === 0){
+
+        clearInterval(endSaveFileQueueInterval);
+
+        console.log(chalkBlueBold(MODULE_ID_PREFIX + " | +++ END SAVE FILE QUEUE"));
+
+        resolve();
       }
 
     }, 10*ONE_SECOND);
@@ -1687,222 +1732,222 @@ function delay(params){
   });
 }
 
-async function deleteOldArchives(p){
+// async function deleteOldArchives(p){
 
-  const params = p || {};
+//   const params = p || {};
 
-  const maxAgeMs = params.maxAgeMs || ONE_DAY;
-  const folder = params.folder || configuration.userArchiveFolder;
+//   const maxAgeMs = params.maxAgeMs || ONE_DAY;
+//   const folder = params.folder || configuration.userArchiveFolder;
 
-  const userArchiveEntryArray = await tcUtils.filesListFolder({folder: folder});
+//   const userArchiveEntryArray = await tcUtils.filesListFolder({folder: folder});
 
-  for(const entry of userArchiveEntryArray.entries){
+//   for(const entry of userArchiveEntryArray.entries){
 
-    if (!entry.name.startsWith(hostname + "_")) {
-      console.log(chalkLog(MODULE_ID_PREFIX + " | ... SKIPPING DELETE OF " + entry.name));
-    }
-    else if (!entry.name.endsWith("users.zip")) {
-      console.log(chalkInfo(MODULE_ID_PREFIX + " | ... SKIPPING DELETE OF " + entry.name));
-    }
-    else{
+//     if (!entry.name.startsWith(hostname + "_")) {
+//       console.log(chalkLog(MODULE_ID_PREFIX + " | ... SKIPPING DELETE OF " + entry.name));
+//     }
+//     else if (!entry.name.endsWith("users.zip")) {
+//       console.log(chalkInfo(MODULE_ID_PREFIX + " | ... SKIPPING DELETE OF " + entry.name));
+//     }
+//     else{
 
-      const namePartsArray = entry.name.split("_");
+//       const namePartsArray = entry.name.split("_");
 
-      const entryDate = namePartsArray[1] + "_" + namePartsArray[2];
-      const entryMoment = new moment(entryDate, "YYYYMMDD_HHmmss");
-      const entryAge = moment.duration(statsObj.startTimeMoment.diff(entryMoment));
+//       const entryDate = namePartsArray[1] + "_" + namePartsArray[2];
+//       const entryMoment = new moment(entryDate, "YYYYMMDD_HHmmss");
+//       const entryAge = moment.duration(statsObj.startTimeMoment.diff(entryMoment));
 
-      if (entryAge > maxAgeMs) {
-        console.log(chalkAlert(MODULE_ID_PREFIX
-          + " | DELETE ENTRY: " + entry.path_display
-          + " | MAX AGE: " + msToTime(maxAgeMs)
-          + " | ENTRY AGE: " + msToTime(entryAge)
-        ));
+//       if (entryAge > maxAgeMs) {
+//         console.log(chalkAlert(MODULE_ID_PREFIX
+//           + " | DELETE ENTRY: " + entry.path_display
+//           + " | MAX AGE: " + msToTime(maxAgeMs)
+//           + " | ENTRY AGE: " + msToTime(entryAge)
+//         ));
 
-        await unlinkFileAsync(entry.path_display);
+//         await unlinkFileAsync(entry.path_display);
 
-      }
-      else{
-        console.log(chalkInfo(MODULE_ID_PREFIX
-          + " | SKIP DEL ENTRY: " + entry.name
-          + " | MAX AGE: " + msToTime(maxAgeMs)
-          + " | ENTRY AGE: " + msToTime(entryAge)
-        ));
-      }
+//       }
+//       else{
+//         console.log(chalkInfo(MODULE_ID_PREFIX
+//           + " | SKIP DEL ENTRY: " + entry.name
+//           + " | MAX AGE: " + msToTime(maxAgeMs)
+//           + " | ENTRY AGE: " + msToTime(entryAge)
+//         ));
+//       }
       
-    }
-  }
+//     }
+//   }
 
-  return;
-}
+//   return;
+// }
 
-configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userTempArchivePath){
+// configEvents.on("ARCHIVE_OUTPUT_CLOSED", async function(userTempArchivePath){
 
-  try{
+//   try{
 
-    fs.renameSync(userTempArchivePath, configuration.userArchivePath);
+//     fs.renameSync(userTempArchivePath, configuration.userArchivePath);
 
-    // await moveFile({sourcePath: userTempArchivePath, destinationPath: configuration.userArchivePath});
+//     // await moveFile({sourcePath: userTempArchivePath, destinationPath: configuration.userArchivePath});
 
-    await delay({message: "... WAIT FOR DROPBOX FILE SYNC | " + configuration.userArchivePath, period: ONE_MINUTE});
+//     await delay({message: "... WAIT FOR DROPBOX FILE SYNC | " + configuration.userArchivePath, period: ONE_MINUTE});
 
-    // await releaseFileLock({file: configuration.userArchivePath + ".lock"});
+//     // await releaseFileLock({file: configuration.userArchivePath + ".lock"});
 
-    const stats = fs.statSync(configuration.userArchivePath);
-    const fileSizeInBytes = stats.size;
-    const savedSize = fileSizeInBytes/ONE_MEGABYTE;
+//     const stats = fs.statSync(configuration.userArchivePath);
+//     const fileSizeInBytes = stats.size;
+//     const savedSize = fileSizeInBytes/ONE_MEGABYTE;
 
-    if (configuration.testMode) {
-      // configuration.userArchiveFile = configuration.userArchiveFile.replace(/\.zip/, "_test.zip");
-      configuration.archiveFileUploadCompleteFlagFile = configuration.archiveFileUploadCompleteFlagFile.replace(/\.json/, "_test.json");
-    }
+//     if (configuration.testMode) {
+//       // configuration.userArchiveFile = configuration.userArchiveFile.replace(/\.zip/, "_test.zip");
+//       configuration.archiveFileUploadCompleteFlagFile = configuration.archiveFileUploadCompleteFlagFile.replace(/\.json/, "_test.json");
+//     }
 
-    console.log(chalkLog(MODULE_ID_PREFIX + " | ... SAVING FLAG FILE" 
-      + " | " + configuration.userArchiveFolder + "/" + configuration.archiveFileUploadCompleteFlagFile 
-      + " | " + fileSizeInBytes + " B | " + savedSize.toFixed(3) + " MB"
-    ));
+//     console.log(chalkLog(MODULE_ID_PREFIX + " | ... SAVING FLAG FILE" 
+//       + " | " + configuration.userArchiveFolder + "/" + configuration.archiveFileUploadCompleteFlagFile 
+//       + " | " + fileSizeInBytes + " B | " + savedSize.toFixed(3) + " MB"
+//     ));
 
 
-    const fileSizeObj = {};
-    fileSizeObj.file = configuration.userArchiveFile;
-    fileSizeObj.size = fileSizeInBytes;
-    fileSizeObj.histogram = {};
-    fileSizeObj.histogram = categorizedUserHistogram;
+//     const fileSizeObj = {};
+//     fileSizeObj.file = configuration.userArchiveFile;
+//     fileSizeObj.size = fileSizeInBytes;
+//     fileSizeObj.histogram = {};
+//     fileSizeObj.histogram = categorizedUserHistogram;
 
-    await tcUtils.saveFile({
-      folder: configuration.userArchiveFolder, 
-      file: configuration.archiveFileUploadCompleteFlagFile, 
-      obj: fileSizeObj 
-    });
+//     await tcUtils.saveFile({
+//       folder: configuration.userArchiveFolder, 
+//       file: configuration.archiveFileUploadCompleteFlagFile, 
+//       obj: fileSizeObj 
+//     });
 
-    await delay({message: "... WAIT FOR DROPBOX FLAG FILE SYNC | " + getTimeStamp(), period: ONE_MINUTE});
+//     await delay({message: "... WAIT FOR DROPBOX FLAG FILE SYNC | " + getTimeStamp(), period: ONE_MINUTE});
 
-    await deleteOldArchives();
+//     await deleteOldArchives();
 
-    quit("DONE");
-  }
-  catch(err){
-    console.log(chalkError(MODULE_ID_PREFIX + " | *** ARCHIVE_OUTPUT_CLOSED ERROR", err));
-    quit();
-  }
-});
+//     quit("DONE");
+//   }
+//   catch(err){
+//     console.log(chalkError(MODULE_ID_PREFIX + " | *** ARCHIVE_OUTPUT_CLOSED ERROR", err));
+//     quit();
+//   }
+// });
 
-async function initArchiver(){
+// async function initArchiver(){
 
-  let userTempArchivePath = configuration.userTempArchivePath;
+//   let userTempArchivePath = configuration.userTempArchivePath;
 
-  if (configuration.testMode) {
-    userTempArchivePath = configuration.userTempArchivePath.replace(/\.zip/, "_test.zip");
-  }
+//   if (configuration.testMode) {
+//     userTempArchivePath = configuration.userTempArchivePath.replace(/\.zip/, "_test.zip");
+//   }
 
-  console.log(chalkBlue(MODULE_ID_PREFIX + " | ... INIT ARCHIVER | " + userTempArchivePath));
+//   console.log(chalkBlue(MODULE_ID_PREFIX + " | ... INIT ARCHIVER | " + userTempArchivePath));
 
-  if (archive && archive.isOpen) {
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | ARCHIVE ALREADY OPEN | " + userTempArchivePath));
-    return;
-  }
+//   if (archive && archive.isOpen) {
+//     console.log(chalkAlert(MODULE_ID_PREFIX + " | ARCHIVE ALREADY OPEN | " + userTempArchivePath));
+//     return;
+//   }
 
-  const output = fs.createWriteStream(userTempArchivePath);
+//   const output = fs.createWriteStream(userTempArchivePath);
 
-  archive = archiver("zip", {
-    zlib: { level: 9 } // Sets the compression level.
-  });
+//   archive = archiver("zip", {
+//     zlib: { level: 9 } // Sets the compression level.
+//   });
    
-  output.on("close", function() {
-    const archiveSize = toMegabytes(archive.pointer());
-    console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX ARCHIVE OUTPUT | CLOSED | " + archiveSize.toFixed(2) + " MB"));
-    configEvents.emit("ARCHIVE_OUTPUT_CLOSED", userTempArchivePath);
-  });
+//   output.on("close", function() {
+//     const archiveSize = toMegabytes(archive.pointer());
+//     console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX ARCHIVE OUTPUT | CLOSED | " + archiveSize.toFixed(2) + " MB"));
+//     configEvents.emit("ARCHIVE_OUTPUT_CLOSED", userTempArchivePath);
+//   });
    
-  output.on("end", function() {
-    const archiveSize = toMegabytes(archive.pointer());
-    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX ARCHIVE OUTPUT | END | " + archiveSize.toFixed(2) + " MB"));
-  });
+//   output.on("end", function() {
+//     const archiveSize = toMegabytes(archive.pointer());
+//     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX ARCHIVE OUTPUT | END | " + archiveSize.toFixed(2) + " MB"));
+//   });
    
-  archive.on("warning", function(err) {
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! ARCHIVE | WARNING\n" + tcUtils.jsonPrint(err)));
-    if (err.code !== "ENOENT") {
-      throw err;
-    }
-  });
+//   archive.on("warning", function(err) {
+//     console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! ARCHIVE | WARNING\n" + tcUtils.jsonPrint(err)));
+//     if (err.code !== "ENOENT") {
+//       throw err;
+//     }
+//   });
    
-  archive.on("progress", function(progress) {
+//   archive.on("progress", function(progress) {
 
-    statsObj.progress = progress;
+//     statsObj.progress = progress;
 
-    statsObj.usersProcessed = statsObj.progress.entries.processed;
+//     statsObj.usersProcessed = statsObj.progress.entries.processed;
 
-    statsObj.progressMbytes = toMegabytes(progress.fs.processedBytes);
-    statsObj.totalMbytes = toMegabytes(archive.pointer());
+//     statsObj.progressMbytes = toMegabytes(progress.fs.processedBytes);
+//     statsObj.totalMbytes = toMegabytes(archive.pointer());
 
-    statsObj.archiveElapsed = (moment().valueOf() - statsObj.archiveStartMoment.valueOf()); // mseconds
-    statsObj.archiveRate = (statsObj.usersAppendedToArchive >0) ? statsObj.archiveElapsed/statsObj.usersAppendedToArchive : 0; // msecs/usersArchived
-    statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userEmptyCount + statsObj.userErrorCount);
-    statsObj.archiveRemainMS = statsObj.archiveRemainUsers * statsObj.archiveRate; // mseconds
-    statsObj.archiveEndMoment = moment();
-    statsObj.archiveEndMoment.add(statsObj.archiveRemainMS, "ms");
+//     statsObj.archiveElapsed = (moment().valueOf() - statsObj.archiveStartMoment.valueOf()); // mseconds
+//     statsObj.archiveRate = (statsObj.usersAppendedToArchive >0) ? statsObj.archiveElapsed/statsObj.usersAppendedToArchive : 0; // msecs/usersArchived
+//     statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userEmptyCount + statsObj.userErrorCount);
+//     statsObj.archiveRemainMS = statsObj.archiveRemainUsers * statsObj.archiveRate; // mseconds
+//     statsObj.archiveEndMoment = moment();
+//     statsObj.archiveEndMoment.add(statsObj.archiveRemainMS, "ms");
 
-    if ((statsObj.usersAppendedToArchive % 1000 === 0) || configuration.verbose) {
-      console.log(chalkInfo(MODULE_ID_PREFIX + " | >+- ARCHV"
-        + " | " + getTimeStamp()
-        + " | APND: " + statsObj.usersAppendedToArchive
-        + " | ARCVD/REM/MT/ERR/TOT: " 
-        + statsObj.usersAppendedToArchive 
-        + "/" + statsObj.archiveRemainUsers 
-        + "/" + statsObj.userEmptyCount 
-        + "/" + statsObj.userErrorCount 
-        + "/" + statsObj.archiveGrandTotal
-        + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
-        + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
-        + " [ " + (statsObj.archiveRate/1000).toFixed(3) + " SPU ]"
-        + " S: " + getTimeStamp(statsObj.archiveStartMoment)
-        + " E: " + msToTime(statsObj.archiveElapsed)
-        + " | ETC: " + msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
-      ));
-    }
-  });
+//     if ((statsObj.usersAppendedToArchive % 1000 === 0) || configuration.verbose) {
+//       console.log(chalkInfo(MODULE_ID_PREFIX + " | >+- ARCHV"
+//         + " | " + getTimeStamp()
+//         + " | APND: " + statsObj.usersAppendedToArchive
+//         + " | ARCVD/REM/MT/ERR/TOT: " 
+//         + statsObj.usersAppendedToArchive 
+//         + "/" + statsObj.archiveRemainUsers 
+//         + "/" + statsObj.userEmptyCount 
+//         + "/" + statsObj.userErrorCount 
+//         + "/" + statsObj.archiveGrandTotal
+//         + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
+//         + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
+//         + " [ " + (statsObj.archiveRate/1000).toFixed(3) + " SPU ]"
+//         + " S: " + getTimeStamp(statsObj.archiveStartMoment)
+//         + " E: " + msToTime(statsObj.archiveElapsed)
+//         + " | ETC: " + msToTime(statsObj.archiveRemainMS) + " " + statsObj.archiveEndMoment.format(compactDateTimeFormat)
+//       ));
+//     }
+//   });
    
-  archive.on("entry", function(entryData) {
+//   archive.on("entry", function(entryData) {
 
-    statsObj.archiveEntries += 1;
-    statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userEmptyCount + statsObj.userErrorCount);
+//     statsObj.archiveEntries += 1;
+//     statsObj.archiveRemainUsers = statsObj.archiveGrandTotal - (statsObj.usersAppendedToArchive + statsObj.userEmptyCount + statsObj.userErrorCount);
 
-    if (configuration.verbose) {
-      console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | ENTRY"
-        + " [ " + statsObj.usersAppendedToArchive + " APPENDED ]"
-        + " [ " + statsObj.archiveEntries + " ENTRIES ]"
-        + " | " + entryData.name
-      ));
-    }
+//     if (configuration.verbose) {
+//       console.log(chalkLog(MODULE_ID_PREFIX + " | >-- ARCHIVE | ENTRY"
+//         + " [ " + statsObj.usersAppendedToArchive + " APPENDED ]"
+//         + " [ " + statsObj.archiveEntries + " ENTRIES ]"
+//         + " | " + entryData.name
+//       ));
+//     }
 
-    tcUtils.emitter.emit("append_" + entryData.name);
-  });
+//     tcUtils.emitter.emit("append_" + entryData.name);
+//   });
    
-  archive.on("close", function() {
-    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX ARCHIVE | CLOSED | " + userTempArchivePath));
-  });
+//   archive.on("close", function() {
+//     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX ARCHIVE | CLOSED | " + userTempArchivePath));
+//   });
    
-  archive.on("finish", function() {
+//   archive.on("finish", function() {
 
-    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | +++ ARCHIVE | FINISHED | " + getTimeStamp()
-      + "\nGTS | +++ ARCHIVE | FINISHED | TEST MODE: " + configuration.testMode
-      + "\nGTS | +++ ARCHIVE | FINISHED | ARCHIVE:   " + userTempArchivePath
-      + "\nGTS | +++ ARCHIVE | FINISHED | ENTRIES:   " + statsObj.usersAppendedToArchive + "/" + statsObj.archiveGrandTotal + " APPENDED"
-      + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
-      + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
-    ));
-  });
+//     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | +++ ARCHIVE | FINISHED | " + getTimeStamp()
+//       + "\nGTS | +++ ARCHIVE | FINISHED | TEST MODE: " + configuration.testMode
+//       + "\nGTS | +++ ARCHIVE | FINISHED | ARCHIVE:   " + userTempArchivePath
+//       + "\nGTS | +++ ARCHIVE | FINISHED | ENTRIES:   " + statsObj.usersAppendedToArchive + "/" + statsObj.archiveGrandTotal + " APPENDED"
+//       + " (" + (100*statsObj.usersAppendedToArchive/statsObj.archiveGrandTotal).toFixed(2) + "%)"
+//       + " | " + statsObj.totalMbytes.toFixed(2) + " MB"
+//     ));
+//   });
    
-  archive.on("error", function(err) {
-    console.log(chalkError(MODULE_ID_PREFIX + " | *** ARCHIVE | ERROR\n" + tcUtils.jsonPrint(err)));
-    throw err;
-  });
+//   archive.on("error", function(err) {
+//     console.log(chalkError(MODULE_ID_PREFIX + " | *** ARCHIVE | ERROR\n" + tcUtils.jsonPrint(err)));
+//     throw err;
+//   });
    
-  archive.pipe(output);
-  statsObj.archiveOpen = true;
+//   archive.pipe(output);
+//   statsObj.archiveOpen = true;
   
-  return;
-}
+//   return;
+// }
 
 async function initialize(cnf){
 
@@ -1991,8 +2036,8 @@ async function generateGlobalTrainingTestSet(){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.archiveGrandTotal + " USERS"));
   }
 
-  await initArchiveUserQueue({interval: configuration.archiveUserQueueIntervalPeriod});
-  await initArchiver();
+  // await initArchiveUserQueue({interval: configuration.archiveUserQueueIntervalPeriod});
+  // await initArchiver();
 
   let maxCategoryArchivedCount;
 
@@ -2028,10 +2073,12 @@ async function generateGlobalTrainingTestSet(){
     });
   }
 
-  await endAppendUsers();
+  // await endAppendUsers();
+
+  await endSaveFileQueue();
 
   // inc total to account for future append
-  statsObj.archiveGrandTotal += 1;
+  // statsObj.archiveGrandTotal += 1;
 
   const mihmObj = {};
 
@@ -2051,25 +2098,27 @@ async function generateGlobalTrainingTestSet(){
     + " | " + configuration.trainingSetsFolder + "/" + maxInputHashMapFile
   );
 
-  await tcUtils.saveFile({folder: configuration.trainingSetsFolder, file: maxInputHashMapFile, obj: mihmObj });
+  statsObj.saveFileQueue = tcUtils.saveFileQueue({folder: configuration.trainingSetsFolder, file: maxInputHashMapFile, obj: mihmObj });
 
-  const buf = Buffer.from(JSON.stringify(mihmObj));
+  // const buf = Buffer.from(JSON.stringify(mihmObj));
 
-  archive.append(buf, { name: maxInputHashMapFile });
-  archive.finalize();
+  // archive.append(buf, { name: maxInputHashMapFile });
+  // archive.finalize();
 
   return;
 }
 
+let showStatsInterval;
+
 setTimeout(async function(){
   try{
 
-    setInterval(function(){
+    showStatsInterval = setInterval(function(){
       showStats();
     }, ONE_MINUTE);
 
     configuration = await initialize(configuration);
-    await tcUtils.initSaveFileQueue();
+    await tcUtils.initSaveFileQueue({interval: 100});
 
     initSlackRtmClient();
     initSlackWebClient();
@@ -2107,7 +2156,14 @@ setTimeout(async function(){
 
     await slackSendWebMessage({channel: slackChannel, text: slackText});
 
+    await delay({message: "... WAIT FOR FILE SAVE | " + configuration.userArchiveFolder, period: 10*ONE_SECOND});
+
+    clearInterval(showStatsInterval);
+
+    await tcUtils.stopSaveFileQueue();
+
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
+    quit("OK");
   }
   catch(err){
     console.log(chalkError(MODULE_ID_PREFIX + " | *** MAIN ERROR: " + err));
