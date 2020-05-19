@@ -1,7 +1,7 @@
 const MODULE_NAME = "generateTrainingSet";
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 2;
 const DEFAULT_MAX_SAVE_FILE_QUEUE = 1000;
-const DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD = 5;
+// const DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD = 5;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
@@ -261,7 +261,7 @@ while(sum < TOTAL_MAX_TEST_COUNT){
 configuration.maxHistogramValue = DEFAULT_MAX_HISTOGRAM_VALUE;
 configuration.slackChannel = {};
 // configuration.archiveUserQueueIntervalPeriod = DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
-configuration.waitCursorInterval = DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD;
+// configuration.waitCursorInterval = DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD;
 
 let defaultConfiguration = {}; // general configuration for GTS
 let hostConfiguration = {}; // host-specific configuration for GTS
