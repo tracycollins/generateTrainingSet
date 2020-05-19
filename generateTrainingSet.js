@@ -1521,7 +1521,7 @@ async function cursorDataHandler(user){
         + " | --- EMPTY HISTOGRAMS"
         + " | SKIPPING"
         + " | PRCSD/REM/MT/ERR/TOT: " 
-        + statsObj.usersAppendedToArchive 
+        + statsObj.users.processed.total 
         + "/" + statsObj.users.processed.remain 
         + "/" + statsObj.users.processed.empty 
         + "/" + statsObj.users.processed.errors
@@ -2165,8 +2165,8 @@ setTimeout(async function(){
     configuration = await initialize(configuration);
     await tcUtils.initSaveFileQueue({interval: 20});
 
-    initSlackRtmClient();
-    initSlackWebClient();
+    // initSlackRtmClient();
+    // initSlackWebClient();
 
     await generateGlobalTrainingTestSet();
 
