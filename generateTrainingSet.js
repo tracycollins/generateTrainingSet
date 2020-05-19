@@ -1098,11 +1098,12 @@ async function clampHistogram(params){
 
     for (const entity of entities){
 
-      if (entity.startsWith("[")){
+      if (entity.startsWith("[") || typeof entity !== "string"){
         console.log(chalkError(MODULE_ID_PREFIX + " | *** ENITY ERROR ... SKIPPING"
           + " | TYPE: " + type
           + " | USER: " + params.screenName
           + " | ENITY: " + entity
+          + " | typeof ENITY: " + typeof entity
           + " | params.histogram[type][entity]: " + params.histogram[type][entity]
         ));
       }
@@ -1458,6 +1459,27 @@ categorizedUsers.left = 0;
 categorizedUsers.neutral = 0;
 categorizedUsers.right = 0;
 
+
+function waitValue(params){
+
+  return new Promise(function(resolve){
+
+    if (statsObj.saveFileQueue < 100){ resolve(); }
+
+      const interval = setInterval(function(){
+
+        statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
+
+        if (statsObj.saveFileQueue < 100){
+          clearInterval(interval);
+          resolve();
+        }
+      }, 100);
+
+  });
+
+}
+
 async function cursorDataHandler(user){
 
   if (!user.screenName){
@@ -1532,6 +1554,8 @@ async function cursorDataHandler(user){
       + " | R: " + categorizedUsers.right
     ));
   }
+
+  await waitValue();
 
   return;
 }
