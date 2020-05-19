@@ -1464,17 +1464,19 @@ function waitValue(params){
 
   return new Promise(function(resolve){
 
-    if (statsObj.saveFileQueue < 100){ resolve(); }
+    if (statsObj.saveFileQueue < 100){ 
+      resolve(); 
+    }
 
-      const interval = setInterval(function(){
+    const interval = setInterval(function(){
 
-        statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
+      statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
 
-        if (statsObj.saveFileQueue < 100){
-          clearInterval(interval);
-          resolve();
-        }
-      }, 100);
+      if (statsObj.saveFileQueue < 100){
+        clearInterval(interval);
+        resolve();
+      }
+    }, 100);
 
   });
 
