@@ -1476,6 +1476,7 @@ function waitValue(params){
         clearInterval(interval);
         resolve();
       }
+      
     }, 100);
 
   });
