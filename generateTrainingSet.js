@@ -1603,10 +1603,10 @@ async function categoryCursorStream(params){
   let cursor;
 
   if (configuration.testMode) {
-    cursor = global.wordAssoDb.User.find(params.query, {timeout: false}).lean().batchSize(batchSize).limit(maxArchivedCount).cursor();
+    cursor = global.wordAssoDb.User.find(params.query, {timeout: false}).lean().batchSize(batchSize).limit(maxArchivedCount).cursor().addCursorFlag("noCursorTimeout", true);
   }
   else{
-    cursor = global.wordAssoDb.User.find(params.query, {timeout: false}).lean().batchSize(batchSize).cursor();
+    cursor = global.wordAssoDb.User.find(params.query, {timeout: false}).lean().batchSize(batchSize).cursor().addCursorFlag("noCursorTimeout", true);
   }
 
   cursor.on("end", function() {
