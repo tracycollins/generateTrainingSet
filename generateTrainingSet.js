@@ -1504,8 +1504,7 @@ async function cursorDataHandler(user){
     statsObj.saveFileQueue = tcUtils.saveFileQueue({
       folder: folder,
       file: file,
-      obj: catUser, 
-      verbose: configuration.verbose
+      obj: catUser
     });
 
     categorizedUsers[catUser.category] += 1;
@@ -1517,8 +1516,7 @@ async function cursorDataHandler(user){
     statsObj.saveFileQueue = tcUtils.saveFileQueue({
       folder: folder,
       file: file,
-      obj: catUser, 
-      verbose: configuration.verbose
+      obj: catUser
     });
 
     categorizedUsers[catUser.category] += 1;
