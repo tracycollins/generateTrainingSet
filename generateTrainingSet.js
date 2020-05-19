@@ -1476,7 +1476,7 @@ function waitValue(params){
         clearInterval(interval);
         resolve();
       }
-      
+
     }, 100);
 
   });
@@ -2143,7 +2143,7 @@ setTimeout(async function(){
     }, ONE_MINUTE);
 
     configuration = await initialize(configuration);
-    await tcUtils.initSaveFileQueue({interval: 100});
+    await tcUtils.initSaveFileQueue({interval: 20});
 
     initSlackRtmClient();
     initSlackWebClient();
