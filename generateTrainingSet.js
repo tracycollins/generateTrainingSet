@@ -1,4 +1,5 @@
 const MODULE_NAME = "generateTrainingSet";
+const DEFAULT_CURSOR_PARALLEL = 16;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 2;
 const DEFAULT_MAX_SAVE_FILE_QUEUE = 1000;
 // const DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD = 5;
@@ -238,6 +239,7 @@ process.on("unhandledRejection", function(err, promise) {
 });
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
+configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
 configuration.reSaveUserDocsFlag = DEFAULT_RESAVE_USER_DOCS_FLAG;
 configuration.batchSize = DEFAULT_BATCH_SIZE;
 configuration.saveFileQueueInterval = DEFAULT_SAVE_FILE_QUEUE_INTERVAL;
@@ -1639,7 +1641,7 @@ async function categoryCursorStream(params){
         + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
       ));
     }
-  }, {parallel: 10});
+  }, {parallel: configuration.cursorParallel});
 
   console.log(chalkBlue(MODULE_ID_PREFIX
     + " | CATEGORIZED: " + statsObj.categorizedCount
