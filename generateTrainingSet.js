@@ -2105,7 +2105,7 @@ async function generateGlobalTrainingTestSet(){
 
     const query = { 
       "$and": [
-        { "screenName": { "$nin": [false, null] } }, 
+        // { "screenName": { "$nin": [false, null] } }, 
         { "ignored": { "$nin": [true, "true"] } }, 
         { "category": category }
       ]
