@@ -1104,13 +1104,20 @@ async function clampHistogram(params){
     for (const entity of entities){
 
       if (entity.startsWith("[") || typeof entity !== "string"){
-        console.log(chalkError(MODULE_ID_PREFIX + " | *** ENITY ERROR ... SKIPPING"
+        console.log(chalkError(MODULE_ID_PREFIX + " | *** ENITY ERROR"
           + " | TYPE: " + type
-          + " | USER: " + params.screenName
+          + " | NID: " + params.nodeId
+          + " | @" + params.screenName
           + " | ENITY: " + entity
           + " | typeof ENITY: " + typeof entity
           + " | params.histogram[type][entity]: " + params.histogram[type][entity]
         ));
+
+        if (type === "hashtag" && entity.startsWith("[#")){
+          const newEntity = entity.slice(1);
+          // if (histogram[type][newEntity] === undefined) { histogram[type][newEntity] = 1; }
+          histogram[type][newEntity] = Math.min(maxValue, params.histogram[type][entity]) || 1;
+        }
       }
       else{
 
@@ -1594,7 +1601,7 @@ async function categoryCursorStream(params){
   }
 
   cursor.on("end", function() {
-    console.log(chalkInfo(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
     return;
   });
 
@@ -1604,7 +1611,7 @@ async function categoryCursorStream(params){
   });
 
   cursor.on("close", function() {
-    console.log(chalkInfo(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
     return;
   });
 
@@ -1618,7 +1625,6 @@ async function categoryCursorStream(params){
         + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
       ));
     }
-
   });
 
   console.log(chalkBlue(MODULE_ID_PREFIX
