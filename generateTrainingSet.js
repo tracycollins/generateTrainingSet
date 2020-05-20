@@ -239,6 +239,7 @@ process.on("unhandledRejection", function(err, promise) {
 });
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
+configuration.maxParallel = 8;
 configuration.categoryCursorInterval = DEFAULT_QUEUE_INTERVAL;
 configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
 configuration.reSaveUserDocsFlag = DEFAULT_RESAVE_USER_DOCS_FLAG;
@@ -1512,7 +1513,9 @@ function waitValue(){
 
 }
 
-async function cursorDataHandler(user){
+async function cursorDataHandler(nodeId){
+
+  const user = await global.wordAssoDb.User.findOne({nodeId: nodeId}).lean();
 
   if (!user.screenName){
     console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + tcUtils.jsonPrint(user)));
@@ -1675,6 +1678,7 @@ function categoryCursorStream(params){
   return new Promise(function(resolve, reject){
 
     const interval = params.interval || configuration.categoryCursorInterval;
+    const maxParallel = params.maxParallel || configuration.maxParallel;
     const batchSize = params.batchSize || configuration.batchSize;
     const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
     const reSaveUserDocsFlag = params.reSaveUserDocsFlag || false;
@@ -1762,8 +1766,6 @@ function categoryCursorStream(params){
 
       categorizedUserIds.push(user.nodeId);
 
-      // await cursorDataHandler(user);
-
       if (configuration.testMode && (statsObj.categorizedCount >= maxArchivedCount)) {
         console.log(chalkInfo(MODULE_ID_PREFIX
           + " | CATEGORIZED: " + statsObj.categorizedCount
@@ -1802,14 +1804,35 @@ function categoryCursorStream(params){
 
         categorizedUserIdIntervalReady = false;
 
-        const nodeId = categorizedUserIds.shift();
+        if (categorizedUserIds.length > maxParallel){
 
-        const user = await global.wordAssoDb.User.findOne({nodeId: nodeId}).lean();
+          const nodeIdArray = [];
 
-        await cursorDataHandler(user);
+          for(let i=0; i<maxParallel; i++){
+            const nId = categorizedUserIds.shift();
+            nodeIdArray.push(nId);
+          }
 
-        categorizedUserIdIntervalReady = true;
+          Promise.all(nodeIdArray.map(async function(nodeId){
+            await cursorDataHandler(nodeId);
+          }));
 
+          if (params.verbose || configuration.verbose){
+            console.log(chalkBlue(
+              MODULE_ID_PREFIX 
+              + " | cursorDataHandler | MAX PARALLEL: " + maxParallel
+              + " [Q: " + categorizedUserIds.length + "] " 
+            ));
+          }
+
+          categorizedUserIdIntervalReady = true;
+
+        }
+        else{
+          const nodeId = categorizedUserIds.shift();
+          await cursorDataHandler(nodeId);
+          categorizedUserIdIntervalReady = true;
+        }
       }
 
     }, interval);
