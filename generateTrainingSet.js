@@ -1165,10 +1165,10 @@ async function updateUserAndMaxInputHashMap(params){
 
   const user = params.user;
 
-  const dbUpdateParams = {};
+  // const dbUpdateParams = {};
 
-  dbUpdateParams.profileHistograms = {};
-  dbUpdateParams.tweetHistograms = {};
+  // dbUpdateParams.profileHistograms = {};
+  // dbUpdateParams.tweetHistograms = {};
 
   user.profileHistograms = await clampHistogram({
     nodeId: params.user.nodeId, 
