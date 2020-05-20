@@ -1750,7 +1750,7 @@ function categoryCursorStream(params){
       resolve();
     });
 
-    cursor.eachAsync(async function(user){
+    cursor.on("data", async function(user){
 
       await cursorDataHandler(user);
 
@@ -1760,7 +1760,7 @@ function categoryCursorStream(params){
           + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
         ));
       }
-    }, {parallel: configuration.cursorParallel});
+    });
 
     // console.log(chalkBlue(MODULE_ID_PREFIX
     //   + " | CATEGORIZED: " + statsObj.categorizedCount
