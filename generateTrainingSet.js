@@ -1674,7 +1674,7 @@ function categoryCursorStream(params){
 
   return new Promise(function(resolve, reject){
 
-    // const interval = params.interval || configuration.categoryCursorInterval;
+    const interval = params.interval || configuration.categoryCursorInterval;
     const batchSize = params.batchSize || configuration.batchSize;
     const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
     const reSaveUserDocsFlag = params.reSaveUserDocsFlag || false;
@@ -1685,11 +1685,16 @@ function categoryCursorStream(params){
 
     statsObj.categorizedCount = 0;
 
+    let categorizedUserIdInterval;
+    let categorizedUserIdIntervalReady = true;
+    const categorizedUserIds = [];
+
     let cursor;
 
     if (configuration.testMode) {
       cursor = global.wordAssoDb.User
         .find(params.query)
+        .select({nodeId: 1})
         .batchSize(batchSize)
         .limit(maxArchivedCount)
         .lean()
@@ -1698,6 +1703,7 @@ function categoryCursorStream(params){
     else{
       cursor = global.wordAssoDb.User
         .find(params.query)
+        .select({nodeId: 1})
         .batchSize(batchSize)
         .lean()
         .cursor();
@@ -1721,11 +1727,12 @@ function categoryCursorStream(params){
         + "/" + statsObj.users.processed.errors 
         + "/" + statsObj.users.grandTotal
       ));
-      resolve();
+      // resolve();
     });
 
     cursor.on("error", function(err) {
       console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
+      clearInterval(categorizedUserIdInterval);
       return reject(err);
     });
 
@@ -1747,12 +1754,14 @@ function categoryCursorStream(params){
         + "/" + statsObj.users.processed.errors 
         + "/" + statsObj.users.grandTotal
       ));
-      resolve();
+      // resolve();
     });
 
     cursor.on("data", async function(user){
 
-      await cursorDataHandler(user);
+      categorizedUserIds.push(user.nodeId);
+
+      // await cursorDataHandler(user);
 
       if (configuration.testMode && (statsObj.categorizedCount >= maxArchivedCount)) {
         console.log(chalkInfo(MODULE_ID_PREFIX
@@ -1761,6 +1770,46 @@ function categoryCursorStream(params){
         ));
       }
     });
+
+    categorizedUserIdInterval = setInterval(async function(){
+
+      if (categorizedUserIdIntervalReady && categorizedUserIds.length === 0 && cursor.isClosed){
+        clearInterval(categorizedUserIdInterval);
+
+        console.log(chalkBlue(MODULE_ID_PREFIX
+          + " | CATEGORIZED: " + statsObj.categorizedCount
+          + " | L: " + categorizedUsers.left
+          + " | N: " + categorizedUsers.neutral
+          + " | R: " + categorizedUsers.right
+        ));
+
+        console.log(chalkBlue(MODULE_ID_PREFIX 
+          + " | CURSOR END"
+          + " | PRCSD/REM/MT/ERR/TOT: " 
+          + statsObj.usersAppendedToArchive 
+          + "/" + statsObj.users.processed.remain 
+          + "/" + statsObj.users.processed.empty 
+          + "/" + statsObj.users.processed.errors 
+          + "/" + statsObj.users.grandTotal
+        ));
+
+        resolve();
+      }
+      else if (categorizedUserIdIntervalReady && categorizedUserIds.length > 0){
+
+        categorizedUserIdIntervalReady = false;
+
+        const nodeId = categorizedUserIds.shift();
+
+        const user = await global.wordAssoDb.User.findOne({nodeId: nodeId}).lean();
+
+        await cursorDataHandler(user);
+
+        categorizedUserIdIntervalReady = true;
+
+      }
+
+    }, interval);
 
     // console.log(chalkBlue(MODULE_ID_PREFIX
     //   + " | CATEGORIZED: " + statsObj.categorizedCount
