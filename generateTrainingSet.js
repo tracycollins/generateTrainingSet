@@ -1451,7 +1451,7 @@ async function categorizeUser(params){
 
     userIndex += 1;
 
-    // await tcUtils.updateGlobalHistograms({user: user});
+    await tcUtils.updateGlobalHistograms({user: user});
 
     const subUser = pick(
       user,
@@ -1721,7 +1721,7 @@ function categoryCursorStream(params){
       console.log(chalkBlue(MODULE_ID_PREFIX 
         + " | CURSOR ASYNC END"
         + " | PRCSD/REM/MT/ERR/TOT: " 
-        + statsObj.usersAppendedToArchive 
+        + statsObj.users.processed.total
         + "/" + statsObj.users.processed.remain 
         + "/" + statsObj.users.processed.empty 
         + "/" + statsObj.users.processed.errors 
@@ -1747,8 +1747,9 @@ function categoryCursorStream(params){
 
       console.log(chalkBlue(MODULE_ID_PREFIX 
         + " | CURSOR ASYNC END"
+        + " [ CUIDs: " + categorizedUserIds.length+ "]"
         + " | PRCSD/REM/MT/ERR/TOT: " 
-        + statsObj.usersAppendedToArchive 
+        + statsObj.users.processed.total 
         + "/" + statsObj.users.processed.remain 
         + "/" + statsObj.users.processed.empty 
         + "/" + statsObj.users.processed.errors 
@@ -1766,6 +1767,7 @@ function categoryCursorStream(params){
       if (configuration.testMode && (statsObj.categorizedCount >= maxArchivedCount)) {
         console.log(chalkInfo(MODULE_ID_PREFIX
           + " | CATEGORIZED: " + statsObj.categorizedCount
+          + " [ CUIDs: " + categorizedUserIds.length+ "]"
           + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
         ));
       }
@@ -1778,6 +1780,7 @@ function categoryCursorStream(params){
 
         console.log(chalkBlue(MODULE_ID_PREFIX
           + " | CATEGORIZED: " + statsObj.categorizedCount
+          + " [ CUIDs: " + categorizedUserIds.length+ "]"
           + " | L: " + categorizedUsers.left
           + " | N: " + categorizedUsers.neutral
           + " | R: " + categorizedUsers.right
