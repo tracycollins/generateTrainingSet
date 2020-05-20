@@ -1451,7 +1451,7 @@ async function categorizeUser(params){
 
     userIndex += 1;
 
-    await tcUtils.updateGlobalHistograms({user: user});
+    // await tcUtils.updateGlobalHistograms({user: user});
 
     const subUser = pick(
       user,
