@@ -2049,7 +2049,10 @@ setTimeout(async function(){
     }, ONE_MINUTE);
 
     configuration = await initialize(configuration);
-    await tcUtils.initSaveFileQueue({interval: configuration.saveFileQueueInterval});
+    await tcUtils.initSaveFileQueue({
+      interval: configuration.saveFileQueueInterval,
+      saveFileMaxParallel: 32
+    });
 
     // initSlackRtmClient();
     // initSlackWebClient();
