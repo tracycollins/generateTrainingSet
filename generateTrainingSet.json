@@ -4,7 +4,7 @@
     "name": "gts",
     "script": "generateTrainingSet.js",
     "cwd": "/home/tc/generateTrainingSet",
-    "node_args": "--max-old-space-size=65356",
+    "node_args": "--max-old-space-size=131072",
     "autorestart": false,
     "env": {
       "PRIMARY_HOST": "mms3",
