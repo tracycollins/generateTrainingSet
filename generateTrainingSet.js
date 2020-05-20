@@ -1,6 +1,6 @@
 const MODULE_NAME = "generateTrainingSet";
 const DEFAULT_MAX_PARALLEL = 16;
-// const DEFAULT_CURSOR_PARALLEL = 16;
+const DEFAULT_CURSOR_PARALLEL = 16;
 const DEFAULT_QUEUE_INTERVAL = 2;
 const DEFAULT_MAX_SAVE_FILE_QUEUE = 1000;
 // const DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD = 5;
@@ -242,7 +242,7 @@ process.on("unhandledRejection", function(err, promise) {
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 configuration.maxParallel = DEFAULT_MAX_PARALLEL;
 configuration.categoryCursorInterval = DEFAULT_QUEUE_INTERVAL;
-// configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
+configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
 configuration.reSaveUserDocsFlag = DEFAULT_RESAVE_USER_DOCS_FLAG;
 configuration.batchSize = DEFAULT_BATCH_SIZE;
 configuration.saveFileQueueInterval = DEFAULT_QUEUE_INTERVAL;
@@ -1519,9 +1519,9 @@ function waitValue(){
 
 }
 
-async function cursorDataHandler(nodeId){
+async function cursorDataHandler(user){
 
-  const user = await global.wordAssoDb.User.findOne({nodeId: nodeId}).lean();
+  // const user = await global.wordAssoDb.User.findOne({nodeId: nodeId}).lean();
 
   if (!user.screenName){
     console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + tcUtils.jsonPrint(user)));
@@ -1601,267 +1601,267 @@ async function cursorDataHandler(nodeId){
   return;
 }
 
-// async function categoryCursorStream(params){
+async function categoryCursorStream(params){
 
-//   statsObj.categorizedCount = 0;
+  statsObj.categorizedCount = 0;
 
-//   const batchSize = params.batchSize || configuration.batchSize;
-//   const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
+  const batchSize = params.batchSize || configuration.batchSize;
+  const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
 
-//   const reSaveUserDocsFlag = params.reSaveUserDocsFlag || false;
+  const reSaveUserDocsFlag = params.reSaveUserDocsFlag || false;
 
-//   if (reSaveUserDocsFlag) {
-//     console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
-//   }
+  if (reSaveUserDocsFlag) {
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
+  }
 
-//   let cursor;
+  let cursor;
 
-//   if (configuration.testMode) {
-//     cursor = global.wordAssoDb.User
-//       .find(params.query)
-//       .batchSize(batchSize)
-//       .limit(maxArchivedCount)
-//       .lean()
-//       .cursor();
-//   }
-//   else{
-//     cursor = global.wordAssoDb.User
-//       .find(params.query)
-//       .batchSize(batchSize)
-//       .lean()
-//       .cursor();
-//   }
+  if (configuration.testMode) {
+    cursor = global.wordAssoDb.User
+      .find(params.query)
+      .batchSize(batchSize)
+      .limit(maxArchivedCount)
+      .lean()
+      .cursor();
+  }
+  else{
+    cursor = global.wordAssoDb.User
+      .find(params.query)
+      .batchSize(batchSize)
+      .lean()
+      .cursor();
+  }
 
-//   cursor.on("end", function() {
-//     console.log(chalkAlert(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
-//     return;
-//   });
-
-//   cursor.on("error", function(err) {
-//     console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
-//     throw err;
-//   });
-
-//   cursor.on("close", function() {
-//     console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
-//     return;
-//   });
-
-//   await cursor.eachAsync(async function(user){
-
-//     await cursorDataHandler(user);
-
-//     if (configuration.testMode && (statsObj.categorizedCount >= maxArchivedCount)) {
-//       console.log(chalkInfo(MODULE_ID_PREFIX
-//         + " | CATEGORIZED: " + statsObj.categorizedCount
-//         + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
-//       ));
-//     }
-//   }, {parallel: configuration.cursorParallel});
-
-//   console.log(chalkBlue(MODULE_ID_PREFIX
-//     + " | CATEGORIZED: " + statsObj.categorizedCount
-//     + " | L: " + categorizedUsers.left
-//     + " | N: " + categorizedUsers.neutral
-//     + " | R: " + categorizedUsers.right
-//   ));
-
-//   console.log(chalkBlue(MODULE_ID_PREFIX 
-//     + " | CURSOR ASYNC END"
-//     + " | PRCSD/REM/MT/ERR/TOT: " 
-//     + statsObj.usersAppendedToArchive 
-//     + "/" + statsObj.users.processed.remain 
-//     + "/" + statsObj.users.processed.empty 
-//     + "/" + statsObj.users.processed.errors 
-//     + "/" + statsObj.users.grandTotal
-//   ));
-
-//   return;
-// }
-
-function categoryCursorStream(params){
-
-  return new Promise(function(resolve, reject){
-
-    const interval = params.interval || configuration.categoryCursorInterval;
-    const maxParallel = params.maxParallel || configuration.maxParallel;
-    const batchSize = params.batchSize || configuration.batchSize;
-    const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
-    const reSaveUserDocsFlag = params.reSaveUserDocsFlag || false;
-
-    if (reSaveUserDocsFlag) {
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
-    }
-
-    statsObj.categorizedCount = 0;
-
-    let categorizedUserIdInterval;
-    let categorizedUserIdIntervalReady = true;
-    const categorizedUserIds = [];
-
-    let cursor;
-
-    if (configuration.testMode) {
-      cursor = global.wordAssoDb.User
-        .find(params.query)
-        .select({nodeId: 1})
-        .batchSize(batchSize)
-        .limit(maxArchivedCount)
-        .lean()
-        .cursor();
-    }
-    else{
-      cursor = global.wordAssoDb.User
-        .find(params.query)
-        .select({nodeId: 1})
-        .batchSize(batchSize)
-        .lean()
-        .cursor();
-    }
-
-    cursor.on("end", function() {
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
-      console.log(chalkBlue(MODULE_ID_PREFIX
-        + " | CATEGORIZED: " + statsObj.categorizedCount
-        + " | L: " + categorizedUsers.left
-        + " | N: " + categorizedUsers.neutral
-        + " | R: " + categorizedUsers.right
-      ));
-
-      console.log(chalkBlue(MODULE_ID_PREFIX 
-        + " | CURSOR ASYNC END"
-        + " | PRCSD/REM/MT/ERR/TOT: " 
-        + statsObj.users.processed.total
-        + "/" + statsObj.users.processed.remain 
-        + "/" + statsObj.users.processed.empty 
-        + "/" + statsObj.users.processed.errors 
-        + "/" + statsObj.users.grandTotal
-      ));
-      // resolve();
-    });
-
-    cursor.on("error", function(err) {
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
-      clearInterval(categorizedUserIdInterval);
-      return reject(err);
-    });
-
-    cursor.on("close", function() {
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
-      console.log(chalkBlue(MODULE_ID_PREFIX
-        + " | CATEGORIZED: " + statsObj.categorizedCount
-        + " | L: " + categorizedUsers.left
-        + " | N: " + categorizedUsers.neutral
-        + " | R: " + categorizedUsers.right
-      ));
-
-      console.log(chalkBlue(MODULE_ID_PREFIX 
-        + " | CURSOR ASYNC END"
-        + " [ CUIDs: " + categorizedUserIds.length+ "]"
-        + " | PRCSD/REM/MT/ERR/TOT: " 
-        + statsObj.users.processed.total 
-        + "/" + statsObj.users.processed.remain 
-        + "/" + statsObj.users.processed.empty 
-        + "/" + statsObj.users.processed.errors 
-        + "/" + statsObj.users.grandTotal
-      ));
-      // resolve();
-    });
-
-    cursor.on("data", async function(user){
-
-      categorizedUserIds.push(user.nodeId);
-
-      if (configuration.testMode && (statsObj.categorizedCount >= maxArchivedCount)) {
-        console.log(chalkInfo(MODULE_ID_PREFIX
-          + " | CATEGORIZED: " + statsObj.categorizedCount
-          + " [ CUIDs: " + categorizedUserIds.length+ "]"
-          + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
-        ));
-      }
-    });
-
-    categorizedUserIdInterval = setInterval(async function(){
-
-      if (categorizedUserIdIntervalReady && categorizedUserIds.length === 0 && cursor.isClosed){
-        clearInterval(categorizedUserIdInterval);
-
-        console.log(chalkBlue(MODULE_ID_PREFIX
-          + " | CATEGORIZED: " + statsObj.categorizedCount
-          + " [ CUIDs: " + categorizedUserIds.length+ "]"
-          + " | L: " + categorizedUsers.left
-          + " | N: " + categorizedUsers.neutral
-          + " | R: " + categorizedUsers.right
-        ));
-
-        console.log(chalkBlue(MODULE_ID_PREFIX 
-          + " | CURSOR END"
-          + " | PRCSD/REM/MT/ERR/TOT: " 
-          + statsObj.usersAppendedToArchive 
-          + "/" + statsObj.users.processed.remain 
-          + "/" + statsObj.users.processed.empty 
-          + "/" + statsObj.users.processed.errors 
-          + "/" + statsObj.users.grandTotal
-        ));
-
-        resolve();
-      }
-      else if (categorizedUserIdIntervalReady && categorizedUserIds.length > 0){
-
-        categorizedUserIdIntervalReady = false;
-
-        if (categorizedUserIds.length > maxParallel){
-
-          const nodeIdArray = [];
-
-          for(let i=0;i<maxParallel;i++){
-            const nId = categorizedUserIds.shift();
-            nodeIdArray.push(nId);
-          }
-
-          Promise.all(nodeIdArray.map(async function(nodeId){
-            await cursorDataHandler(nodeId);
-          }));
-
-          if (params.verbose || configuration.verbose){
-            console.log(chalkBlue(
-              MODULE_ID_PREFIX 
-              + " | cursorDataHandler | MAX PARALLEL: " + maxParallel
-              + " [Q: " + categorizedUserIds.length + "] " 
-            ));
-          }
-
-          categorizedUserIdIntervalReady = true;
-
-        }
-        else{
-          const nodeId = categorizedUserIds.shift();
-          await cursorDataHandler(nodeId);
-          categorizedUserIdIntervalReady = true;
-        }
-      }
-
-    }, interval);
-
-    // console.log(chalkBlue(MODULE_ID_PREFIX
-    //   + " | CATEGORIZED: " + statsObj.categorizedCount
-    //   + " | L: " + categorizedUsers.left
-    //   + " | N: " + categorizedUsers.neutral
-    //   + " | R: " + categorizedUsers.right
-    // ));
-
-    // console.log(chalkBlue(MODULE_ID_PREFIX 
-    //   + " | CURSOR ASYNC END"
-    //   + " | PRCSD/REM/MT/ERR/TOT: " 
-    //   + statsObj.usersAppendedToArchive 
-    //   + "/" + statsObj.users.processed.remain 
-    //   + "/" + statsObj.users.processed.empty 
-    //   + "/" + statsObj.users.processed.errors 
-    //   + "/" + statsObj.users.grandTotal
-    // ));
-
+  cursor.on("end", function() {
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
+    return;
   });
+
+  cursor.on("error", function(err) {
+    console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
+    throw err;
+  });
+
+  cursor.on("close", function() {
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
+    return;
+  });
+
+  await cursor.eachAsync(async function(user){
+
+    await cursorDataHandler(user);
+
+    if (configuration.testMode && (statsObj.categorizedCount >= maxArchivedCount)) {
+      console.log(chalkInfo(MODULE_ID_PREFIX
+        + " | CATEGORIZED: " + statsObj.categorizedCount
+        + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
+      ));
+    }
+  }, {parallel: configuration.cursorParallel});
+
+  console.log(chalkBlue(MODULE_ID_PREFIX
+    + " | CATEGORIZED: " + statsObj.categorizedCount
+    + " | L: " + categorizedUsers.left
+    + " | N: " + categorizedUsers.neutral
+    + " | R: " + categorizedUsers.right
+  ));
+
+  console.log(chalkBlue(MODULE_ID_PREFIX 
+    + " | CURSOR ASYNC END"
+    + " | PRCSD/REM/MT/ERR/TOT: " 
+    + statsObj.usersAppendedToArchive 
+    + "/" + statsObj.users.processed.remain 
+    + "/" + statsObj.users.processed.empty 
+    + "/" + statsObj.users.processed.errors 
+    + "/" + statsObj.users.grandTotal
+  ));
+
+  return;
 }
+
+// function categoryCursorStream(params){
+
+//   return new Promise(function(resolve, reject){
+
+//     const interval = params.interval || configuration.categoryCursorInterval;
+//     const maxParallel = params.maxParallel || configuration.maxParallel;
+//     const batchSize = params.batchSize || configuration.batchSize;
+//     const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
+//     const reSaveUserDocsFlag = params.reSaveUserDocsFlag || false;
+
+//     if (reSaveUserDocsFlag) {
+//       console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
+//     }
+
+//     statsObj.categorizedCount = 0;
+
+//     let categorizedUserIdInterval;
+//     let categorizedUserIdIntervalReady = true;
+//     const categorizedUserIds = [];
+
+//     let cursor;
+
+//     if (configuration.testMode) {
+//       cursor = global.wordAssoDb.User
+//         .find(params.query)
+//         .select({nodeId: 1})
+//         .batchSize(batchSize)
+//         .limit(maxArchivedCount)
+//         .lean()
+//         .cursor();
+//     }
+//     else{
+//       cursor = global.wordAssoDb.User
+//         .find(params.query)
+//         .select({nodeId: 1})
+//         .batchSize(batchSize)
+//         .lean()
+//         .cursor();
+//     }
+
+//     cursor.on("end", function() {
+//       console.log(chalkAlert(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
+//       console.log(chalkBlue(MODULE_ID_PREFIX
+//         + " | CATEGORIZED: " + statsObj.categorizedCount
+//         + " | L: " + categorizedUsers.left
+//         + " | N: " + categorizedUsers.neutral
+//         + " | R: " + categorizedUsers.right
+//       ));
+
+//       console.log(chalkBlue(MODULE_ID_PREFIX 
+//         + " | CURSOR ASYNC END"
+//         + " | PRCSD/REM/MT/ERR/TOT: " 
+//         + statsObj.users.processed.total
+//         + "/" + statsObj.users.processed.remain 
+//         + "/" + statsObj.users.processed.empty 
+//         + "/" + statsObj.users.processed.errors 
+//         + "/" + statsObj.users.grandTotal
+//       ));
+//       // resolve();
+//     });
+
+//     cursor.on("error", function(err) {
+//       console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
+//       clearInterval(categorizedUserIdInterval);
+//       return reject(err);
+//     });
+
+//     cursor.on("close", function() {
+//       console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
+//       console.log(chalkBlue(MODULE_ID_PREFIX
+//         + " | CATEGORIZED: " + statsObj.categorizedCount
+//         + " | L: " + categorizedUsers.left
+//         + " | N: " + categorizedUsers.neutral
+//         + " | R: " + categorizedUsers.right
+//       ));
+
+//       console.log(chalkBlue(MODULE_ID_PREFIX 
+//         + " | CURSOR ASYNC END"
+//         + " [ CUIDs: " + categorizedUserIds.length+ "]"
+//         + " | PRCSD/REM/MT/ERR/TOT: " 
+//         + statsObj.users.processed.total 
+//         + "/" + statsObj.users.processed.remain 
+//         + "/" + statsObj.users.processed.empty 
+//         + "/" + statsObj.users.processed.errors 
+//         + "/" + statsObj.users.grandTotal
+//       ));
+//       // resolve();
+//     });
+
+//     cursor.on("data", async function(user){
+
+//       categorizedUserIds.push(user.nodeId);
+
+//       if (configuration.testMode && (statsObj.categorizedCount >= maxArchivedCount)) {
+//         console.log(chalkInfo(MODULE_ID_PREFIX
+//           + " | CATEGORIZED: " + statsObj.categorizedCount
+//           + " [ CUIDs: " + categorizedUserIds.length+ "]"
+//           + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
+//         ));
+//       }
+//     });
+
+//     categorizedUserIdInterval = setInterval(async function(){
+
+//       if (categorizedUserIdIntervalReady && categorizedUserIds.length === 0 && cursor.isClosed){
+//         clearInterval(categorizedUserIdInterval);
+
+//         console.log(chalkBlue(MODULE_ID_PREFIX
+//           + " | CATEGORIZED: " + statsObj.categorizedCount
+//           + " [ CUIDs: " + categorizedUserIds.length+ "]"
+//           + " | L: " + categorizedUsers.left
+//           + " | N: " + categorizedUsers.neutral
+//           + " | R: " + categorizedUsers.right
+//         ));
+
+//         console.log(chalkBlue(MODULE_ID_PREFIX 
+//           + " | CURSOR END"
+//           + " | PRCSD/REM/MT/ERR/TOT: " 
+//           + statsObj.usersAppendedToArchive 
+//           + "/" + statsObj.users.processed.remain 
+//           + "/" + statsObj.users.processed.empty 
+//           + "/" + statsObj.users.processed.errors 
+//           + "/" + statsObj.users.grandTotal
+//         ));
+
+//         resolve();
+//       }
+//       else if (categorizedUserIdIntervalReady && categorizedUserIds.length > 0){
+
+//         categorizedUserIdIntervalReady = false;
+
+//         if (categorizedUserIds.length > maxParallel){
+
+//           const nodeIdArray = [];
+
+//           for(let i=0;i<maxParallel;i++){
+//             const nId = categorizedUserIds.shift();
+//             nodeIdArray.push(nId);
+//           }
+
+//           Promise.all(nodeIdArray.map(async function(nodeId){
+//             await cursorDataHandler(nodeId);
+//           }));
+
+//           if (params.verbose || configuration.verbose){
+//             console.log(chalkBlue(
+//               MODULE_ID_PREFIX 
+//               + " | cursorDataHandler | MAX PARALLEL: " + maxParallel
+//               + " [Q: " + categorizedUserIds.length + "] " 
+//             ));
+//           }
+
+//           categorizedUserIdIntervalReady = true;
+
+//         }
+//         else{
+//           const nodeId = categorizedUserIds.shift();
+//           await cursorDataHandler(nodeId);
+//           categorizedUserIdIntervalReady = true;
+//         }
+//       }
+
+//     }, interval);
+
+//     // console.log(chalkBlue(MODULE_ID_PREFIX
+//     //   + " | CATEGORIZED: " + statsObj.categorizedCount
+//     //   + " | L: " + categorizedUsers.left
+//     //   + " | N: " + categorizedUsers.neutral
+//     //   + " | R: " + categorizedUsers.right
+//     // ));
+
+//     // console.log(chalkBlue(MODULE_ID_PREFIX 
+//     //   + " | CURSOR ASYNC END"
+//     //   + " | PRCSD/REM/MT/ERR/TOT: " 
+//     //   + statsObj.usersAppendedToArchive 
+//     //   + "/" + statsObj.users.processed.remain 
+//     //   + "/" + statsObj.users.processed.empty 
+//     //   + "/" + statsObj.users.processed.errors 
+//     //   + "/" + statsObj.users.grandTotal
+//     // ));
+
+//   });
+// }
 
 let endSaveFileQueueInterval;
 
