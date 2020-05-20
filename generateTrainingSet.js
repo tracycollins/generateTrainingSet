@@ -1587,7 +1587,7 @@ async function cursorDataHandler(user){
     ));
   }
 
-  await waitValue();
+  // await waitValue();
 
   return;
 }
