@@ -28,7 +28,7 @@ hostname = hostname.replace(/word0-instance-1/g, "google");
 hostname = hostname.replace(/word-1/g, "google");
 hostname = hostname.replace(/word/g, "google");
 
-const PRIMARY_HOST = process.env.PRIMARY_HOST || "mms3";
+const PRIMARY_HOST = process.env.PRIMARY_HOST || "mms1";
 const HOST = (hostname === PRIMARY_HOST) ? "default" : "local";
 
 let TEMP_ROOT_FOLDER;
