@@ -1,6 +1,6 @@
 const MODULE_NAME = "generateTrainingSet";
-const DEFAULT_MAX_PARALLEL = 16;
-const DEFAULT_CURSOR_PARALLEL = 16;
+const DEFAULT_SAVE_FILE_MAX_PARALLEL = 32;
+const DEFAULT_CURSOR_PARALLEL = 32;
 const DEFAULT_QUEUE_INTERVAL = 2;
 const DEFAULT_MAX_SAVE_FILE_QUEUE = 1000;
 // const DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD = 5;
@@ -240,7 +240,7 @@ process.on("unhandledRejection", function(err, promise) {
 });
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
-configuration.maxParallel = DEFAULT_MAX_PARALLEL;
+configuration.saveFileMaxParallel = DEFAULT_SAVE_FILE_MAX_PARALLEL;
 configuration.categoryCursorInterval = DEFAULT_QUEUE_INTERVAL;
 configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
 configuration.reSaveUserDocsFlag = DEFAULT_RESAVE_USER_DOCS_FLAG;
@@ -723,6 +723,7 @@ debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_SECRET :" + configuration.DRO
 async function showStats(options){
 
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
+  statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
   statsObj.heap = process.memoryUsage().heapUsed/ONE_GIGABYTE;
   statsObj.maxHeap = Math.max(statsObj.maxHeap, statsObj.heap);
 
@@ -1513,7 +1514,7 @@ function waitValue(){
         resolve();
       }
 
-    }, 20);
+    }, ONE_SECOND);
 
   });
 
@@ -1563,7 +1564,7 @@ async function cursorDataHandler(user){
   const file = catUser.nodeId + ".json";
 
   if (!configuration.testMode){
-    // archiveUserQueue.push(catUser);
+
     statsObj.saveFileQueue = tcUtils.saveFileQueue({
       folder: folder,
       file: file,
@@ -1574,7 +1575,6 @@ async function cursorDataHandler(user){
     statsObj.categorizedCount += 1;
   }
   else if (configuration.testMode && (categorizedUsers[user.category] <= 0.333333*configuration.totalMaxTestCount)){
-    // archiveUserQueue.push(catUser);
 
     statsObj.saveFileQueue = tcUtils.saveFileQueue({
       folder: folder,
@@ -1584,16 +1584,6 @@ async function cursorDataHandler(user){
 
     categorizedUsers[catUser.category] += 1;
     statsObj.categorizedCount += 1;
-  }
-
-  if (statsObj.categorizedCount % 100 === 0){
-    console.log(chalkInfo(MODULE_ID_PREFIX
-      + " [ SFQ: " + statsObj.saveFileQueue + " ]"
-      + " | CATEGORIZED: " + statsObj.categorizedCount
-      + " | L: " + categorizedUsers.left
-      + " | N: " + categorizedUsers.neutral
-      + " | R: " + categorizedUsers.right
-    ));
   }
 
   await waitValue();
@@ -1657,6 +1647,7 @@ async function categoryCursorStream(params){
         + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
       ));
     }
+
   }, {parallel: configuration.cursorParallel});
 
   console.log(chalkBlue(MODULE_ID_PREFIX
@@ -2049,9 +2040,10 @@ setTimeout(async function(){
     }, ONE_MINUTE);
 
     configuration = await initialize(configuration);
+
     await tcUtils.initSaveFileQueue({
       interval: configuration.saveFileQueueInterval,
-      saveFileMaxParallel: 32
+      saveFileMaxParallel: configuration.saveFileMaxParallel
     });
 
     // initSlackRtmClient();
