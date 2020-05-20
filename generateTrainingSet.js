@@ -1500,7 +1500,7 @@ function waitValue(){
 
   return new Promise(function(resolve){
 
-    if (statsObj.saveFileQueue < 100){ 
+    if (statsObj.saveFileQueue < configuration.maxSaveFileQueue){ 
       resolve(); 
     }
 
