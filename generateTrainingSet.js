@@ -1,5 +1,6 @@
 const MODULE_NAME = "generateTrainingSet";
-const DEFAULT_CURSOR_PARALLEL = 16;
+const DEFAULT_MAX_PARALLEL = 16;
+// const DEFAULT_CURSOR_PARALLEL = 16;
 const DEFAULT_QUEUE_INTERVAL = 2;
 const DEFAULT_MAX_SAVE_FILE_QUEUE = 1000;
 // const DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD = 5;
@@ -239,9 +240,9 @@ process.on("unhandledRejection", function(err, promise) {
 });
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
-configuration.maxParallel = 8;
+configuration.maxParallel = DEFAULT_MAX_PARALLEL;
 configuration.categoryCursorInterval = DEFAULT_QUEUE_INTERVAL;
-configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
+// configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
 configuration.reSaveUserDocsFlag = DEFAULT_RESAVE_USER_DOCS_FLAG;
 configuration.batchSize = DEFAULT_BATCH_SIZE;
 configuration.saveFileQueueInterval = DEFAULT_QUEUE_INTERVAL;
@@ -1029,6 +1030,11 @@ async function loadConfigFile(params) {
       newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
     }
 
+    if (loadedConfigObj.GTS_MAX_PARALLEL !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_MAX_PARALLEL: " + loadedConfigObj.GTS_MAX_PARALLEL);
+      newConfiguration.maxParallel = loadedConfigObj.GTS_MAX_PARALLEL;
+    }
+
     if (loadedConfigObj.GTS_BATCH_SIZE !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_BATCH_SIZE: " + loadedConfigObj.GTS_BATCH_SIZE);
       newConfiguration.batchSize = loadedConfigObj.GTS_BATCH_SIZE;
@@ -1808,7 +1814,7 @@ function categoryCursorStream(params){
 
           const nodeIdArray = [];
 
-          for(let i=0; i<maxParallel; i++){
+          for(let i=0;i<maxParallel;i++){
             const nId = categorizedUserIds.shift();
             nodeIdArray.push(nId);
           }
