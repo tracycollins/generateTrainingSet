@@ -1502,6 +1502,8 @@ function waitValue(){
 
   return new Promise(function(resolve){
 
+    statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
+
     if (statsObj.saveFileQueue < 100){ 
       resolve(); 
     }
