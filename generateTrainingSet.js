@@ -2138,6 +2138,8 @@ setTimeout(async function(){
       console.log(chalkAlert(MODULE_ID_PREFIX + " | TEST MODE | USERS PER ARCHIVE: " + configuration.usersPerArchive));
     }
 
+    tcUtils.setSaveFileMaxParallel(8);
+    tcUtils.enableSaveFileMaxParallel(true);
     await tcUtils.initSaveFileQueue({interval: configuration.saveFileQueueInterval});
 
     // initSlackRtmClient();
