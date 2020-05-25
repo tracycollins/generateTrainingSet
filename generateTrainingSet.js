@@ -15,7 +15,7 @@ const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 const DEFAULT_BATCH_SIZE = 100;
 
-const TOTAL_MAX_TEST_COUNT = 1000;
+const TOTAL_MAX_TEST_COUNT = 100;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -1871,6 +1871,8 @@ async function updateArchiveFileUploadComplete(params){
 
   try{
 
+    fileSizeArrayObj.runId = statsObj.runId;
+
     const stats = fs.statSync(params.path);
     const fileSizeInBytes = stats.size;
     const savedSize = fileSizeInBytes/ONE_MEGABYTE;
@@ -1881,7 +1883,7 @@ async function updateArchiveFileUploadComplete(params){
     ));
 
     fileSizeArrayObj.files.push({
-      file: params.path,
+      path: params.path,
       size: fileSizeInBytes
     });
 
@@ -2150,9 +2152,17 @@ setTimeout(async function(){
 
     await generateGlobalTrainingTestSet();
 
+    const runSubFolder = path.join(configuration.userArchiveFolder, statsObj.runId);
+    fs.mkdirSync(runSubFolder, { recursive: true });
+
+    categorizedUserHistogramTotal();
+
+    fileSizeArrayObj.histograms = {};
+    fileSizeArrayObj.histograms = categorizedUserHistogram;
+
     for(const subFolderIndexString of [...subFolderSet] ){
       const folder = path.join(configuration.userTempArchiveFolder, "data", subFolderIndexString);
-      const archivePath = path.join(configuration.userArchiveFolder, "userArchive" + subFolderIndexString + ".zip");
+      const archivePath = path.join(runSubFolder, "userArchive" + subFolderIndexString + ".zip");
       await archiveFolder({folder: folder, archivePath: archivePath});
       await updateArchiveFileUploadComplete({path: archivePath});
     }
@@ -2176,8 +2186,13 @@ setTimeout(async function(){
 
     await tcUtils.saveGlobalHistograms({rootFolder: rootFolder, pruneFlag: true, inputTypeMinHash: inputTypeMinHash});
 
-    await delay({message: "... WAIT FOR FILE SAVE | " + configuration.trainingSetsFolder, period: ONE_MINUTE});
+    // await delay({message: "... WAIT FOR FILE SAVE | " + configuration.trainingSetsFolder, period: ONE_MINUTE});
 
+    //   file = file.replace(/users\.zip/, "users_test.zip");
+
+    if (configuration.testMode) {
+      configuration.archiveFileUploadCompleteFlagFile = configuration.archiveFileUploadCompleteFlagFile.replace(/\.json/, "_test.json");
+    }
     console.log(chalkInfo("TFE | ... SAVING FLAG FILE"
       + " | " + configuration.trainingSetsFolder + "/" + configuration.archiveFileUploadCompleteFlagFile
     ));
