@@ -15,7 +15,7 @@ const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 const DEFAULT_BATCH_SIZE = 100;
 
-const TOTAL_MAX_TEST_COUNT = 100;
+const TOTAL_MAX_TEST_COUNT = 1000;
 
 const os = require("os");
 let hostname = os.hostname();
