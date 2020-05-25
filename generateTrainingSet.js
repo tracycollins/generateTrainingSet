@@ -1517,7 +1517,7 @@ function waitValue(){
         resolve();
       }
 
-    }, 20);
+    }, 100);
 
   });
 
