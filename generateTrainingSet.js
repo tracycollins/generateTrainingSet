@@ -1,7 +1,8 @@
 const MODULE_NAME = "generateTrainingSet";
 
-const DEFAULT_SAVE_FILE_MAX_PARALLEL = 8;
+const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
 const DEFAULT_USERS_PER_ARCHIVE = 10000;
+const DEFAULT_BATCH_SIZE = 1000;
 const DEFAULT_CURSOR_PARALLEL = 16;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
 const DEFAULT_MAX_SAVE_FILE_QUEUE = 1000;
@@ -14,7 +15,6 @@ const DEFAULT_INPUT_TYPE_MIN_MEDIA = 3;
 const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
-const DEFAULT_BATCH_SIZE = 100;
 
 const TOTAL_MAX_TEST_COUNT = 1000;
 
@@ -1117,6 +1117,8 @@ async function clampHistogram(params){
 
   const histogram = {};
 
+  let modifiedFlag = false;
+
   for (const type of histogramTypes){
 
     histogram[type] = {};
@@ -1125,8 +1127,9 @@ async function clampHistogram(params){
 
     for (const entity of entities){
 
-
       if (entity.startsWith("[") || typeof entity !== "string"){
+
+        modifiedFlag = true;
 
         console.log(chalkAlert(MODULE_ID_PREFIX + " | *** ENTITY ERROR"
           + " | TYPE: " + type
@@ -1153,6 +1156,8 @@ async function clampHistogram(params){
 
         if (params.histogram[type][entity] > maxValue){
 
+          modifiedFlag = true;
+
           console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: " + maxValue
             + " | @" + params.screenName
             + " | TYPE: " + type
@@ -1161,15 +1166,31 @@ async function clampHistogram(params){
             + " | VALUE: " + params.histogram[type][entity]
           ));
 
+          histogram[type][entity] = maxValue;
+        }
+        else if (params.histogram[type][entity] <= 0){
+
+          modifiedFlag = true;
+
+          console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: 0"
+            + " | @" + params.screenName
+            + " | TYPE: " + type
+            + " | ENTITY: " + entity
+            + " | VALUE: " + params.histogram[type][entity]
+          ));
+
+          histogram[type][entity] = 1;
+        }
+        else{
+          histogram[type][entity] = params.histogram[type][entity];
         }
 
-        histogram[type][entity] = Math.min(maxValue, params.histogram[type][entity]) || 1;
       }
 
     }
   }
 
-  return histogram;
+  return { histogram: histogram, modifiedFlag: modifiedFlag };
 }
 
 configEvents.once("INIT_MONGODB", function(){
@@ -1185,19 +1206,43 @@ async function updateUserAndMaxInputHashMap(params){
   dbUpdateParams.profileHistograms = {};
   dbUpdateParams.tweetHistograms = {};
 
-  user.profileHistograms = await clampHistogram({
+  const resultsProfileHistograms = await clampHistogram({
     nodeId: params.user.nodeId, 
     screenName: params.user.screenName, 
     histogram: params.user.profileHistograms
   });
 
-  user.tweetHistograms = await clampHistogram({
+  // if (results.modifiedFlag) { user.profileHistograms = results.histogram; }
+
+  const resultsTweetHistograms = await clampHistogram({
     nodeId: params.user.nodeId, 
     screenName: params.user.screenName,
     histogram: params.user.tweetHistograms
   });
 
-  // const dbUpdatedUser = await userServerController.findOneUserV2({user: user});
+  // if (results.modifiedFlag) { user.tweetHistograms = results.histogram; }
+
+  if (params.updateUserInDb && (resultsProfileHistograms.modifiedFlag || resultsTweetHistograms.modifiedFlag)){
+
+    const update = {};
+
+    if (resultsProfileHistograms.modifiedFlag){ 
+      update.profileHistograms = resultsProfileHistograms.histogram; 
+    }
+
+    if (resultsTweetHistograms.modifiedFlag){ 
+      update.tweetHistograms = resultsTweetHistograms.histogram; 
+    }
+
+    const dbUpdatedUser = await global.wordAssoDb.User.findOneAndUpdate({ nodeId: params.user.nodeId }, update);
+
+    console.log(chalkInfo(MODULE_ID_PREFIX + " | +++ UPDATED "
+      + " | @" + dbUpdatedUser.screenName
+      + " | PROFILE HISTOGRAM: " + resultsProfileHistograms.modifiedFlag
+      + " | TWEET HISTOGRAM: " + resultsProfileHistograms.modifiedFlag
+    ));
+
+  }
 
   const mergedHistograms = await mergeHistograms.merge({ histogramA: user.profileHistograms, histogramB: user.tweetHistograms });
 
@@ -1283,7 +1328,7 @@ async function updateCategorizedUser(params){
 
     const u = await tcUtils.encodeHistogramUrls({user: userIn});
 
-    const user = await updateUserAndMaxInputHashMap({user: u});
+    const user = await updateUserAndMaxInputHashMap({user: u, updateUserInDb: true});
 
     if (user.profileHistograms.sentiment && (user.profileHistograms.sentiment !== undefined)) {
 
@@ -1515,15 +1560,19 @@ function waitValue(){
 
   return new Promise(function(resolve){
 
-    statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
+    statsObj.saveFileQueue = parseInt(tcUtils.getSaveFileQueue());
 
     if (statsObj.saveFileQueue < 100){ 
-      resolve(); 
+      return resolve(); 
     }
 
     const interval = setInterval(function(){
 
       statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
+
+      // if (params.verbose) {
+      //   console.log(MODULE_ID_PREFIX + " | waitValue | INTERVAL " + statsObj.saveFileQueue);
+      // }
 
       if (statsObj.saveFileQueue <= configuration.maxSaveFileQueue){
         clearInterval(interval);
@@ -1543,7 +1592,7 @@ function cursorDataHandler(user){
     if (!user.screenName){
       console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + tcUtils.jsonPrint(user)));
       statsObj.users.processed.errors += 1;
-      resolve();
+      return resolve();
     }
     
     if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
@@ -1564,7 +1613,7 @@ function cursorDataHandler(user){
         ));
       }
 
-      resolve();
+      return resolve();
     }
 
     if (!user.friends || user.friends == undefined) {
@@ -1621,6 +1670,7 @@ function cursorDataHandler(user){
 
       waitValue()
       .then(function(){
+        // console.log(MODULE_ID_PREFIX + " | waitValue | RESOLVED | " + statsObj.saveFileQueue);
         resolve();
       })
       .catch(function(err){
