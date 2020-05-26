@@ -1,5 +1,6 @@
 const MODULE_NAME = "generateTrainingSet";
 
+const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
 const DEFAULT_USERS_PER_ARCHIVE = 10000;
 const DEFAULT_CURSOR_PARALLEL = 16;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 10;
@@ -243,6 +244,7 @@ process.on("unhandledRejection", function(err, promise) {
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 
+configuration.saveFileMaxParallel = DEFAULT_SAVE_FILE_MAX_PARALLEL;
 configuration.usersPerArchive = DEFAULT_USERS_PER_ARCHIVE;
 configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
 configuration.reSaveUserDocsFlag = DEFAULT_RESAVE_USER_DOCS_FLAG;
@@ -1040,6 +1042,11 @@ async function loadConfigFile(params) {
     if (loadedConfigObj.GTS_USERS_PER_ARCHIVE !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_USERS_PER_ARCHIVE: " + loadedConfigObj.GTS_USERS_PER_ARCHIVE);
       newConfiguration.usersPerArchive = loadedConfigObj.GTS_USERS_PER_ARCHIVE;
+    }
+
+    if (loadedConfigObj.GTS_SAVE_FILE_MAX_PARALLEL !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_SAVE_FILE_MAX_PARALLEL: " + loadedConfigObj.GTS_SAVE_FILE_MAX_PARALLEL);
+      newConfiguration.saveFileMaxParallel = loadedConfigObj.GTS_SAVE_FILE_MAX_PARALLEL;
     }
 
     if (loadedConfigObj.GTS_SAVE_FILE_QUEUE_INTERVAL !== undefined){
@@ -2145,7 +2152,7 @@ setTimeout(async function(){
       console.log(chalkAlert(MODULE_ID_PREFIX + " | TEST MODE | USERS PER ARCHIVE: " + configuration.usersPerArchive));
     }
 
-    tcUtils.setSaveFileMaxParallel(8);
+    tcUtils.setSaveFileMaxParallel(configuration.saveFileMaxParallel);
     tcUtils.enableSaveFileMaxParallel(true);
     await tcUtils.initSaveFileQueue({interval: configuration.saveFileQueueInterval});
 
