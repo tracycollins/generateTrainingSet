@@ -5,7 +5,7 @@ const DEFAULT_USERS_PER_ARCHIVE = 10000;
 const DEFAULT_BATCH_SIZE = 1000;
 const DEFAULT_CURSOR_PARALLEL = 16;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
-const DEFAULT_MAX_SAVE_FILE_QUEUE = 1000;
+const DEFAULT_MAX_SAVE_FILE_QUEUE = 100;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
@@ -1055,6 +1055,11 @@ async function loadConfigFile(params) {
       newConfiguration.saveFileQueueInterval = loadedConfigObj.GTS_SAVE_FILE_QUEUE_INTERVAL;
     }
 
+    if (loadedConfigObj.GTS_MAX_SAVE_FILE_QUEUE !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_MAX_SAVE_FILE_QUEUE: " + loadedConfigObj.GTS_MAX_SAVE_FILE_QUEUE);
+      newConfiguration.maxSaveFileQueue = loadedConfigObj.GTS_MAX_SAVE_FILE_QUEUE;
+    }
+
     // if (loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD !== undefined){
     //   console.log(MODULE_ID_PREFIX + " | LOADED GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD: " + loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD);
     //   newConfiguration.archiveUserQueueIntervalPeriod = loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
@@ -1562,7 +1567,7 @@ function waitValue(){
 
     statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
 
-    if (statsObj.saveFileQueue < 100){ 
+    if (statsObj.saveFileQueue <= configuration.maxSaveFileQueue){
       return resolve(); 
     }
 
