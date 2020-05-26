@@ -853,8 +853,9 @@ async function connectDb(){
     db.on("disconnected", async function(){
       statsObj.status = "MONGO DISCONNECTED";
       statsObj.dbConnectionReady = false;
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | *** MONGO DB DISCONNECTED"));
-      quit({cause: "MONGO DB DISCONNECTED"});
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | *** MONGO DB DISCONNECTED | RECONNECTING..."));
+      await connectDb();
+      // quit({cause: "MONGO DB DISCONNECTED"});
     });
 
     console.log(chalk.green(MODULE_ID_PREFIX + " | MONGOOSE DEFAULT CONNECTION OPEN"));
@@ -1674,16 +1675,20 @@ async function categoryCursorStream(params){
     return;
   });
 
-  await cursor.eachAsync(async function(user){
+  // await cursor.eachAsync(async function(user){
 
-    await cursorDataHandler(user);
+  //   await cursorDataHandler(user);
 
-    // if (configuration.testMode && (statsObj.categorizedCount >= maxArchivedCount)) {
-    //   console.log(chalkInfo(MODULE_ID_PREFIX
-    //     + " | CATEGORIZED: " + statsObj.categorizedCount
-    //     + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
-    //   ));
-    // }
+  //   // if (configuration.testMode && (statsObj.categorizedCount >= maxArchivedCount)) {
+  //   //   console.log(chalkInfo(MODULE_ID_PREFIX
+  //   //     + " | CATEGORIZED: " + statsObj.categorizedCount
+  //   //     + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
+  //   //   ));
+  //   // }
+  // });
+
+  await cursor.eachAsync((user) => {
+    cursorDataHandler(user);
   });
 
   console.log(chalkBlue(MODULE_ID_PREFIX
