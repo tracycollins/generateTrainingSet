@@ -110,6 +110,7 @@ const path = require("path");
 const moment = require("moment");
 const merge = require("deepmerge");
 const archiver = require("archiver");
+const watch = require("watch");
 const fs = require("fs");
 // const { promisify } = require("util");
 // const unlinkFileAsync = promisify(fs.unlink);
@@ -338,6 +339,7 @@ global.wordAssoDb = require("@threeceelabs/mongoose-twitter");
 const tcuChildName = MODULE_ID_PREFIX + "_TCU";
 const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
 const tcUtils = new ThreeceeUtilities(tcuChildName);
+const jsonPrint = tcUtils.jsonPrint;
 const getTimeStamp = tcUtils.getTimeStamp;
 const msToTime = tcUtils.msToTime;
 // const formatBoolean = tcUtils.formatBoolean;
@@ -421,7 +423,7 @@ async function slackSendRtmMessage(msg){
 
   const sendResponse = await slackRtmClient.sendMessage(msg, slackConversationId);
 
-  console.log(chalkLog(MODULE_ID_PREFIX + " | SLACK RTM | >T\n" + tcUtils.jsonPrint(sendResponse)));
+  console.log(chalkLog(MODULE_ID_PREFIX + " | SLACK RTM | >T\n" + jsonPrint(sendResponse)));
   return sendResponse;
 }
 
@@ -448,13 +450,13 @@ async function slackSendWebMessage(msgObj){
       return sendResponse;
     }
     else {
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | SLACK WEB NOT CONFIGURED | SKIPPING SEND SLACK MESSAGE\n" + tcUtils.jsonPrint(message)));
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | SLACK WEB NOT CONFIGURED | SKIPPING SEND SLACK MESSAGE\n" + jsonPrint(message)));
       return;
     }
   }
   catch(err){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** slackSendWebMessage ERROR: " + err));
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | *** slackSendWebMessage msgObj\n" + tcUtils.jsonPrint(msgObj)));
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | *** slackSendWebMessage msgObj\n" + jsonPrint(msgObj)));
     throw err;
   }
 }
@@ -600,13 +602,13 @@ async function initSlackRtmClient(){
       case "pong":
         debug(chalkLog(MODULE_ID_PREFIX + " | SLACK RTM PONG | " + getTimeStamp() + " | " + event.reply_to));
       break;
-      default: debug(chalkInfo(MODULE_ID_PREFIX + " | SLACK RTM EVENT | " + getTimeStamp() + " | " + eventType + "\n" + tcUtils.jsonPrint(event)));
+      default: debug(chalkInfo(MODULE_ID_PREFIX + " | SLACK RTM EVENT | " + getTimeStamp() + " | " + eventType + "\n" + jsonPrint(event)));
     }
   });
 
 
   slackRtmClient.on("message", async function(message){
-    if (configuration.verbose) { console.log(chalkLog(MODULE_ID_PREFIX + " | RTM R<\n" + tcUtils.jsonPrint(message))); }
+    if (configuration.verbose) { console.log(chalkLog(MODULE_ID_PREFIX + " | RTM R<\n" + jsonPrint(message))); }
     debug(` | SLACK RTM MESSAGE | R< | CH: ${message.channel} | USER: ${message.user} | ${message.text}`);
 
     try {
@@ -643,11 +645,11 @@ const optionDefinitions = [
 ];
 
 const commandLineConfig = commandLineArgs(optionDefinitions);
-console.log(chalkInfo(MODULE_ID_PREFIX + " | COMMAND LINE CONFIG\nGTS | " + tcUtils.jsonPrint(commandLineConfig)));
-console.log(MODULE_ID_PREFIX + " | COMMAND LINE OPTIONS\nGTS | " + tcUtils.jsonPrint(commandLineConfig));
+console.log(chalkInfo(MODULE_ID_PREFIX + " | COMMAND LINE CONFIG\nGTS | " + jsonPrint(commandLineConfig)));
+console.log(MODULE_ID_PREFIX + " | COMMAND LINE OPTIONS\nGTS | " + jsonPrint(commandLineConfig));
 
 if (Object.keys(commandLineConfig).includes("help")) {
-  console.log(MODULE_ID_PREFIX + " |optionDefinitions\n" + tcUtils.jsonPrint(optionDefinitions));
+  console.log(MODULE_ID_PREFIX + " |optionDefinitions\n" + jsonPrint(optionDefinitions));
   quit("help");
 }
 
@@ -661,7 +663,7 @@ process.on("message", function(msg) {
     }, 1500);
   }
   else {
-    console.log(MODULE_ID_PREFIX + " | R<\n" + tcUtils.jsonPrint(msg));
+    console.log(MODULE_ID_PREFIX + " | R<\n" + jsonPrint(msg));
   }
 });
 
@@ -735,7 +737,7 @@ async function showStats(options){
   statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
 
   if (options) {
-    console.log(MODULE_ID_PREFIX + " | STATS\nGTS | " + tcUtils.jsonPrint(statsObjSmall));
+    console.log(MODULE_ID_PREFIX + " | STATS\nGTS | " + jsonPrint(statsObjSmall));
   }
   else {
     console.log(chalkLog(MODULE_ID_PREFIX + " | ============================================================"
@@ -969,7 +971,7 @@ async function loadConfigFile(params) {
       console.log(chalkError(MODULE_ID_PREFIX + " | *** CONFIG LOAD FILE ERROR: " + loadedConfigObj));
     }
 
-    console.log(chalkInfo(MODULE_ID_PREFIX + " | LOADED CONFIG FILE: " + params.file + "\n" + tcUtils.jsonPrint(loadedConfigObj)));
+    console.log(chalkInfo(MODULE_ID_PREFIX + " | LOADED CONFIG FILE: " + params.file + "\n" + jsonPrint(loadedConfigObj)));
 
     if (loadedConfigObj.GTS_TEST_MODE !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE);
@@ -1074,7 +1076,7 @@ async function loadConfigFile(params) {
   }
   catch(err){
     console.error(chalkError(MODULE_ID_PREFIX + " | ERROR LOAD CONFIG: " + fullPath
-      + "\n" + tcUtils.jsonPrint(err)
+      + "\n" + jsonPrint(err)
     ));
     throw err;
   }
@@ -1098,21 +1100,107 @@ async function loadAllConfigFiles(cnf){
     console.log(chalkInfo(MODULE_ID_PREFIX + " | <<< LOADED HOST CONFIG " + configHostFolder + "/" + configHostFile));
   }
   
-  console.log("hostConfiguration\n" + tcUtils.jsonPrint(hostConfiguration));
-  console.log("defaultConfiguration\n" + tcUtils.jsonPrint(defaultConfiguration));
+  console.log("hostConfiguration\n" + jsonPrint(hostConfiguration));
+  console.log("defaultConfiguration\n" + jsonPrint(defaultConfiguration));
 
   const defaultAndHostConfig = merge(defaultConfiguration, hostConfiguration); // host settings override defaults
 
-  console.log("defaultAndHostConfig\n" + tcUtils.jsonPrint(defaultAndHostConfig));
-  console.log("cnf\n" + tcUtils.jsonPrint(cnf));
+  console.log("defaultAndHostConfig\n" + jsonPrint(defaultAndHostConfig));
+  console.log("cnf\n" + jsonPrint(cnf));
 
   const tempConfig = merge(cnf, defaultAndHostConfig); // any new settings override existing config
 
-  console.log("tempConfig\n" + tcUtils.jsonPrint(tempConfig));
+  console.log("tempConfig\n" + jsonPrint(tempConfig));
 
   tempConfig.twitterUsers = _.uniq(tempConfig.twitterUsers);
 
   return tempConfig;
+}
+
+async function initWatchAllConfigFolders(p){
+
+  try{
+
+    const params = p || {};
+
+    console.log(chalkBlue(MODULE_ID_PREFIX + " | INIT WATCH ALL CONFIG FILES\n" + jsonPrint(params)));
+
+    await loadAllConfigFiles();
+    await loadCommandLineArgs();
+
+    const options = {
+      ignoreDotFiles: true,
+      ignoreUnreadableDir: true,
+      ignoreNotPermitted: true,
+    }
+
+    //========================
+    // WATCH DEFAULT CONFIG
+    //========================
+
+    watch.createMonitor(configDefaultFolder, options, function (monitorDefaultConfig) {
+
+      console.log(chalkBlue(MODULE_ID_PREFIX + " | INIT WATCH DEFAULT CONFIG FOLDER: " + configDefaultFolder));
+
+      monitorDefaultConfig.on("created", async function(f){
+        if (f.endsWith(configDefaultFile)){
+          await delay({period: 30*ONE_SECOND});
+          await loadAllConfigFiles();
+          await loadCommandLineArgs();
+        }
+
+      });
+
+      monitorDefaultConfig.on("changed", async function(f){
+
+        if (f.endsWith(configDefaultFile)){
+          await delay({period: 30*ONE_SECOND});
+          await loadAllConfigFiles();
+          await loadCommandLineArgs();
+        }
+
+      });
+
+      monitorDefaultConfig.on("removed", function (f) {
+        debug(chalkInfo(MODULE_ID_PREFIX + " | XXX FILE DELETED | " + getTimeStamp() + " | " + f));
+      });
+    });
+
+    //========================
+    // WATCH HOST CONFIG
+    //========================
+
+    watch.createMonitor(configHostFolder, options, function (monitorHostConfig) {
+
+      console.log(chalkBlue(MODULE_ID_PREFIX + " | INIT WATCH HOST CONFIG FOLDER: " + configHostFolder));
+
+      monitorHostConfig.on("created", async function(f){
+        if (f.endsWith(configHostFile)){
+          await loadAllConfigFiles();
+          await loadCommandLineArgs();
+        }
+      });
+
+      monitorHostConfig.on("changed", async function(f){
+        if (f.endsWith(configHostFile)){
+          await loadAllConfigFiles();
+          await loadCommandLineArgs();
+        }
+      });
+
+      monitorHostConfig.on("removed", function (f) {
+        debug(chalkInfo(MODULE_ID_PREFIX + " | XXX FILE DELETED | " + getTimeStamp() + " | " + f));
+      });
+    });
+
+    return;
+  }
+  catch(err){
+    console.log(chalkError(MODULE_ID_PREFIX
+      + " | *** INIT LOAD ALL CONFIG INTERVAL ERROR: " + err
+    ));
+    throw err;
+  }
 }
 
 async function clampHistogram(params){
@@ -1595,7 +1683,7 @@ function cursorDataHandler(user){
   return new Promise(function(resolve, reject){
 
     if (!user.screenName){
-      console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + tcUtils.jsonPrint(user)));
+      console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
       statsObj.users.processed.errors += 1;
       return resolve();
     }
@@ -1750,7 +1838,7 @@ async function categoryCursorStream(params){
   //   // if (configuration.testMode && (statsObj.categorizedCount >= maxArchivedCount)) {
   //   //   console.log(chalkInfo(MODULE_ID_PREFIX
   //   //     + " | CATEGORIZED: " + statsObj.categorizedCount
-  //   //     + " | categorizedUsers\n" + tcUtils.jsonPrint(categorizedUsers)
+  //   //     + " | categorizedUsers\n" + jsonPrint(categorizedUsers)
   //   //   ));
   //   // }
   // });
@@ -2018,7 +2106,7 @@ function archiveFolder(params){
     });
      
     archive.on("warning", function(err) {
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! ARCHIVE | WARNING\n" + tcUtils.jsonPrint(err)));
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! ARCHIVE | WARNING\n" + jsonPrint(err)));
       // if (err.code !== "ENOENT") {
       // }
     });
@@ -2072,7 +2160,7 @@ async function initialize(cnf){
 
   statsObj.status = "INITIALIZE";
 
-  debug(chalkBlue("INITIALIZE cnf\n" + tcUtils.jsonPrint(cnf)));
+  debug(chalkBlue("INITIALIZE cnf\n" + jsonPrint(cnf)));
 
   if (debug.enabled){
     console.log("\nGTS | %%%%%%%%%%%%%%\nGTS |  DEBUG ENABLED \nGTS | %%%%%%%%%%%%%%\n");
@@ -2105,7 +2193,7 @@ async function initialize(cnf){
 
   configArgs.forEach(function(arg){
     if (_.isObject(configuration[arg])) {
-      console.log(MODULE_ID_PREFIX + " | _FINAL CONFIG | " + arg + "\n" + tcUtils.jsonPrint(configuration[arg]));
+      console.log(MODULE_ID_PREFIX + " | _FINAL CONFIG | " + arg + "\n" + jsonPrint(configuration[arg]));
     }
     else {
       console.log(MODULE_ID_PREFIX + " | _FINAL CONFIG | " + arg + ": " + configuration[arg]);
@@ -2234,6 +2322,8 @@ setTimeout(async function(){
 
     console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX TEMP ARCHIVE FOLDER: " + configuration.userTempArchiveFolder));
     fs.rmdirSync(configuration.userTempArchiveFolder, { recursive: true });
+
+    await initWatchAllConfigFolders();
 
     await generateGlobalTrainingTestSet();
 
