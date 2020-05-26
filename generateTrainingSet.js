@@ -1239,7 +1239,7 @@ async function updateUserAndMaxInputHashMap(params){
     console.log(chalkInfo(MODULE_ID_PREFIX + " | +++ UPDATED "
       + " | @" + dbUpdatedUser.screenName
       + " | PROFILE HISTOGRAM: " + resultsProfileHistograms.modifiedFlag
-      + " | TWEET HISTOGRAM: " + resultsProfileHistograms.modifiedFlag
+      + " | TWEET HISTOGRAM: " + resultsTweetHistograms.modifiedFlag
     ));
 
   }
