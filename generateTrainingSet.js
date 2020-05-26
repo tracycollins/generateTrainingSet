@@ -1560,7 +1560,7 @@ function waitValue(){
 
   return new Promise(function(resolve){
 
-    statsObj.saveFileQueue = parseInt(tcUtils.getSaveFileQueue());
+    statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
 
     if (statsObj.saveFileQueue < 100){ 
       return resolve(); 
@@ -1576,7 +1576,7 @@ function waitValue(){
 
       if (statsObj.saveFileQueue <= configuration.maxSaveFileQueue){
         clearInterval(interval);
-        resolve();
+        return resolve();
       }
 
     }, 100);
@@ -1610,10 +1610,21 @@ function cursorDataHandler(user){
           + "/" + statsObj.users.processed.errors
           + "/" + statsObj.users.grandTotal
           + " | @" + user.screenName 
-        ));
+        )); 
       }
 
-      return resolve();
+      // return resolve();
+
+      waitValue()
+      .then(function(){
+        // console.log(MODULE_ID_PREFIX + " | waitValue | RESOLVED | " + statsObj.saveFileQueue);
+        return resolve();
+      })
+      .catch(function(err){
+        console.log(chalkError(MODULE_ID_PREFIX + " | *** waitValue ERROR: " + err));
+        return reject(err);
+      });
+
     }
 
     if (!user.friends || user.friends == undefined) {
@@ -1671,14 +1682,16 @@ function cursorDataHandler(user){
       waitValue()
       .then(function(){
         // console.log(MODULE_ID_PREFIX + " | waitValue | RESOLVED | " + statsObj.saveFileQueue);
-        resolve();
+        return resolve();
       })
       .catch(function(err){
+        console.log(chalkError(MODULE_ID_PREFIX + " | *** waitValue ERROR: " + err));
         return reject(err);
       });
 
     })
     .catch(function(err){
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** categorizeUser ERROR: " + err));
       return reject(err);
     });
 
