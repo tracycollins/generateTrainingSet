@@ -730,7 +730,7 @@ async function showStats(options){
 
   statsObjSmall = pick(statsObj, statsPickArray);
 
-  statsObj.saveFileQueue = await tcUtils.getSaveFileQueue();
+  statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
 
   if (options) {
     console.log(MODULE_ID_PREFIX + " | STATS\nGTS | " + tcUtils.jsonPrint(statsObjSmall));
