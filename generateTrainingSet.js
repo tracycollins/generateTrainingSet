@@ -3,7 +3,7 @@ const MODULE_NAME = "generateTrainingSet";
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
 const DEFAULT_USERS_PER_ARCHIVE = 10000;
 const DEFAULT_BATCH_SIZE = 100;
-const DEFAULT_CURSOR_PARALLEL = 16;
+// const DEFAULT_CURSOR_PARALLEL = 16;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
 const DEFAULT_MAX_SAVE_FILE_QUEUE = 100;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
@@ -247,7 +247,7 @@ let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 
 configuration.saveFileMaxParallel = DEFAULT_SAVE_FILE_MAX_PARALLEL;
 configuration.usersPerArchive = DEFAULT_USERS_PER_ARCHIVE;
-configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
+// configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
 configuration.reSaveUserDocsFlag = DEFAULT_RESAVE_USER_DOCS_FLAG;
 configuration.batchSize = DEFAULT_BATCH_SIZE;
 configuration.saveFileQueueInterval = DEFAULT_SAVE_FILE_QUEUE_INTERVAL;
