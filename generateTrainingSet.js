@@ -1,6 +1,6 @@
 const MODULE_NAME = "generateTrainingSet";
 
-const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
+const DEFAULT_SAVE_FILE_MAX_PARALLEL = 32;
 const DEFAULT_USERS_PER_ARCHIVE = 10000;
 const DEFAULT_BATCH_SIZE = 100;
 // const DEFAULT_CURSOR_PARALLEL = 16;
@@ -245,6 +245,7 @@ process.on("unhandledRejection", function(err, promise) {
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 
+configuration.waitValueInterval = DEFAULT_WAIT_VALUE_INTERVAL;
 configuration.saveFileMaxParallel = DEFAULT_SAVE_FILE_MAX_PARALLEL;
 configuration.usersPerArchive = DEFAULT_USERS_PER_ARCHIVE;
 // configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
@@ -1047,6 +1048,11 @@ async function loadConfigFile(params) {
       newConfiguration.usersPerArchive = loadedConfigObj.GTS_USERS_PER_ARCHIVE;
     }
 
+    if (loadedConfigObj.GTS_WAIT_VALUE_INTERVAL !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_WAIT_VALUE_INTERVAL: " + loadedConfigObj.GTS_WAIT_VALUE_INTERVAL);
+      newConfiguration.waitValueInterval = loadedConfigObj.GTS_WAIT_VALUE_INTERVAL;
+    }
+
     if (loadedConfigObj.GTS_SAVE_FILE_MAX_PARALLEL !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_SAVE_FILE_MAX_PARALLEL: " + loadedConfigObj.GTS_SAVE_FILE_MAX_PARALLEL);
       newConfiguration.saveFileMaxParallel = loadedConfigObj.GTS_SAVE_FILE_MAX_PARALLEL;
@@ -1672,7 +1678,7 @@ function waitValue(){
         return resolve();
       }
 
-    }, 100);
+    }, configuration.waitValueInterval);
 
   });
 
