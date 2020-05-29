@@ -2295,11 +2295,6 @@ async function generateGlobalTrainingTestSet(){
 
   statsObj.saveFileQueue = tcUtils.saveFileQueue({folder: configuration.trainingSetsFolder, file: maxInputHashMapFile, obj: mihmObj });
 
-  // const buf = Buffer.from(JSON.stringify(mihmObj));
-
-  // archive.append(buf, { name: maxInputHashMapFile });
-  // archive.finalize();
-
   return;
 }
 
