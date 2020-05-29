@@ -1265,7 +1265,7 @@ async function clampHistogram(params){
 
           modifiedFlag = true;
 
-          console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: 0"
+          console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE <= 0 | SET TO 1"
             + " | @" + params.screenName
             + " | TYPE: " + type
             + " | ENTITY: " + entity
@@ -1667,7 +1667,7 @@ function waitValue(){
       //   console.log(MODULE_ID_PREFIX + " | waitValue | INTERVAL " + statsObj.saveFileQueue);
       // }
 
-      if (statsObj.saveFileQueue <= configuration.maxSaveFileQueue){
+      if (statsObj.saveFileQueue < configuration.maxSaveFileQueue){
         clearInterval(interval);
         return resolve();
       }
