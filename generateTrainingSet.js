@@ -1843,8 +1843,8 @@ async function categoryCursorStream(params){
   //   // }
   // });
 
-  await cursor.eachAsync((user) => {
-    cursorDataHandler(user);
+  await cursor.eachAsync(async (user) => {
+    await cursorDataHandler(user);
   });
 
   console.log(chalkBlue(MODULE_ID_PREFIX
