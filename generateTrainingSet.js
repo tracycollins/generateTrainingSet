@@ -1840,13 +1840,21 @@ async function categoryCursorStream(params){
   statsObj.categorizedCount = 0;
 
   const batchSize = params.batchSize || configuration.batchSize;
+  const cursorParallel = params.cursorParallel || configuration.cursorParallel;
   const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
-
-  const reSaveUserDocsFlag = params.reSaveUserDocsFlag || false;
+  const reSaveUserDocsFlag = params.reSaveUserDocsFlag || configuration.reSaveUserDocsFlag;
 
   if (reSaveUserDocsFlag) {
     console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
   }
+
+  console.log(chalkBlue(MODULE_ID_PREFIX
+    + " | categoryCursorStream "
+    + " | batchSize: " + batchSize
+    + " | cursorParallel: " + cursorParallel
+    + " | maxArchivedCount: " + maxArchivedCount
+    + " | reSaveUserDocsFlag: " + reSaveUserDocsFlag
+  ));
 
   let cursor;
 
@@ -2222,7 +2230,7 @@ function saveMaxInputHashMap(){
 
     async.each(DEFAULT_INPUT_TYPES, async function(type){
 
-      const numberEntries = redisClient.hlen("maxInputHashMap_" + type, function(err, numberEntries){
+      redisClient.hlen("maxInputHashMap_" + type, function(err, numberEntries){
         console.log(chalkBlue(MODULE_ID_PREFIX
           + " | READ MAX INPUT HASHMAP | TYPE: " + type
           + " | ENTRIES: " + numberEntries
