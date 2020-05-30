@@ -130,10 +130,6 @@ const merge = require("deepmerge");
 const archiver = require("archiver");
 const watch = require("watch");
 const fs = require("fs");
-// const { promisify } = require("util");
-// const unlinkFileAsync = promisify(fs.unlink);
-// const MergeHistograms = require("@threeceelabs/mergehistograms");
-// const mergeHistograms = new MergeHistograms();
 const util = require("util");
 const _ = require("lodash");
 const sizeof = require("object-sizeof");
@@ -142,12 +138,9 @@ const EventEmitter3 = require("eventemitter3");
 const debug = require("debug")("gts");
 const commandLineArgs = require("command-line-args");
 const empty = require("is-empty");
-// const HashMap = require("hashmap").HashMap;
-
 const async = require("async");
 
 const RedisServer = require("redis-server");
-
 const redisServer = new RedisServer(6379);
 
 redisServer.open(function(err){
@@ -157,23 +150,6 @@ redisServer.open(function(err){
 
 const redis = require("redis");
 const redisClient = redis.createClient();
-
-// const redisGetAsync = promisify(redisClient.get).bind(redisClient);
-
-// let testValue = 47;
-
-// redisClient.hmset("testHash", "testKey", testValue, function(err, res){
-
-//   if (err) { console.error(err); }
-
-//   console.log("redis res\n", res);
-
-//   redisClient.hmget("testHash", "testKey", function(err, value){
-//     if (err) { console.error(err); }
-//     console.log("testKey: " + value);
-//   });
-
-// });
 
 let archive;
 
@@ -1529,7 +1505,7 @@ async function updateCategorizedUser(params){
 
     const user = await updateUserAndMaxInputHashMap({user: u, updateUserInDb: true});
 
-    if (user.profileHistograms.sentiment && (user.profileHistograms.sentiment !== undefined)) {
+    if (!empty(user.profileHistograms.sentiment)) {
 
       if (user.profileHistograms.sentiment.magnitude !== undefined){
         if (user.profileHistograms.sentiment.magnitude < 0){
@@ -1558,6 +1534,10 @@ async function updateCategorizedUser(params){
         statsObj.normalization.comp.max = Math.max(statsObj.normalization.comp.max, user.profileHistograms.sentiment.comp);
         statsObj.normalization.comp.min = Math.min(statsObj.normalization.comp.min, user.profileHistograms.sentiment.comp);
       }
+
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | SENTIMENT: " + user.profileHistograms.sentiment));
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | SENTIMENT\n" + jsonPrint(user.profileHistograms.sentiment)));
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | NORMALIZATION\n" + jsonPrint(statsObj.normalization)));
     }
 
     let classText = "";
@@ -2227,7 +2207,6 @@ function saveMaxInputHashMap(){
 
     let scanCursor = 0;
 
-
     const filePrefix = "maxInputHashMap_";
     const fileSufffix = (configuration.testMode) ? "_test.json" : ".json";
 
@@ -2235,8 +2214,14 @@ function saveMaxInputHashMap(){
       + " | >>> SAVING MAX INPUT HASHMAPS ..."
     ));
 
-
     async.each(DEFAULT_INPUT_TYPES, async function(type){
+
+      const numberEntries = redisClient.hlen("maxInputHashMap_" + type, function(err, numberEntries){
+        console.log(chalkBlue(MODULE_ID_PREFIX
+          + " | READ MAX INPUT HASHMAP | TYPE: " + type
+          + " | ENTRIES: " + numberEntries
+        ));
+      });
 
       let hashmap = {};
       let more = true;
@@ -2248,7 +2233,6 @@ function saveMaxInputHashMap(){
         scanCursor = results.scanCursor;
         more = (scanCursor > 0);
 
-        // const tempHashmap = await mergeHistograms.merge({ histogramA: hashmap, histogramB: results.hashmap });
         hashmap = merge(hashmap, results.hashmap);
 
         debug(chalkBlue("TYPE: " + type + " | scanCursor: " + scanCursor + " | results.hashmap KEYS: " + Object.keys(results.hashmap).length));
@@ -2256,7 +2240,9 @@ function saveMaxInputHashMap(){
       }
 
       console.log(chalkBlue(MODULE_ID_PREFIX
-        + " | ... SAVING MAX INPUT HASHMAP FILE | "
+        + " | ... SAVING MAX INPUT HASHMAP FILE"
+        + " | TYPE: " + type
+        + " | " + Object.keys(hashmap).length + " KEYS"
         + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
         + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
       ));
@@ -2264,7 +2250,6 @@ function saveMaxInputHashMap(){
       statsObj.saveFileQueue = tcUtils.saveFileQueue({folder: configuration.maxInputHashMapsFolder, file: maxInputHashMapFile, obj: hashmap});
 
       return;
-    // }
 
     }, function(err){
       if (err) { return reject(err); }
@@ -2389,7 +2374,10 @@ setTimeout(async function(){
 
     await saveMaxInputHashMap();
 
+    statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
+
     console.log(chalkInfo("TFE | ... SAVING NORMALIZATION FILE"
+      + " [ SFQ: " + statsObj.saveFileQueue
       + " | " + configuration.trainingSetsFolder + "/normalization.json"
     ));
 
