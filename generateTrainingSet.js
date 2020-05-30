@@ -1070,6 +1070,11 @@ async function loadConfigFile(params) {
       newConfiguration.batchSize = loadedConfigObj.GTS_BATCH_SIZE;
     }
 
+    if (loadedConfigObj.GTS_CURSOR_PARALLEL !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_CURSOR_PARALLEL: " + loadedConfigObj.GTS_CURSOR_PARALLEL);
+      newConfiguration.cursorParallel = loadedConfigObj.GTS_CURSOR_PARALLEL;
+    }
+
     if (loadedConfigObj.GTS_USERS_PER_ARCHIVE !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_USERS_PER_ARCHIVE: " + loadedConfigObj.GTS_USERS_PER_ARCHIVE);
       newConfiguration.usersPerArchive = loadedConfigObj.GTS_USERS_PER_ARCHIVE;
