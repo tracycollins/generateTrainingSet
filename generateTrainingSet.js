@@ -141,19 +141,6 @@ const commandLineArgs = require("command-line-args");
 const empty = require("is-empty");
 const async = require("async");
 
-const RedisServer = require("redis-server");
-const redisServer = new RedisServer(6379);
-
-redisServer.open(function(err){
-  if (err) { throw err; }
-  console.log("REDIS SERVER READY");
-});
-
-const redis = require("redis");
-const redisClient = redis.createClient();
-
-let archive;
-
 const chalk = require("chalk");
 const chalkAlert = chalk.red;
 const chalkBlue = chalk.blue;
@@ -164,6 +151,27 @@ const chalkError = chalk.bold.red;
 const chalkWarn = chalk.red;
 const chalkLog = chalk.gray;
 const chalkInfo = chalk.black;
+
+const RedisServer = require("redis-server");
+const redisServer = new RedisServer(6379);
+
+redisServer.open(function(err){
+  if (err) { 
+    console.log(chalkError(MODULE_ID_PREFIX
+      + " | *** REDIS SERVER ERROR *** | " + err
+    ));
+    throw err; 
+  }
+  console.log(chalkAlert(MODULE_ID_PREFIX
+    + " | >>> REDIS SERVER READY <<<"
+  ));
+});
+
+const redis = require("redis");
+const redisClient = redis.createClient();
+
+let archive;
+
 
 let categorizedUsersPercent = 0;
 
