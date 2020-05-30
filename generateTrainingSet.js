@@ -1,4 +1,5 @@
 // const MODULE_NAME = "generateTrainingSet";
+const DEFAULT_CURSOR_PARALLEL = 8;
 const DEFAULT_REDIS_SCAN_COUNT = 1000;
 const DEFAULT_MAX_INPUT_HASHMAP_LIMIT = 32;
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 32;
@@ -17,7 +18,7 @@ const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 
-const TOTAL_MAX_TEST_COUNT = 47;
+const TOTAL_MAX_TEST_COUNT = 1047;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -271,7 +272,7 @@ configuration.updateMaxInputHashMapLimit = DEFAULT_MAX_INPUT_HASHMAP_LIMIT;
 configuration.waitValueInterval = DEFAULT_WAIT_VALUE_INTERVAL;
 configuration.saveFileMaxParallel = DEFAULT_SAVE_FILE_MAX_PARALLEL;
 configuration.usersPerArchive = DEFAULT_USERS_PER_ARCHIVE;
-// configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
+configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
 configuration.reSaveUserDocsFlag = DEFAULT_RESAVE_USER_DOCS_FLAG;
 configuration.batchSize = DEFAULT_BATCH_SIZE;
 configuration.saveFileQueueInterval = DEFAULT_SAVE_FILE_QUEUE_INTERVAL;
@@ -1879,7 +1880,7 @@ async function categoryCursorStream(params){
 
   await cursor.eachAsync(async (user) => {
     await cursorDataHandler(user);
-  });
+  }, { parallel: configuration.cursorParallel });
 
   console.log(chalkBlue(MODULE_ID_PREFIX
     + " | CATEGORIZED: " + statsObj.categorizedCount
