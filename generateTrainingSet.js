@@ -2389,6 +2389,16 @@ setTimeout(async function(){
 
     await saveMaxInputHashMap();
 
+    console.log(chalkInfo("TFE | ... SAVING NORMALIZATION FILE"
+      + " | " + configuration.trainingSetsFolder + "/normalization.json"
+    ));
+
+    statsObj.saveFileQueue = tcUtils.saveFileQueue({
+      folder: configuration.trainingSetsFolder, 
+      file: "normalization.json", 
+      obj: statsObj.normalization
+    });
+
     let rootFolder;
 
     if (configuration.testMode) {
