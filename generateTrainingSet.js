@@ -1,9 +1,10 @@
-const MODULE_NAME = "generateTrainingSet";
-
+// const MODULE_NAME = "generateTrainingSet";
+const DEFAULT_REDIS_SCAN_COUNT = 1000;
+const DEFAULT_MAX_INPUT_HASHMAP_LIMIT = 32;
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 32;
 const DEFAULT_USERS_PER_ARCHIVE = 10000;
-const DEFAULT_BATCH_SIZE = 100;
-const DEFAULT_WAIT_VALUE_INTERVAL = 20;
+const DEFAULT_BATCH_SIZE = 1000;
+const DEFAULT_WAIT_VALUE_INTERVAL = 10;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
 const DEFAULT_MAX_SAVE_FILE_QUEUE = 100;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
@@ -16,7 +17,7 @@ const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 
-const TOTAL_MAX_TEST_COUNT = 1000;
+const TOTAL_MAX_TEST_COUNT = 47;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -58,6 +59,23 @@ const DEFAULT_INPUT_TYPES = [
   "userMentions",
   "words"
 ];
+
+// const maxInputHashMap_emoji = {};
+// const maxInputHashMap_friends = {};
+// const maxInputHashMap_hashtags = {};
+// const maxInputHashMap_images = {};
+// const maxInputHashMap_locations = {};
+// const maxInputHashMap_media = {};
+// const maxInputHashMap_ngrams = {};
+// const maxInputHashMap_places = {};
+// const maxInputHashMap_sentiment = {};
+// const maxInputHashMap_urls = {};
+// const maxInputHashMap_userMentions = {};
+// const maxInputHashMap_words = {};
+
+// DEFAULT_INPUT_TYPES.forEach(function(type){
+//   maxInputHashMap[type] = {};
+// });
 
 const defaultInputTypeMinHash = {
   emoji: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
@@ -114,8 +132,8 @@ const watch = require("watch");
 const fs = require("fs");
 // const { promisify } = require("util");
 // const unlinkFileAsync = promisify(fs.unlink);
-const MergeHistograms = require("@threeceelabs/mergehistograms");
-const mergeHistograms = new MergeHistograms();
+// const MergeHistograms = require("@threeceelabs/mergehistograms");
+// const mergeHistograms = new MergeHistograms();
 const util = require("util");
 const _ = require("lodash");
 const sizeof = require("object-sizeof");
@@ -124,6 +142,38 @@ const EventEmitter3 = require("eventemitter3");
 const debug = require("debug")("gts");
 const commandLineArgs = require("command-line-args");
 const empty = require("is-empty");
+// const HashMap = require("hashmap").HashMap;
+
+const async = require("async");
+
+const RedisServer = require("redis-server");
+
+const redisServer = new RedisServer(6379);
+
+redisServer.open(function(err){
+  if (err) { throw err; }
+  console.log("REDIS SERVER READY");
+});
+
+const redis = require("redis");
+const redisClient = redis.createClient();
+
+// const redisGetAsync = promisify(redisClient.get).bind(redisClient);
+
+// let testValue = 47;
+
+// redisClient.hmset("testHash", "testKey", testValue, function(err, res){
+
+//   if (err) { console.error(err); }
+
+//   console.log("redis res\n", res);
+
+//   redisClient.hmget("testHash", "testKey", function(err, value){
+//     if (err) { console.error(err); }
+//     console.log("testKey: " + value);
+//   });
+
+// });
 
 let archive;
 
@@ -170,11 +220,6 @@ const DEFAULT_USER_PROPERTY_PICK_ARRAY = [
   "userId"
 ];
 
-const maxInputHashMap = {};
-
-DEFAULT_INPUT_TYPES.forEach(function(type){
-  maxInputHashMap[type] = {};
-});
 
 const statsObj = {};
 
@@ -245,6 +290,8 @@ process.on("unhandledRejection", function(err, promise) {
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 
+configuration.redisScanCount = DEFAULT_REDIS_SCAN_COUNT;
+configuration.updateMaxInputHashMapLimit = DEFAULT_MAX_INPUT_HASHMAP_LIMIT;
 configuration.waitValueInterval = DEFAULT_WAIT_VALUE_INTERVAL;
 configuration.saveFileMaxParallel = DEFAULT_SAVE_FILE_MAX_PARALLEL;
 configuration.usersPerArchive = DEFAULT_USERS_PER_ARCHIVE;
@@ -264,6 +311,7 @@ configuration.maxTestCount.neutral = parseInt(0.333333*TOTAL_MAX_TEST_COUNT);
 configuration.maxTestCount.right = parseInt(0.333333*TOTAL_MAX_TEST_COUNT);
 
 let sum = configuration.maxTestCount.left + configuration.maxTestCount.neutral + configuration.maxTestCount.right;
+
 while(sum < TOTAL_MAX_TEST_COUNT){
   configuration.maxTestCount.left += 1;
   sum = configuration.maxTestCount.left + configuration.maxTestCount.neutral + configuration.maxTestCount.right;
@@ -307,6 +355,7 @@ configuration.userArchiveFile = hostname + "_" + statsObj.startTimeMoment.format
 
 configuration.local = {};
 configuration.local.trainingSetsFolder = path.join(configHostFolder, "trainingSets");
+configuration.local.maxInputHashMapsFolder = path.join(configHostFolder, "trainingSets/maxInputHashMaps");
 configuration.local.histogramsFolder = path.join(configHostFolder, "histograms");
 configuration.local.userArchiveFolder = path.join(configHostFolder, "trainingSets/users");
 configuration.local.userTempArchiveFolder = path.join(tempHostFolder, "trainingSets/users");
@@ -315,6 +364,7 @@ configuration.local.userTempArchivePath = path.join(configuration.local.userTemp
 
 configuration.default = {};
 configuration.default.trainingSetsFolder = path.join(configDefaultFolder, "trainingSets");
+configuration.default.maxInputHashMapsFolder = path.join(configDefaultFolder, "trainingSets/maxInputHashMaps");
 configuration.default.histogramsFolder = path.join(configDefaultFolder, "histograms");
 configuration.default.userArchiveFolder = path.join(configDefaultFolder, "trainingSets/users");
 configuration.default.userTempArchiveFolder = path.join(tempHostFolder, "trainingSets/users");
@@ -322,6 +372,7 @@ configuration.default.userArchivePath = path.join(configuration.default.userArch
 configuration.default.userTempArchivePath = path.join(configuration.default.userTempArchiveFolder, configuration.userArchiveFile);
 
 configuration.trainingSetsFolder = configuration[HOST].trainingSetsFolder;
+configuration.maxInputHashMapsFolder = configuration[HOST].maxInputHashMapsFolder;
 configuration.archiveFileUploadCompleteFlagFolder = path.join(configuration[HOST].trainingSetsFolder, "users");
 configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
@@ -408,224 +459,223 @@ let stdin;
 // SLACK
 //=========================================================================
 
-const slackChannel = "gts";
-const HashMap = require("hashmap").HashMap;
-const channelsHashMap = new HashMap();
+// const slackChannel = "gts";
+// const channelsHashMap = new HashMap();
 
-const slackOAuthAccessToken = "xoxp-3708084981-3708084993-206468961315-ec62db5792cd55071a51c544acf0da55";
-const slackConversationId = "D65CSAELX"; // wordbot
-const slackRtmToken = "xoxb-209434353623-bNIoT4Dxu1vv8JZNgu7CDliy";
+// const slackOAuthAccessToken = "xoxp-3708084981-3708084993-206468961315-ec62db5792cd55071a51c544acf0da55";
+// const slackConversationId = "D65CSAELX"; // wordbot
+// const slackRtmToken = "xoxb-209434353623-bNIoT4Dxu1vv8JZNgu7CDliy";
 
-let slackRtmClient;
-let slackWebClient;
+// let slackRtmClient;
+// let slackWebClient;
 
-async function slackSendRtmMessage(msg){
-  console.log(chalkBlue(MODULE_ID_PREFIX + " | SLACK RTM | SEND: " + msg));
+// async function slackSendRtmMessage(msg){
+//   console.log(chalkBlue(MODULE_ID_PREFIX + " | SLACK RTM | SEND: " + msg));
 
-  const sendResponse = await slackRtmClient.sendMessage(msg, slackConversationId);
+//   const sendResponse = await slackRtmClient.sendMessage(msg, slackConversationId);
 
-  console.log(chalkLog(MODULE_ID_PREFIX + " | SLACK RTM | >T\n" + jsonPrint(sendResponse)));
-  return sendResponse;
-}
+//   console.log(chalkLog(MODULE_ID_PREFIX + " | SLACK RTM | >T\n" + jsonPrint(sendResponse)));
+//   return sendResponse;
+// }
 
-async function slackSendWebMessage(msgObj){
+// async function slackSendWebMessage(msgObj){
 
-  try{
+//   try{
     
-    const token = msgObj.token || slackOAuthAccessToken;
-    const channel = msgObj.channel || configuration.slackChannel.id;
-    const text = msgObj.text || msgObj;
+//     const token = msgObj.token || slackOAuthAccessToken;
+//     const channel = msgObj.channel || configuration.slackChannel.id;
+//     const text = msgObj.text || msgObj;
 
-    const message = {
-      token: token, 
-      channel: channel,
-      text: text
-    };
+//     const message = {
+//       token: token, 
+//       channel: channel,
+//       text: text
+//     };
 
-    if (msgObj.attachments !== undefined) {
-      message.attachments = msgObj.attachments;
-    }
+//     if (msgObj.attachments !== undefined) {
+//       message.attachments = msgObj.attachments;
+//     }
 
-    if (slackWebClient && slackWebClient !== undefined) {
-      const sendResponse = await slackWebClient.chat.postMessage(message);
-      return sendResponse;
-    }
-    else {
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | SLACK WEB NOT CONFIGURED | SKIPPING SEND SLACK MESSAGE\n" + jsonPrint(message)));
-      return;
-    }
-  }
-  catch(err){
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | *** slackSendWebMessage ERROR: " + err));
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | *** slackSendWebMessage msgObj\n" + jsonPrint(msgObj)));
-    throw err;
-  }
-}
+//     if (slackWebClient && slackWebClient !== undefined) {
+//       const sendResponse = await slackWebClient.chat.postMessage(message);
+//       return sendResponse;
+//     }
+//     else {
+//       console.log(chalkAlert(MODULE_ID_PREFIX + " | SLACK WEB NOT CONFIGURED | SKIPPING SEND SLACK MESSAGE\n" + jsonPrint(message)));
+//       return;
+//     }
+//   }
+//   catch(err){
+//     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** slackSendWebMessage ERROR: " + err));
+//     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** slackSendWebMessage msgObj\n" + jsonPrint(msgObj)));
+//     throw err;
+//   }
+// }
 
-function slackMessageHandler(message){
-  return new Promise(function(resolve, reject){
+// function slackMessageHandler(message){
+//   return new Promise(function(resolve, reject){
 
-    try {
+//     try {
 
-      console.log(chalkInfo(MODULE_ID_PREFIX + " | MESSAGE | " + message.type + " | " + message.text));
+//       console.log(chalkInfo(MODULE_ID_PREFIX + " | MESSAGE | " + message.type + " | " + message.text));
 
-      if (message.type !== "message") {
-        console.log(chalkAlert("Unhandled MESSAGE TYPE: " + message.type));
-        return resolve();
-      }
+//       if (message.type !== "message") {
+//         console.log(chalkAlert("Unhandled MESSAGE TYPE: " + message.type));
+//         return resolve();
+//       }
 
-      const text = message.text.trim();
-      const textArray = text.split("|");
+//       const text = message.text.trim();
+//       const textArray = text.split("|");
 
-      const sourceMessage = (textArray[2]) ? textArray[2].trim() : "NONE";
+//       const sourceMessage = (textArray[2]) ? textArray[2].trim() : "NONE";
 
-      switch (sourceMessage) {
-        case "END FETCH ALL":
-        case "ERROR":
-        case "FETCH FRIENDS":
-        case "FSM INIT":
-        case "FSM FETCH_ALL":
-        case "GEN AUTO CAT":
-        case "INIT CHILD":
-        case "INIT LANG ANALYZER":
-        case "INIT MAX INPUT HASHMAP":
-        case "INIT NNs":
-        case "INIT RAN NNs":
-        case "INIT RNT CHILD":
-        case "INIT TWITTER USERS":
-        case "INIT TWITTER":
-        case "INIT UNFOLLOWABLE USER SET":
-        case "INIT UNFOLLOWABLE":
-        case "INIT":
-        case "LOAD BEST NN":
-        case "LOAD NN":
-        case "MONGO DB CONNECTED":
-        case "PONG":
-        case "QUIT":
-        case "QUITTING":
-        case "READY":
-        case "RESET":
-        case "SAV NN HASHMAP":
-        case "SLACK QUIT":
-        case "SLACK READY":
-        case "SLACK RTM READY":
-        case "START":
-        case "STATS":
-        case "TEXT": 
-        case "UPDATE HISTOGRAMS":
-        case "UPDATE NN STATS":
-        case "WAIT UPDATE STATS":
-        case "END UPDATE STATS":
-        case "UPDATE USER CAT STATS":
-          resolve();
-        break;
-        case "STATSUS":
-          console.log(chalkInfo(message.text));
-          resolve();
-        break;
-        case "PING":
-          console.log(chalkInfo("PING"));
-          resolve();
-        break;
-        case "NONE":
-          resolve();
-        break;
-        default:
-          console.log(chalkAlert(MODULE_ID_PREFIX + " | *** UNDEFINED SLACK MESSAGE: " + message.text));
-          resolve({text: "UNDEFINED SLACK MESSAGE", message: message});
-      }
-    }
-    catch(err){
-      reject(err);
-    }
+//       switch (sourceMessage) {
+//         case "END FETCH ALL":
+//         case "ERROR":
+//         case "FETCH FRIENDS":
+//         case "FSM INIT":
+//         case "FSM FETCH_ALL":
+//         case "GEN AUTO CAT":
+//         case "INIT CHILD":
+//         case "INIT LANG ANALYZER":
+//         case "INIT MAX INPUT HASHMAP":
+//         case "INIT NNs":
+//         case "INIT RAN NNs":
+//         case "INIT RNT CHILD":
+//         case "INIT TWITTER USERS":
+//         case "INIT TWITTER":
+//         case "INIT UNFOLLOWABLE USER SET":
+//         case "INIT UNFOLLOWABLE":
+//         case "INIT":
+//         case "LOAD BEST NN":
+//         case "LOAD NN":
+//         case "MONGO DB CONNECTED":
+//         case "PONG":
+//         case "QUIT":
+//         case "QUITTING":
+//         case "READY":
+//         case "RESET":
+//         case "SAV NN HASHMAP":
+//         case "SLACK QUIT":
+//         case "SLACK READY":
+//         case "SLACK RTM READY":
+//         case "START":
+//         case "STATS":
+//         case "TEXT": 
+//         case "UPDATE HISTOGRAMS":
+//         case "UPDATE NN STATS":
+//         case "WAIT UPDATE STATS":
+//         case "END UPDATE STATS":
+//         case "UPDATE USER CAT STATS":
+//           resolve();
+//         break;
+//         case "STATSUS":
+//           console.log(chalkInfo(message.text));
+//           resolve();
+//         break;
+//         case "PING":
+//           console.log(chalkInfo("PING"));
+//           resolve();
+//         break;
+//         case "NONE":
+//           resolve();
+//         break;
+//         default:
+//           console.log(chalkAlert(MODULE_ID_PREFIX + " | *** UNDEFINED SLACK MESSAGE: " + message.text));
+//           resolve({text: "UNDEFINED SLACK MESSAGE", message: message});
+//       }
+//     }
+//     catch(err){
+//       reject(err);
+//     }
 
-  });
-}
+//   });
+// }
 
-async function initSlackWebClient(){
-  try {
+// async function initSlackWebClient(){
+//   try {
 
-    console.log(chalkLog(MODULE_ID_PREFIX + " | INIT SLACK WEB CLIENT"));
+//     console.log(chalkLog(MODULE_ID_PREFIX + " | INIT SLACK WEB CLIENT"));
 
-    const { WebClient } = require("@slack/client");
+//     const { WebClient } = require("@slack/client");
 
-    slackWebClient = new WebClient(slackRtmToken);
+//     slackWebClient = new WebClient(slackRtmToken);
 
-    const conversationsListResponse = await slackWebClient.conversations.list({token: slackOAuthAccessToken});
+//     const conversationsListResponse = await slackWebClient.conversations.list({token: slackOAuthAccessToken});
 
-    conversationsListResponse.channels.forEach(async function(channel){
+//     conversationsListResponse.channels.forEach(async function(channel){
 
-      debug(chalkLog(MODULE_ID_PREFIX + " | SLACK CHANNEL | " + channel.id + " | " + channel.name));
+//       debug(chalkLog(MODULE_ID_PREFIX + " | SLACK CHANNEL | " + channel.id + " | " + channel.name));
 
-      if (channel.name === slackChannel) {
-        configuration.slackChannel = channel;
+//       if (channel.name === slackChannel) {
+//         configuration.slackChannel = channel;
 
-        const message = {
-          token: slackOAuthAccessToken, 
-          channel: configuration.slackChannel.id,
-          text: "OP"
-        };
+//         const message = {
+//           token: slackOAuthAccessToken, 
+//           channel: configuration.slackChannel.id,
+//           text: "OP"
+//         };
 
-        message.attachments = [];
-        message.attachments.push({
-          text: "INIT", 
-          fields: [ 
-            { title: "SRC", value: hostname + "_" + process.pid }, 
-            { title: "MOD", value: MODULE_NAME }, 
-            { title: "DST", value: "ALL" } 
-          ]
-        });
+//         message.attachments = [];
+//         message.attachments.push({
+//           text: "INIT", 
+//           fields: [ 
+//             { title: "SRC", value: hostname + "_" + process.pid }, 
+//             { title: "MOD", value: MODULE_NAME }, 
+//             { title: "DST", value: "ALL" } 
+//           ]
+//         });
 
-        await slackWebClient.chat.postMessage(message);
-      }
+//         await slackWebClient.chat.postMessage(message);
+//       }
 
-      channelsHashMap.set(channel.id, channel);
+//       channelsHashMap.set(channel.id, channel);
 
-    });
+//     });
 
-    return;
-  }
-  catch(err){
-    console.log(chalkError(MODULE_ID_PREFIX + " | *** INIT SLACK WEB CLIENT ERROR: " + err));
-    throw err;
-  }
-}
+//     return;
+//   }
+//   catch(err){
+//     console.log(chalkError(MODULE_ID_PREFIX + " | *** INIT SLACK WEB CLIENT ERROR: " + err));
+//     throw err;
+//   }
+// }
 
-async function initSlackRtmClient(){
+// async function initSlackRtmClient(){
 
-  const { RTMClient } = require("@slack/client");
-  slackRtmClient = new RTMClient(slackRtmToken);
+//   const { RTMClient } = require("@slack/client");
+//   slackRtmClient = new RTMClient(slackRtmToken);
 
-  await slackRtmClient.start();
+//   await slackRtmClient.start();
 
-  slackRtmClient.on("slack_event", async function(eventType, event){
-    switch (eventType) {
-      case "pong":
-        debug(chalkLog(MODULE_ID_PREFIX + " | SLACK RTM PONG | " + getTimeStamp() + " | " + event.reply_to));
-      break;
-      default: debug(chalkInfo(MODULE_ID_PREFIX + " | SLACK RTM EVENT | " + getTimeStamp() + " | " + eventType + "\n" + jsonPrint(event)));
-    }
-  });
+//   slackRtmClient.on("slack_event", async function(eventType, event){
+//     switch (eventType) {
+//       case "pong":
+//         debug(chalkLog(MODULE_ID_PREFIX + " | SLACK RTM PONG | " + getTimeStamp() + " | " + event.reply_to));
+//       break;
+//       default: debug(chalkInfo(MODULE_ID_PREFIX + " | SLACK RTM EVENT | " + getTimeStamp() + " | " + eventType + "\n" + jsonPrint(event)));
+//     }
+//   });
 
 
-  slackRtmClient.on("message", async function(message){
-    if (configuration.verbose) { console.log(chalkLog(MODULE_ID_PREFIX + " | RTM R<\n" + jsonPrint(message))); }
-    debug(` | SLACK RTM MESSAGE | R< | CH: ${message.channel} | USER: ${message.user} | ${message.text}`);
+//   slackRtmClient.on("message", async function(message){
+//     if (configuration.verbose) { console.log(chalkLog(MODULE_ID_PREFIX + " | RTM R<\n" + jsonPrint(message))); }
+//     debug(` | SLACK RTM MESSAGE | R< | CH: ${message.channel} | USER: ${message.user} | ${message.text}`);
 
-    try {
-      await slackMessageHandler(message);
-    }
-    catch(err){
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** SLACK RTM MESSAGE ERROR: " + err));
-    }
+//     try {
+//       await slackMessageHandler(message);
+//     }
+//     catch(err){
+//       console.log(chalkError(MODULE_ID_PREFIX + " | *** SLACK RTM MESSAGE ERROR: " + err));
+//     }
 
-  });
+//   });
 
-  slackRtmClient.on("ready", async function(){
-    if (configuration.verbose) { await slackSendRtmMessage(hostname + " | " + MODULE_ID_PREFIX + " | SLACK RTM READY"); }
-    return;
-  });
-}
+//   slackRtmClient.on("ready", async function(){
+//     if (configuration.verbose) { await slackSendRtmMessage(hostname + " | " + MODULE_ID_PREFIX + " | SLACK RTM READY"); }
+//     return;
+//   });
+// }
 
 const maxHistogramValue = { name: "maxHistogramValue", alias: "M", type: Number };
 const help = { name: "help", alias: "h", type: Boolean};
@@ -799,13 +849,13 @@ function quit(options){
     if (options === "help") {
       process.exit();
     }
-    else {
-      let slackText = "\n*" + statsObj.runId + "*";
-      slackText = slackText + " | RUN " + msToTime(statsObj.elapsed);
-      slackText = slackText + " | QUIT CAUSE: " + options;
-      debug(MODULE_ID_PREFIX + " | SLACK TEXT: " + slackText);
-      slackSendWebMessage({channel: slackChannel, text: slackText});
-    }
+    // else {
+    //   let slackText = "\n*" + statsObj.runId + "*";
+    //   slackText = slackText + " | RUN " + msToTime(statsObj.elapsed);
+    //   slackText = slackText + " | QUIT CAUSE: " + options;
+    //   debug(MODULE_ID_PREFIX + " | SLACK TEXT: " + slackText);
+    //   slackSendWebMessage({channel: slackChannel, text: slackText});
+    // }
   }
 
   showStats();
@@ -1296,6 +1346,93 @@ configEvents.once("INIT_MONGODB", function(){
   console.log(chalkLog(MODULE_ID_PREFIX + " | INIT_MONGODB"));
 });
 
+function updateMaxInput(params){
+
+  return new Promise(function(resolve, reject){
+
+    redisClient.hincrby("maxInputHashMap_" + params.type, params.entity, params.value, function(err, value){
+
+      if (err) { 
+        console.log(chalkError(MODULE_ID_PREFIX
+          + " | *** REDIS HM INC BY ERROR"
+          + " | TYPE: " + params.type
+          + " | ENTITY: " + params.entity
+          + " | UPDATE: " + params.value
+          + " | ERR: " + err
+        ));
+        return reject(err); 
+      }
+        
+      resolve(value);
+
+    });
+
+  });
+}
+
+function updateMaxInputHashMap(params){
+
+  return new Promise(function(resolve, reject){
+
+    const histograms = params.histograms;
+    const limit = params.limit || configuration.updateMaxInputHashMapLimit;
+
+    const histogramTypes = Object.keys(histograms);
+
+    for (const type of histogramTypes){
+
+      if (type !== "sentiment") {
+
+        const histogramTypeEntities = Object.keys(histograms[type]);
+
+        if (histogramTypeEntities.length > 0) {
+
+          async.eachLimit(histogramTypeEntities, limit, function(entity, cb){
+
+
+            if (histograms[type][entity] === undefined){
+              console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNDEFINED histograms[type][entity]"
+                + " | TYPE: " + type
+                + " | ENTITY: " + entity
+              ));
+              delete histograms[type][entity];
+              return cb();
+            }
+
+            updateMaxInput({type: type, entity: entity, value: histograms[type][entity]})
+            .then(function(value){
+
+              debug(chalkLog(MODULE_ID_PREFIX + " | --> MAX INPUT"
+                + " | TYPE: " + type
+                + " | ENTITY: " + entity
+                + " | " + value
+              ));
+
+              cb();
+            })
+            .catch(function(err){
+              console.log(chalkAlert(MODULE_ID_PREFIX + " | *** updateMaxInput ERROR"
+                + " | TYPE: " + type
+                + " | ENTITY: " + entity
+                + " | ERROR: " + err
+              ));
+              return cb(err);
+            });
+
+          }, function(err){
+            if (err) { return reject(err); }
+          });
+
+        }
+      }
+    }
+
+    resolve();
+
+  })
+
+}
+
 async function updateUserAndMaxInputHashMap(params){
 
   const user = params.user;
@@ -1311,15 +1448,11 @@ async function updateUserAndMaxInputHashMap(params){
     histogram: params.user.profileHistograms
   });
 
-  // if (results.modifiedFlag) { user.profileHistograms = results.histogram; }
-
   const resultsTweetHistograms = await clampHistogram({
     nodeId: params.user.nodeId, 
     screenName: params.user.screenName,
     histogram: params.user.tweetHistograms
   });
-
-  // if (results.modifiedFlag) { user.tweetHistograms = results.histogram; }
 
   if (params.updateUserInDb && (resultsProfileHistograms.modifiedFlag || resultsTweetHistograms.modifiedFlag)){
 
@@ -1343,43 +1476,10 @@ async function updateUserAndMaxInputHashMap(params){
 
   }
 
-  const mergedHistograms = await mergeHistograms.merge({ histogramA: user.profileHistograms, histogramB: user.tweetHistograms });
+  // const mergedHistograms = await mergeHistograms.merge({ histogramA: user.profileHistograms, histogramB: user.tweetHistograms });
+  const mergedHistograms = merge(user.profileHistograms, user.tweetHistograms);
 
-  const histogramTypes = Object.keys(mergedHistograms);
-
-  for (const type of histogramTypes){
-    if (type !== "sentiment") {
-
-      if (!maxInputHashMap[type] || maxInputHashMap[type] === undefined) { maxInputHashMap[type] = {}; }
-
-      const histogramTypeEntities = Object.keys(mergedHistograms[type]);
-
-      if (histogramTypeEntities.length > 0) {
-
-        for (const entity of histogramTypeEntities){
-
-          if (mergedHistograms[type][entity] !== undefined){
-
-            if (maxInputHashMap[type][entity] === undefined){
-              maxInputHashMap[type][entity] = Math.max(1, mergedHistograms[type][entity]);
-            }
-            else{
-              maxInputHashMap[type][entity] = Math.max(maxInputHashMap[type][entity], mergedHistograms[type][entity]);
-            }
-          }
-          else{
-            console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNDEFINED mergedHistograms[type][entity]"
-              + " | TYPE: " + type
-              + " | ENTITY: " + entity
-            ));
-            delete mergedHistograms[type][entity];
-          }
-
-        }
-
-      }
-    }
-  }
+  await updateMaxInputHashMap({ histograms: mergedHistograms });
 
   return user;
 }
@@ -1548,49 +1648,6 @@ async function updateCategorizedUser(params){
 }
 
 const categorizedNodeQueue = [];
-// const archiveUserQueue = [];
-// let archiveUserQueueReady = true;
-// let archiveUserQueueInterval;
-
-// function initArchiveUserQueue(params){
-
-//   return new Promise(function(resolve){
-
-//     const interval = params.interval;
-
-//     clearInterval(archiveUserQueueInterval);
-
-//     archiveUserQueueInterval = setInterval(function(){
-
-//       if (archiveUserQueueReady && (archiveUserQueue.length > 0)) {
-
-//         archiveUserQueueReady = false;
-
-//         const user = archiveUserQueue.shift();
-
-//         archiveUser({user: user})
-//         .then(function(){
-
-//           debug(chalkAlert(MODULE_ID_PREFIX + " | +++ ARCHIVED USER"
-//             + " [ AUQ: " + archiveUserQueue.length + "]"
-//             + " | USER ID: " + user.nodeId
-//             + " | @" + user.screenName
-//           ));
-
-//           archiveUserQueueReady = true;
-//         })
-//         .catch(function(err){
-//           console.log(chalkError(MODULE_ID_PREFIX + " | *** archiveUser ERROR: " + err));
-//           archiveUserQueueReady = true;
-//         });
-//       }
-
-//     }, interval);
-
-//     resolve();
-
-//   });
-// }
 
 let userIndex = 0;
 
@@ -1712,11 +1769,8 @@ function cursorDataHandler(user){
         )); 
       }
 
-      // return resolve();
-
       waitValue()
       .then(function(){
-        // console.log(MODULE_ID_PREFIX + " | waitValue | RESOLVED | " + statsObj.saveFileQueue);
         return resolve();
       })
       .catch(function(err){
@@ -1733,7 +1787,6 @@ function cursorDataHandler(user){
       user.friends = _.slice(user.friends, 0,5000);
     }
 
-    // const catUser = await categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode});
     categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode})
     .then(function(catUser){
 
@@ -1780,7 +1833,6 @@ function cursorDataHandler(user){
 
       waitValue()
       .then(function(){
-        // console.log(MODULE_ID_PREFIX + " | waitValue | RESOLVED | " + statsObj.saveFileQueue);
         return resolve();
       })
       .catch(function(err){
@@ -1799,9 +1851,6 @@ function cursorDataHandler(user){
 
 async function categoryCursorStream(params){
 
-  // const startTimeStamp = moment().valueOf();
-  // let errorTimeStamp = startTimeStamp;
-
   statsObj.categorizedCount = 0;
 
   const batchSize = params.batchSize || configuration.batchSize;
@@ -1816,10 +1865,21 @@ async function categoryCursorStream(params){
   let cursor;
 
   if (configuration.testMode) {
-    cursor = global.wordAssoDb.User.find(params.query, {timeout: false}).lean().batchSize(batchSize).limit(maxArchivedCount).cursor().addCursorFlag("noCursorTimeout", true);
+    cursor = global.wordAssoDb.User
+    .find(params.query, {timeout: false})
+    .lean()
+    .batchSize(batchSize)
+    .limit(maxArchivedCount)
+    .cursor()
+    .addCursorFlag("noCursorTimeout", true);
   }
   else{
-    cursor = global.wordAssoDb.User.find(params.query, {timeout: false}).lean().batchSize(batchSize).cursor().addCursorFlag("noCursorTimeout", true);
+    cursor = global.wordAssoDb.User
+    .find(params.query, {timeout: false})
+    .lean()
+    .batchSize(batchSize)
+    .cursor()
+    .addCursorFlag("noCursorTimeout", true);
   }
 
   cursor.on("end", function() {
@@ -1836,18 +1896,6 @@ async function categoryCursorStream(params){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
     return;
   });
-
-  // await cursor.eachAsync(async function(user){
-
-  //   await cursorDataHandler(user);
-
-  //   // if (configuration.testMode && (statsObj.categorizedCount >= maxArchivedCount)) {
-  //   //   console.log(chalkInfo(MODULE_ID_PREFIX
-  //   //     + " | CATEGORIZED: " + statsObj.categorizedCount
-  //   //     + " | categorizedUsers\n" + jsonPrint(categorizedUsers)
-  //   //   ));
-  //   // }
-  // });
 
   await cursor.eachAsync(async (user) => {
     await cursorDataHandler(user);
@@ -1871,91 +1919,6 @@ async function categoryCursorStream(params){
 
   return;
 }
-
-// function printUserObj(title, user, chalkFormat) {
-
-//   const chlk = chalkFormat || chalkInfo;
-
-//   console.log(chlk(title
-//     + " | " + user.nodeId
-//     + " | @" + user.screenName
-//     + " | N: " + user.name 
-//     + " | FLWRs: " + user.followersCount
-//     + " | FRNDs: " + user.friendsCount
-//     + " | FRND IDs: " + user.friends.length
-//     + " | Ts: " + user.statusesCount
-//     + " | M: " + user.mentions
-//     + " | FW: " + formatBoolean(user.following) 
-//     + " | LS: " + getTimeStamp(user.lastSeen)
-//     + " | CN: " + user.categorizeNetwork
-//     + " | V: " + formatBoolean(user.categoryVerified)
-//     + " | M: " + formatCategory(user.category)
-//     + " | A: " + formatCategory(user.categoryAuto)
-//   ));
-// }
-
-// function archiveUser(params){
-
-//   return new Promise(function(resolve, reject){
-
-//     if (archive === undefined) { 
-//       return reject(new Error("ARCHIVE UNDEFINED"));
-//     }
-
-//     const fileName = "user_" + params.user.userId + ".json";
-
-//     const userBuffer = Buffer.from(JSON.stringify(params.user));
-
-//     archive.append(userBuffer, { name: fileName});
-
-//     tcUtils.waitEvent({event: "append_" + fileName})
-//     .then(function(){
-
-//       statsObj.usersAppendedToArchive += 1;
-
-//       if (configuration.verbose) {
-//         printUserObj(MODULE_ID_PREFIX + " | >-- ARCHIVE", params.user);
-//       }
-
-//       resolve();
-
-//     })
-//     .catch(function(err){
-//       console.log(chalkError(MODULE_ID_PREFIX + " | *** archiveUser ERROR: " + err));
-//       reject(err);
-//     })
-
-//   });
-// }
-
-// let endArchiveUsersInterval;
-
-// function endAppendUsers(){
-//   return new Promise(function(resolve){
-
-//     console.log(chalkLog(MODULE_ID_PREFIX + " | ... WAIT END APPEND"));
-
-//     endArchiveUsersInterval = setInterval(function(){
-
-//       statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.usersAppendedToArchive + statsObj.users.processed.empty + statsObj.users.processed.errors);
-
-//       if ((statsObj.usersAppendedToArchive > 0) && (archiveUserQueue.length === 0) && archiveUserQueueReady){
-//         console.log(chalkGreen(MODULE_ID_PREFIX + " | XXX END APPEND"
-//           + " | " + statsObj.users.grandTotal + " USERS"
-//           + " | " + statsObj.usersAppendedToArchive + " APPENDED"
-//           + " | " + statsObj.usersProcessed + " PROCESSED"
-//           + " | " + statsObj.users.processed.empty + " EMPTY SKIPPED"
-//           + " | " + statsObj.users.processed.errors + " ERRORS"
-//           + " | " + statsObj.users.processed.remain + " REMAIN"
-//         ));
-//         clearInterval(endArchiveUsersInterval);
-//         return resolve();
-//       }
-
-//     }, 10*ONE_SECOND);
-
-//   });
-// }
 
 let endSaveFileQueueInterval;
 
@@ -2190,7 +2153,11 @@ async function initialize(cnf){
   }
 
   await initStdIn();
-  
+
+  const redisResult = await redisClient.flushall();
+
+  console.log(chalkAlert(MODULE_ID_PREFIX + " | REDIS FLUSH ALL RESULT: " + redisResult));
+
   configuration = await loadAllConfigFiles(configuration);
 
   await loadCommandLineArgs();
@@ -2212,6 +2179,102 @@ async function initialize(cnf){
 
   return configuration;
 }
+
+function redisScan(params){
+
+  return new Promise(function(resolve, reject){
+
+    let scanCursor = 0;
+    const hashmap = {};
+    const count = params.count || configuration.redisScanCount;
+
+    redisClient.hscan("maxInputHashMap_" + params.type, params.scanCursor, "count", count, function(err, scanResultArray){
+
+      if (err){
+        console.log(chalkError(MODULE_ID_PREFIX + " | *** REDIS HM SCAN ERROR: " + err));
+        return reject(err);
+      }
+
+      scanCursor = parseInt(scanResultArray[0]);
+
+      const resultsArray = scanResultArray[1];
+
+      debug("scanCursor: " + scanCursor + " | scanResultArray[1]: " + resultsArray.length);
+
+      for(let i=0;i<resultsArray.length;i += 2){
+
+        const key = resultsArray[i];
+        const value = parseInt(resultsArray[i+1]);
+
+        hashmap[key] = value;
+
+        debug("entity: " + key + ": " + hashmap[key]);
+
+      }
+
+      debug("END scanCursor | " + params.type);
+
+      resolve({scanCursor: scanCursor, hashmap: hashmap});
+
+    });
+
+  });
+}
+
+function saveMaxInputHashMap(){
+
+  return new Promise(function(resolve, reject){
+
+    let scanCursor = 0;
+
+
+    const filePrefix = "maxInputHashMap_";
+    const fileSufffix = (configuration.testMode) ? "_test.json" : ".json";
+
+    console.log(chalkBlue(MODULE_ID_PREFIX
+      + " | >>> SAVING MAX INPUT HASHMAPS ..."
+    ));
+
+
+    async.each(DEFAULT_INPUT_TYPES, async function(type){
+
+      let hashmap = {};
+      let more = true;
+      const maxInputHashMapFile = filePrefix + type + fileSufffix;
+
+      while (more){
+
+        const results = await redisScan({type: type, scanCursor: scanCursor});
+        scanCursor = results.scanCursor;
+        more = (scanCursor > 0);
+
+        // const tempHashmap = await mergeHistograms.merge({ histogramA: hashmap, histogramB: results.hashmap });
+        hashmap = merge(hashmap, results.hashmap);
+
+        debug(chalkBlue("TYPE: " + type + " | scanCursor: " + scanCursor + " | results.hashmap KEYS: " + Object.keys(results.hashmap).length));
+        debug(chalkBlue("TYPE: " + type + " | scanCursor: " + scanCursor + " | hashmap KEYS: " + Object.keys(hashmap).length));
+      }
+
+      console.log(chalkBlue(MODULE_ID_PREFIX
+        + " | ... SAVING MAX INPUT HASHMAP FILE | "
+        + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
+        + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
+      ));
+
+      statsObj.saveFileQueue = tcUtils.saveFileQueue({folder: configuration.maxInputHashMapsFolder, file: maxInputHashMapFile, obj: hashmap});
+
+      return;
+    // }
+
+    }, function(err){
+      if (err) { return reject(err); }
+      resolve();
+    })
+
+  });
+
+}
+
 
 async function generateGlobalTrainingTestSet(){
 
@@ -2275,25 +2338,6 @@ async function generateGlobalTrainingTestSet(){
 
   await endSaveFileQueue();
 
-  const mihmObj = {};
-
-  mihmObj.maxInputHashMap = {};
-  mihmObj.maxInputHashMap = maxInputHashMap;
-
-  mihmObj.normalization = {};
-  mihmObj.normalization = statsObj.normalization;
-
-  let maxInputHashMapFile = "maxInputHashMap.json";
-
-  if (configuration.testMode) { maxInputHashMapFile = "maxInputHashMapFile_test.json"; }
-
-  console.log(MODULE_ID_PREFIX
-    + " | ... SAVING MAX INPUT HASHMAP FILE | "
-    + " | " + (sizeof(mihmObj)/ONE_MEGABYTE).toFixed(3) + " MB"
-    + " | " + configuration.trainingSetsFolder + "/" + maxInputHashMapFile
-  );
-
-  statsObj.saveFileQueue = tcUtils.saveFileQueue({folder: configuration.trainingSetsFolder, file: maxInputHashMapFile, obj: mihmObj });
 
   return;
 }
@@ -2343,6 +2387,8 @@ setTimeout(async function(){
       await updateArchiveFileUploadComplete({path: archivePath});
     }
 
+    await saveMaxInputHashMap();
+
     let rootFolder;
 
     if (configuration.testMode) {
@@ -2362,10 +2408,6 @@ setTimeout(async function(){
 
     await tcUtils.saveGlobalHistograms({rootFolder: rootFolder, pruneFlag: true, inputTypeMinHash: inputTypeMinHash});
 
-    // await delay({message: "... WAIT FOR FILE SAVE | " + configuration.trainingSetsFolder, period: ONE_MINUTE});
-
-    //   file = file.replace(/users\.zip/, "users_test.zip");
-
     if (configuration.testMode) {
       configuration.archiveFileUploadCompleteFlagFile = configuration.archiveFileUploadCompleteFlagFile.replace(/\.json/, "_test.json");
     }
@@ -2379,17 +2421,17 @@ setTimeout(async function(){
       obj: fileSizeArrayObj
     });
 
-    let slackText = "\n*" + MODULE_ID_PREFIX + " | TRAINING SET*";
-    slackText = slackText + "\n" + configuration.userArchivePath;
-    slackText = slackText + "\nUSERS ARCHIVED: " + statsObj.users.grandTotal;
-    slackText = slackText + "\nLEFT: " + categorizedUserHistogram.left;
-    slackText = slackText + "\nRIGHT: " + categorizedUserHistogram.right;
-    slackText = slackText + "\nNEUTRAL: " + categorizedUserHistogram.neutral;
-    slackText = slackText + "\nPOSITIVE: " + categorizedUserHistogram.positive;
-    slackText = slackText + "\nNEGATIVE: " + categorizedUserHistogram.negative;
-    slackText = slackText + "\nNONE: " + categorizedUserHistogram.none;
+    // let slackText = "\n*" + MODULE_ID_PREFIX + " | TRAINING SET*";
+    // slackText = slackText + "\n" + configuration.userArchivePath;
+    // slackText = slackText + "\nUSERS ARCHIVED: " + statsObj.users.grandTotal;
+    // slackText = slackText + "\nLEFT: " + categorizedUserHistogram.left;
+    // slackText = slackText + "\nRIGHT: " + categorizedUserHistogram.right;
+    // slackText = slackText + "\nNEUTRAL: " + categorizedUserHistogram.neutral;
+    // slackText = slackText + "\nPOSITIVE: " + categorizedUserHistogram.positive;
+    // slackText = slackText + "\nNEGATIVE: " + categorizedUserHistogram.negative;
+    // slackText = slackText + "\nNONE: " + categorizedUserHistogram.none;
 
-    await slackSendWebMessage({channel: slackChannel, text: slackText});
+    // await slackSendWebMessage({channel: slackChannel, text: slackText});
 
     clearInterval(showStatsInterval);
 
