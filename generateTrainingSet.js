@@ -2384,10 +2384,6 @@ async function generateGlobalTrainingTestSet(){
     const query = {};
     query.category = category;
 
-    // if (configuration.testMode) {
-    //   statsObj.cursor[category].lastFetchedNodeId = "1234567";
-    // }
-
     if (statsObj.cursor[category].lastFetchedNodeId){
       query.nodeId = { "$gt": statsObj.cursor[category].lastFetchedNodeId };
       console.log(chalkAlert(MODULE_ID_PREFIX
@@ -2414,8 +2410,9 @@ async function generateGlobalTrainingTestSet(){
         reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, 
         maxArchivedCount: maxCategoryArchivedCount
       });
-
     }
+
+    statsObj.cursor[category].lastFetchedNodeId = false;
   }
 
   return;
