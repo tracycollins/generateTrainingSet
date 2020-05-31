@@ -4,7 +4,7 @@
     "name": "gts",
     "script": "generateTrainingSet.js",
     "cwd": "/Volumes/RAID1/projects/generateTrainingSet",
-    "node_args": "--max-old-space-size=131072",
+    "node_args": "--max-old-space-size=32768",
     "autorestart": false,
     "env": {
       "PRIMARY_HOST": "mms1",
