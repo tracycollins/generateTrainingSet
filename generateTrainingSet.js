@@ -18,7 +18,7 @@ const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 
-const TOTAL_MAX_TEST_COUNT = 1047;
+const TOTAL_MAX_TEST_COUNT = 147;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -211,6 +211,17 @@ const statsObj = {};
 statsObj.heap = process.memoryUsage().heapUsed/ONE_GIGABYTE;
 statsObj.maxHeap = process.memoryUsage().heapUsed/ONE_GIGABYTE;
 
+statsObj.cursor = {};
+
+statsObj.cursor.left = {};
+statsObj.cursor.left.lastFetchedNodeId = false;
+
+statsObj.cursor.right = {};
+statsObj.cursor.right.lastFetchedNodeId = false;
+
+statsObj.cursor.neutral = {};
+statsObj.cursor.neutral.lastFetchedNodeId = false;
+
 let statsObjSmall = {};
 
 statsObj.status = "LOAD";
@@ -370,6 +381,8 @@ fs.mkdirSync(configuration.default.userTempArchiveFolder, { recursive: true });
 
 fs.mkdirSync(configuration.local.userArchiveFolder, { recursive: true });
 fs.mkdirSync(configuration.local.userTempArchiveFolder, { recursive: true });
+
+let mongooseDb;
 
 global.wordAssoDb = require("@threeceelabs/mongoose-twitter");
 
@@ -1298,6 +1311,7 @@ async function clampHistogram(params){
           modifiedFlag = true;
 
           console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: " + maxValue
+            + " | NID: " + params.nodeId
             + " | @" + params.screenName
             + " | TYPE: " + type
             + " | ENTITY: " + entity
@@ -1312,6 +1326,7 @@ async function clampHistogram(params){
           modifiedFlag = true;
 
           console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE <= 0 | SET TO 1"
+            + " | NID: " + params.nodeId
             + " | @" + params.screenName
             + " | TYPE: " + type
             + " | ENTITY: " + entity
@@ -1459,6 +1474,7 @@ async function updateUserAndMaxInputHashMap(params){
     const dbUpdatedUser = await global.wordAssoDb.User.findOneAndUpdate({ nodeId: params.user.nodeId }, update);
 
     console.log(chalkInfo(MODULE_ID_PREFIX + " | +++ UPDATED "
+      + " | NID: " + dbUpdatedUser.nodeId
       + " | @" + dbUpdatedUser.screenName
       + " | PROFILE HISTOGRAM: " + resultsProfileHistograms.modifiedFlag
       + " | TWEET HISTOGRAM: " + resultsTweetHistograms.modifiedFlag
@@ -1549,9 +1565,19 @@ async function updateCategorizedUser(params){
         statsObj.normalization.comp.min = Math.min(statsObj.normalization.comp.min, user.profileHistograms.sentiment.comp);
       }
 
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | SENTIMENT: " + user.profileHistograms.sentiment));
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | SENTIMENT\n" + jsonPrint(user.profileHistograms.sentiment)));
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | NORMALIZATION\n" + jsonPrint(statsObj.normalization)));
+      // console.log(chalkAlert(MODULE_ID_PREFIX + " | SENTIMENT: " + user.profileHistograms.sentiment));
+      console.log(chalkLog(MODULE_ID_PREFIX
+        + " | NID: " + user.nodeId
+        + " | @" + user.screenName
+        + " | SENTIMENT: SCORE: " + user.profileHistograms.sentiment.score
+        + " MAG: " + user.profileHistograms.sentiment.magnitude
+        + " COMP: " + user.profileHistograms.sentiment.comp
+      ));
+      console.log(chalkLog(MODULE_ID_PREFIX + " | NORMALIZATION"
+        + " | SCORE min: " + statsObj.normalization.score.min + " max: " + statsObj.normalization.score.max
+        + " | MAG min: " + statsObj.normalization.magnitude.min + " max: " + statsObj.normalization.magnitude.max
+        + " | COMP min: " + statsObj.normalization.comp.min + " max: " + statsObj.normalization.comp.max
+      ));
     }
 
     let classText = "";
@@ -1604,7 +1630,8 @@ async function updateCategorizedUser(params){
 
     statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
     statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
-    statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.empty + statsObj.users.processed.errors);
+    // statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.empty + statsObj.users.processed.errors);
+    statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
     statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
     statsObj.users.processed.endMoment = moment();
     statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
@@ -1856,30 +1883,38 @@ async function categoryCursorStream(params){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
   }
 
+  let cursor;
+
+  const session = await mongooseDb.startSession();
+
+  debug("MONGO DB SESSION\n" + session.id);
+
   console.log(chalkBlue(MODULE_ID_PREFIX
-    + " | categoryCursorStream "
+    + " | categoryCursorStream"
     + " | batchSize: " + batchSize
     + " | cursorParallel: " + cursorParallel
     + " | maxArchivedCount: " + maxArchivedCount
     + " | reSaveUserDocsFlag: " + reSaveUserDocsFlag
   ));
 
-  let cursor;
-
   if (configuration.testMode) {
     cursor = global.wordAssoDb.User
     .find(params.query, {timeout: false})
+    .sort({nodeId: 1})
     .lean()
     .batchSize(batchSize)
     .limit(maxArchivedCount)
+    .session(session)
     .cursor()
     .addCursorFlag("noCursorTimeout", true);
   }
   else{
     cursor = global.wordAssoDb.User
     .find(params.query, {timeout: false})
+    .sort({nodeId: 1})
     .lean()
     .batchSize(batchSize)
+    .session(session)
     .cursor()
     .addCursorFlag("noCursorTimeout", true);
   }
@@ -1900,8 +1935,15 @@ async function categoryCursorStream(params){
   });
 
   await cursor.eachAsync(async (user) => {
+
+    if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
+    statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;
+
     await cursorDataHandler(user);
+
   }, { parallel: configuration.cursorParallel });
+
+  await session.endSession();
 
   console.log(chalkBlue(MODULE_ID_PREFIX
     + " | CATEGORIZED: " + statsObj.categorizedCount
@@ -2177,7 +2219,7 @@ async function initialize(cnf){
   
   statsObj.commandLineArgsLoaded = true;
 
-  await connectDb();
+  mongooseDb = await connectDb();
 
   return configuration;
 }
@@ -2333,18 +2375,27 @@ async function generateGlobalTrainingTestSet(){
     ));
     console.log(chalkGreen(MODULE_ID_PREFIX + " | ========================================================================\n"));
 
-    const query = { "category": category };
+    const query = {};
+    query.category = category;
+
+    // if (configuration.testMode) {
+    //   statsObj.cursor[category].lastFetchedNodeId = "1234567";
+    // }
+
+    if (statsObj.cursor[category].lastFetchedNodeId){
+      query.nodeId = { "$gt": statsObj.cursor[category].lastFetchedNodeId };
+      console.log(chalkAlert(MODULE_ID_PREFIX
+        + " | !!! USING LAST FETCH NODE ID: " + statsObj.cursor[category].lastFetchedNodeId
+      ));
+    }
 
     await categoryCursorStream({
+      category: category, 
       query: query, 
       reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, 
       maxArchivedCount: maxCategoryArchivedCount
     });
   }
-
-
-  await endSaveFileQueue();
-
 
   return;
 }
@@ -2384,6 +2435,25 @@ setTimeout(async function(){
 
     categorizedUserHistogramTotal();
 
+    statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
+
+    console.log(chalkInfo("TFE | ... SAVING NORMALIZATION FILE"
+      + " [ SFQ: " + statsObj.saveFileQueue
+      + " | " + configuration.trainingSetsFolder + "/normalization.json"
+    ));
+
+    console.log(chalkLog(MODULE_ID_PREFIX + " | NORMALIZATION"
+      + " | SCORE min: " + statsObj.normalization.score.min + " max: " + statsObj.normalization.score.max
+      + " | MAG min: " + statsObj.normalization.magnitude.min + " max: " + statsObj.normalization.magnitude.max
+      + " | COMP min: " + statsObj.normalization.comp.min + " max: " + statsObj.normalization.comp.max
+    ));
+
+    statsObj.saveFileQueue = tcUtils.saveFileQueue({
+      folder: configuration.trainingSetsFolder, 
+      file: "normalization.json", 
+      obj: statsObj.normalization
+    });
+
     fileSizeArrayObj.histograms = {};
     fileSizeArrayObj.histograms = categorizedUserHistogram;
 
@@ -2395,19 +2465,6 @@ setTimeout(async function(){
     }
 
     await saveMaxInputHashMap();
-
-    statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
-
-    console.log(chalkInfo("TFE | ... SAVING NORMALIZATION FILE"
-      + " [ SFQ: " + statsObj.saveFileQueue
-      + " | " + configuration.trainingSetsFolder + "/normalization.json"
-    ));
-
-    statsObj.saveFileQueue = tcUtils.saveFileQueue({
-      folder: configuration.trainingSetsFolder, 
-      file: "normalization.json", 
-      obj: statsObj.normalization
-    });
 
     let rootFolder;
 
@@ -2452,6 +2509,8 @@ setTimeout(async function(){
     // slackText = slackText + "\nNONE: " + categorizedUserHistogram.none;
 
     // await slackSendWebMessage({channel: slackChannel, text: slackText});
+
+    await endSaveFileQueue();
 
     clearInterval(showStatsInterval);
 
