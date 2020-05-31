@@ -1720,7 +1720,7 @@ async function categorizeUser(params){
   }
   catch(err){
     console.log(chalkError(MODULE_ID_PREFIX
-      + " | *** UPDATE CATEGORIZED USER ERROR | USER ID: " + params.nodeId 
+      + " | *** UPDATE CATEGORIZED USER ERROR | USER ID: " + params.user.nodeId 
       + " | ERROR: " + err
     ));
     throw err;
@@ -1936,10 +1936,16 @@ async function categoryCursorStream(params){
 
   await cursor.eachAsync(async (user) => {
 
-    if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
-    statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;
-
-    await cursorDataHandler(user);
+    try{
+      await cursorDataHandler(user);
+      if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
+      statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;
+    }
+    catch(e){
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** cursorDataHandler ERROR: " + e));
+      await session.endSession();
+      return statsObj.cursor[params.category].lastFetchedNodeId;
+    }
 
   }, { parallel: configuration.cursorParallel });
 
@@ -2389,12 +2395,27 @@ async function generateGlobalTrainingTestSet(){
       ));
     }
 
-    await categoryCursorStream({
+    let lastFetchedNodeId = await categoryCursorStream({
       category: category, 
       query: query, 
       reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, 
       maxArchivedCount: maxCategoryArchivedCount
     });
+
+    if (lastFetchedNodeId !== undefined) {
+
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? CURSOR TIMEOUT ??? | RETRY STARTING AT NODE ID: " + lastFetchedNodeId));
+
+      query.nodeId = { "$gt": lastFetchedNodeId };
+
+      lastFetchedNodeId = await categoryCursorStream({
+        category: category, 
+        query: query, 
+        reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, 
+        maxArchivedCount: maxCategoryArchivedCount
+      });
+
+    }
   }
 
   return;
