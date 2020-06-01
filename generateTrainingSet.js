@@ -1877,7 +1877,7 @@ async function categoryCursorStream(params){
     cursor = global.wordAssoDb.User
     .find(params.query, {timeout: false})
     .sort({nodeId: 1})
-    .select({nodeId: 1})
+    .select('+nodeId')
     .lean()
     .batchSize(batchSize)
     .limit(maxArchivedCount)
@@ -1889,7 +1889,7 @@ async function categoryCursorStream(params){
     cursor = global.wordAssoDb.User
     .find(params.query, {timeout: false})
     .sort({nodeId: 1})
-    .select({nodeId: 1})
+    .select('+nodeId')
     .lean()
     .batchSize(batchSize)
     .session(session)
@@ -1914,9 +1914,9 @@ async function categoryCursorStream(params){
 
   if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
 
-  await cursor.eachAsync((nodeId) => {
+  await cursor.eachAsync((u) => {
 
-    global.wordAssoDb.Users.findOne({nodeId: nodeId}).lean()
+    global.wordAssoDb.User.findOne({nodeId: u.nodeId}).lean().exec()
     .then(function(user){
       cursorDataHandler(user)
       .then(function(){
