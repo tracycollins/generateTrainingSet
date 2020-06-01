@@ -4,7 +4,7 @@ const DEFAULT_REDIS_SCAN_COUNT = 1000;
 const DEFAULT_MAX_INPUT_HASHMAP_LIMIT = 32;
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 32;
 const DEFAULT_USERS_PER_ARCHIVE = 10000;
-const DEFAULT_BATCH_SIZE = 1000;
+const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_WAIT_VALUE_INTERVAL = 10;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
 const DEFAULT_MAX_SAVE_FILE_QUEUE = 100;
@@ -172,7 +172,6 @@ const redisClient = redis.createClient();
 
 let archive;
 
-
 let categorizedUsersPercent = 0;
 
 const subFolderSet = new Set();
@@ -204,7 +203,6 @@ const DEFAULT_USER_PROPERTY_PICK_ARRAY = [
   "tweetsPerDay", 
   "userId"
 ];
-
 
 const statsObj = {};
 
@@ -1106,6 +1104,16 @@ async function loadConfigFile(params) {
       newConfiguration.waitValueInterval = loadedConfigObj.GTS_WAIT_VALUE_INTERVAL;
     }
 
+    if (loadedConfigObj.GTS_MAX_INPUT_HASHMAP_LIMIT !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_MAX_INPUT_HASHMAP_LIMIT: " + loadedConfigObj.GTS_MAX_INPUT_HASHMAP_LIMIT);
+      newConfiguration.updateMaxInputHashMapLimit = loadedConfigObj.GTS_MAX_INPUT_HASHMAP_LIMIT;
+    }
+
+    if (loadedConfigObj.GTS_REDIS_SCAN_COUNT !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_REDIS_SCAN_COUNT: " + loadedConfigObj.GTS_REDIS_SCAN_COUNT);
+      newConfiguration.redisScanCount = loadedConfigObj.GTS_REDIS_SCAN_COUNT;
+    }
+
     if (loadedConfigObj.GTS_SAVE_FILE_MAX_PARALLEL !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_SAVE_FILE_MAX_PARALLEL: " + loadedConfigObj.GTS_SAVE_FILE_MAX_PARALLEL);
       newConfiguration.saveFileMaxParallel = loadedConfigObj.GTS_SAVE_FILE_MAX_PARALLEL;
@@ -1393,7 +1401,6 @@ function updateMaxInputHashMap(params){
         if (histogramTypeEntities.length > 0) {
 
           async.eachLimit(histogramTypeEntities, limit, function(entity, cb){
-
 
             if (histograms[type][entity] === undefined){
               console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNDEFINED histograms[type][entity]"
@@ -1934,11 +1941,12 @@ async function categoryCursorStream(params){
     return;
   });
 
+  if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
+
   await cursor.eachAsync(async (user) => {
 
     try{
       await cursorDataHandler(user);
-      if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
       statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;
     }
     catch(e){
@@ -2533,6 +2541,10 @@ setTimeout(async function(){
     clearInterval(showStatsInterval);
 
     await tcUtils.stopSaveFileQueue();
+
+    await redisClient.quit();
+
+    await redisServer.close();
 
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
     quit("OK");
