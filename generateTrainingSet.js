@@ -1,4 +1,4 @@
-// const MODULE_NAME = "generateTrainingSet";
+const DEFAULT_INTERVAL = 5;
 const DEFAULT_CURSOR_PARALLEL = 16;
 const DEFAULT_REDIS_SCAN_COUNT = 1000;
 const DEFAULT_MAX_INPUT_HASHMAP_LIMIT = 32;
@@ -18,7 +18,7 @@ const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 
-const TOTAL_MAX_TEST_COUNT = 147;
+const TOTAL_MAX_TEST_COUNT = 10047;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -60,23 +60,6 @@ const DEFAULT_INPUT_TYPES = [
   "userMentions",
   "words"
 ];
-
-// const maxInputHashMap_emoji = {};
-// const maxInputHashMap_friends = {};
-// const maxInputHashMap_hashtags = {};
-// const maxInputHashMap_images = {};
-// const maxInputHashMap_locations = {};
-// const maxInputHashMap_media = {};
-// const maxInputHashMap_ngrams = {};
-// const maxInputHashMap_places = {};
-// const maxInputHashMap_sentiment = {};
-// const maxInputHashMap_urls = {};
-// const maxInputHashMap_userMentions = {};
-// const maxInputHashMap_words = {};
-
-// DEFAULT_INPUT_TYPES.forEach(function(type){
-//   maxInputHashMap[type] = {};
-// });
 
 const defaultInputTypeMinHash = {
   emoji: DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM,
@@ -210,13 +193,10 @@ statsObj.heap = process.memoryUsage().heapUsed/ONE_GIGABYTE;
 statsObj.maxHeap = process.memoryUsage().heapUsed/ONE_GIGABYTE;
 
 statsObj.cursor = {};
-
 statsObj.cursor.left = {};
 statsObj.cursor.left.lastFetchedNodeId = false;
-
 statsObj.cursor.right = {};
 statsObj.cursor.right.lastFetchedNodeId = false;
-
 statsObj.cursor.neutral = {};
 statsObj.cursor.neutral.lastFetchedNodeId = false;
 
@@ -230,13 +210,10 @@ statsObj.commandLineArgsLoaded = false;
 
 statsObj.users = {};
 statsObj.users.grandTotal = 0;
-
 statsObj.users.notCategorized = 0;
 statsObj.users.notFound = 0;
 statsObj.users.screenNameUndefined = 0;
-
 statsObj.users.processed = {};
-
 statsObj.users.processed.total = 0;
 statsObj.users.processed.empty = 0;
 statsObj.users.processed.errors = 0;
@@ -313,11 +290,11 @@ while(sum < TOTAL_MAX_TEST_COUNT){
 
 configuration.maxHistogramValue = DEFAULT_MAX_HISTOGRAM_VALUE;
 configuration.slackChannel = {};
-// configuration.archiveUserQueueIntervalPeriod = DEFAULT_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
-// configuration.waitCursorInterval = DEFAULT_WAIT_CURSOR_INTERVAL_PERIOD;
 
 let defaultConfiguration = {}; // general configuration for GTS
 let hostConfiguration = {}; // host-specific configuration for GTS
+
+configuration.cursorInterval = DEFAULT_INTERVAL;
 
 configuration.serverMode = DEFAULT_SERVER_MODE;
 
@@ -1413,7 +1390,6 @@ function updateMaxInputHashMap(params){
     resolve();
 
   })
-
 }
 
 async function updateUserAndMaxInputHashMap(params){
@@ -1460,7 +1436,6 @@ async function updateUserAndMaxInputHashMap(params){
 
   }
 
-  // const mergedHistograms = await mergeHistograms.merge({ histogramA: user.profileHistograms, histogramB: user.tweetHistograms });
   const mergedHistograms = merge(user.profileHistograms, user.tweetHistograms);
 
   await updateMaxInputHashMap({ histograms: mergedHistograms });
@@ -1710,7 +1685,6 @@ categorizedUsers.left = 0;
 categorizedUsers.neutral = 0;
 categorizedUsers.right = 0;
 
-
 function waitValue(){
 
   return new Promise(function(resolve){
@@ -1725,10 +1699,6 @@ function waitValue(){
 
       statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
 
-      // if (params.verbose) {
-      //   console.log(MODULE_ID_PREFIX + " | waitValue | INTERVAL " + statsObj.saveFileQueue);
-      // }
-
       if (statsObj.saveFileQueue < configuration.maxSaveFileQueue){
         clearInterval(interval);
         return resolve();
@@ -1737,7 +1707,6 @@ function waitValue(){
     }, configuration.waitValueInterval);
 
   });
-
 }
 
 function cursorDataHandler(user){
@@ -1846,126 +1815,142 @@ function cursorDataHandler(user){
   });
 }
 
-async function categoryCursorStream(params){
+function categoryCursorStream(params){
 
-  statsObj.categorizedCount = 0;
+  return new Promise(function(resolve, reject){
 
-  const batchSize = params.batchSize || configuration.batchSize;
-  const cursorParallel = params.cursorParallel || configuration.cursorParallel;
-  const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
-  const reSaveUserDocsFlag = params.reSaveUserDocsFlag || configuration.reSaveUserDocsFlag;
+    statsObj.status = "categoryCursorStream";
 
-  if (reSaveUserDocsFlag) {
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
-  }
+    statsObj.categorizedCount = 0;
 
-  let cursor;
+    const interval = params.interval || configuration.cursorInterval;
+    const batchSize = params.batchSize || configuration.batchSize;
+    const cursorParallel = params.cursorParallel || configuration.cursorParallel;
+    const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
+    const reSaveUserDocsFlag = params.reSaveUserDocsFlag || configuration.reSaveUserDocsFlag;
 
-  const session = await mongooseDb.startSession();
+    if (reSaveUserDocsFlag) {
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
+    }
 
-  debug("MONGO DB SESSION\n" + session.id);
+    let cursor;
 
-  console.log(chalkBlue(MODULE_ID_PREFIX
-    + " | categoryCursorStream"
-    + " | batchSize: " + batchSize
-    + " | cursorParallel: " + cursorParallel
-    + " | maxArchivedCount: " + maxArchivedCount
-    + " | reSaveUserDocsFlag: " + reSaveUserDocsFlag
-  ));
+    let cursorInterval;
+    let cursorDataHandlerReady = true;
 
-  if (configuration.testMode) {
-    cursor = global.wordAssoDb.User
-    .find(params.query, {timeout: false})
-    .sort({nodeId: 1})
-    .lean()
-    .batchSize(batchSize)
-    .limit(maxArchivedCount)
-    .session(session)
-    .cursor()
-    .addCursorFlag("noCursorTimeout", true);
-  }
-  else{
-    cursor = global.wordAssoDb.User
-    .find(params.query, {timeout: false})
-    .sort({nodeId: 1})
-    .lean()
-    .batchSize(batchSize)
-    .session(session)
-    .cursor()
-    .addCursorFlag("noCursorTimeout", true);
-  }
+    mongooseDb.startSession()
+    .then(async function(session){
 
-  cursor.on("end", function() {
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
-    return;
-  });
+      debug("MONGO DB SESSION\n" + session.id);
 
-  cursor.on("error", function(err) {
-    console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
-    throw err;
-  });
+      console.log(chalkBlue(MODULE_ID_PREFIX
+        + " | categoryCursorStream"
+        + " | batchSize: " + batchSize
+        + " | cursorParallel: " + cursorParallel
+        + " | maxArchivedCount: " + maxArchivedCount
+        + " | reSaveUserDocsFlag: " + reSaveUserDocsFlag
+      ));
 
-  cursor.on("close", function() {
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
-    return;
-  });
+      if (configuration.testMode) {
+        cursor = global.wordAssoDb.User
+        .find(params.query, {timeout: false})
+        .sort({nodeId: 1})
+        .lean()
+        .batchSize(batchSize)
+        .limit(maxArchivedCount)
+        .session(session)
+        .cursor()
+        .addCursorFlag("noCursorTimeout", true);
+      }
+      else{
+        cursor = global.wordAssoDb.User
+        .find(params.query, {timeout: false})
+        .sort({nodeId: 1})
+        .lean()
+        .batchSize(batchSize)
+        .session(session)
+        .cursor()
+        .addCursorFlag("noCursorTimeout", true);
+      }
 
-  if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
+      cursor.on("end", function() {
+        console.log(chalkAlert(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
+      });
 
-  await cursor.eachAsync((user) => {
+      cursor.on("error", function(err) {
+        console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
+        return reject(err);
+      });
 
-    cursorDataHandler(user)
-    .then(function(){
-      statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;      
+      cursor.on("close", function() {
+        console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
+      });
+
+      if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
+
+      clearInterval(cursorInterval);
+
+      cursorInterval = setInterval(async function(){
+
+        if (cursorDataHandlerReady){
+
+          cursorDataHandlerReady = false;
+
+          const user = await cursor.next();
+
+          if (user) {
+
+            await cursorDataHandler(user);
+
+            statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;      
+            cursorDataHandlerReady = true;
+          }
+          else {
+
+            clearInterval(cursorInterval);
+            await session.endSession();
+
+            console.log(chalkBlue(MODULE_ID_PREFIX
+              + " | CATEGORIZED: " + statsObj.categorizedCount
+              + " | L: " + categorizedUsers.left
+              + " | N: " + categorizedUsers.neutral
+              + " | R: " + categorizedUsers.right
+            ));
+
+            console.log(chalkBlue(MODULE_ID_PREFIX 
+              + " | CURSOR ASYNC END"
+              + " | PRCSD/REM/MT/ERR/TOT: " 
+              + statsObj.users.processed.total 
+              + "/" + statsObj.users.processed.remain 
+              + "/" + statsObj.users.processed.empty 
+              + "/" + statsObj.users.processed.errors 
+              + "/" + statsObj.users.grandTotal
+            ));
+
+            return resolve();
+
+          }
+
+        }
+
+      }, interval);
+
     })
     .catch(function(err){
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** cursorDataHandler ERROR: " + err));
-      session.endSession()
-      .then(function(){
-        return statsObj.cursor[params.category].lastFetchedNodeId;
-      })
-      .catch(function(err){
-        throw err;
-      });
+      return reject(err);
     });
 
-    // try{
-    //   await cursorDataHandler(user);
-    //   statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;
-    // }
-    // catch(e){
-    //   console.log(chalkError(MODULE_ID_PREFIX + " | *** cursorDataHandler ERROR: " + e));
-    //   await session.endSession();
-    //   return statsObj.cursor[params.category].lastFetchedNodeId;
-    // }
 
-  }, { parallel: configuration.cursorParallel });
-
-  await session.endSession();
-
-  console.log(chalkBlue(MODULE_ID_PREFIX
-    + " | CATEGORIZED: " + statsObj.categorizedCount
-    + " | L: " + categorizedUsers.left
-    + " | N: " + categorizedUsers.neutral
-    + " | R: " + categorizedUsers.right
-  ));
-  console.log(chalkBlue(MODULE_ID_PREFIX 
-    + " | CURSOR ASYNC END"
-    + " | PRCSD/REM/MT/ERR/TOT: " 
-    + statsObj.users.processed.total 
-    + "/" + statsObj.users.processed.remain 
-    + "/" + statsObj.users.processed.empty 
-    + "/" + statsObj.users.processed.errors 
-    + "/" + statsObj.users.grandTotal
-  ));
-
-  return;
+  });
 }
 
 let endSaveFileQueueInterval;
 
 function endSaveFileQueue(){
+
   return new Promise(function(resolve){
+
+    statsObj.status = "endSaveFileQueue";
 
     console.log(chalkLog(MODULE_ID_PREFIX + " | ... WAIT END SAVE FILE QUEUE"));
 
@@ -1998,55 +1983,6 @@ function delay(params){
     }, params.period);
   });
 }
-
-// async function deleteOldArchives(p){
-
-//   const params = p || {};
-
-//   const maxAgeMs = params.maxAgeMs || ONE_DAY;
-//   const folder = params.folder || configuration.userArchiveFolder;
-
-//   const userArchiveEntryArray = await tcUtils.filesListFolder({folder: folder});
-
-//   for(const entry of userArchiveEntryArray.entries){
-
-//     if (!entry.name.startsWith(hostname + "_")) {
-//       console.log(chalkLog(MODULE_ID_PREFIX + " | ... SKIPPING DELETE OF " + entry.name));
-//     }
-//     else if (!entry.name.endsWith("users.zip")) {
-//       console.log(chalkInfo(MODULE_ID_PREFIX + " | ... SKIPPING DELETE OF " + entry.name));
-//     }
-//     else{
-
-//       const namePartsArray = entry.name.split("_");
-
-//       const entryDate = namePartsArray[1] + "_" + namePartsArray[2];
-//       const entryMoment = new moment(entryDate, "YYYYMMDD_HHmmss");
-//       const entryAge = moment.duration(statsObj.startTimeMoment.diff(entryMoment));
-
-//       if (entryAge > maxAgeMs) {
-//         console.log(chalkAlert(MODULE_ID_PREFIX
-//           + " | DELETE ENTRY: " + entry.path_display
-//           + " | MAX AGE: " + msToTime(maxAgeMs)
-//           + " | ENTRY AGE: " + msToTime(entryAge)
-//         ));
-
-//         await unlinkFileAsync(entry.path_display);
-
-//       }
-//       else{
-//         console.log(chalkInfo(MODULE_ID_PREFIX
-//           + " | SKIP DEL ENTRY: " + entry.name
-//           + " | MAX AGE: " + msToTime(maxAgeMs)
-//           + " | ENTRY AGE: " + msToTime(entryAge)
-//         ));
-//       }
-      
-//     }
-//   }
-
-//   return;
-// }
 
 const fileSizeArrayObj = {};
 fileSizeArrayObj.files = [];
@@ -2083,6 +2019,8 @@ async function updateArchiveFileUploadComplete(params){
 function archiveFolder(params){
 
   return new Promise(function(resolve, reject){
+
+    statsObj.status = "archiveFolder";
 
     console.log(chalkBlue(MODULE_ID_PREFIX + " | ARCHIVE FOLDER"
       + " | SRC: " + params.folder
@@ -2267,6 +2205,8 @@ function saveMaxInputHashMap(){
 
   return new Promise(function(resolve, reject){
 
+    statsObj.status = "saveMaxInputHashMap";
+
     let scanCursor = 0;
 
     const filePrefix = "maxInputHashMap_";
@@ -2319,13 +2259,11 @@ function saveMaxInputHashMap(){
     })
 
   });
-
 }
-
 
 async function generateGlobalTrainingTestSet(){
 
-  statsObj.status = "GENERATE TRAINING SET";
+  statsObj.status = "generateGlobalTrainingTestSet";
 
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | GENERATE TRAINING SET | " + getTimeStamp()));
@@ -2413,6 +2351,7 @@ async function generateGlobalTrainingTestSet(){
 let showStatsInterval;
 
 setTimeout(async function(){
+
   try{
 
     showStatsInterval = setInterval(function(){
@@ -2435,13 +2374,14 @@ setTimeout(async function(){
 
     console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX TEMP ARCHIVE FOLDER: " + configuration.userTempArchiveFolder));
     fs.rmdirSync(configuration.userTempArchiveFolder, { recursive: true });
+    const runSubFolder = path.join(configuration.userArchiveFolder, statsObj.runId);
+    fs.mkdirSync(runSubFolder, { recursive: true });
 
     await initWatchAllConfigFolders();
 
     await generateGlobalTrainingTestSet();
 
-    const runSubFolder = path.join(configuration.userArchiveFolder, statsObj.runId);
-    fs.mkdirSync(runSubFolder, { recursive: true });
+    await endSaveFileQueue();
 
     categorizedUserHistogramTotal();
 
@@ -2527,7 +2467,6 @@ setTimeout(async function(){
     await tcUtils.stopSaveFileQueue();
 
     await redisClient.quit();
-
     await redisServer.close();
 
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
