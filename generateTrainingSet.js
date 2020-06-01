@@ -1752,7 +1752,7 @@ function cursorDataHandler(user){
     }
 
     categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode})
-    .then(function(catUser){
+    .then(async function(catUser){
 
       const subFolderIndex = Math.floor((statsObj.users.processed.total-1)/configuration.usersPerArchive) * configuration.usersPerArchive;
 
@@ -1764,7 +1764,14 @@ function cursorDataHandler(user){
       subFolderSet.add(subFolderIndexString);
 
       if (!configuration.testMode){
-        // statsObj.saveFileQueue = tcUtils.saveFileQueue({
+
+        statsObj.saveFileQueue = tcUtils.saveFileQueue({
+          folder: folder,
+          file: file,
+          obj: catUser
+        });
+
+        // await tcUtils.saveFile({
         //   folder: folder,
         //   file: file,
         //   obj: catUser
@@ -1775,7 +1782,13 @@ function cursorDataHandler(user){
       }
       else if (configuration.testMode && (categorizedUsers[user.category] <= 0.333333*configuration.totalMaxTestCount)){
 
-        // statsObj.saveFileQueue = tcUtils.saveFileQueue({
+        statsObj.saveFileQueue = tcUtils.saveFileQueue({
+          folder: folder,
+          file: file,
+          obj: catUser
+        });
+
+        // await tcUtils.saveFile({
         //   folder: folder,
         //   file: file,
         //   obj: catUser
