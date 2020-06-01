@@ -1710,110 +1710,124 @@ function waitValue(){
 }
 
 function cursorDataHandler(user){
-
   return new Promise(function(resolve, reject){
-
-    if (!user.screenName){
-      console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
-      statsObj.users.processed.errors += 1;
+    waitValue()
+    .then(function(){
       return resolve();
-    }
-    
-    if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
-
-      statsObj.users.processed.empty += 1;
-
-      if (statsObj.users.processed.empty % 100 === 0){
-        console.log(chalkWarn(MODULE_ID_PREFIX 
-          + " | --- EMPTY HISTOGRAMS"
-          + " | SKIPPING"
-          + " | PRCSD/REM/MT/ERR/TOT: " 
-          + statsObj.users.processed.total 
-          + "/" + statsObj.users.processed.remain 
-          + "/" + statsObj.users.processed.empty 
-          + "/" + statsObj.users.processed.errors
-          + "/" + statsObj.users.grandTotal
-          + " | @" + user.screenName 
-        )); 
-      }
-
-      waitValue()
-      .then(function(){
-        return resolve();
-      })
-      .catch(function(err){
-        console.log(chalkError(MODULE_ID_PREFIX + " | *** waitValue ERROR: " + err));
-        return reject(err);
-      });
-    }
-
-    if (!user.friends || user.friends == undefined) {
-      user.friends = [];
-    }
-    else{
-      user.friends = _.slice(user.friends, 0,5000);
-    }
-
-    categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode})
-    .then(function(catUser){
-
-      const subFolderIndex = Math.floor((statsObj.users.processed.total-1)/configuration.usersPerArchive) * configuration.usersPerArchive;
-
-      const subFolderIndexString = subFolderIndex.toString().padStart(5,"0");
-
-      const folder = path.join(configuration.userTempArchiveFolder, "data", subFolderIndexString);
-      const file = catUser.nodeId + ".json";
-
-      subFolderSet.add(subFolderIndexString);
-
-      if (!configuration.testMode){
-        statsObj.saveFileQueue = tcUtils.saveFileQueue({
-          folder: folder,
-          file: file,
-          obj: catUser
-        });
-
-        categorizedUsers[catUser.category] += 1;
-        statsObj.categorizedCount += 1;
-      }
-      else if (configuration.testMode && (categorizedUsers[user.category] <= 0.333333*configuration.totalMaxTestCount)){
-
-        statsObj.saveFileQueue = tcUtils.saveFileQueue({
-          folder: folder,
-          file: file,
-          obj: catUser
-        });
-
-        categorizedUsers[catUser.category] += 1;
-        statsObj.categorizedCount += 1;
-      }
-
-      if (statsObj.categorizedCount % 100 === 0){
-        console.log(chalkInfo(MODULE_ID_PREFIX
-          + " [ SFQ: " + statsObj.saveFileQueue + " ]"
-          + " | CATEGORIZED: " + statsObj.categorizedCount
-          + " | L: " + categorizedUsers.left
-          + " | N: " + categorizedUsers.neutral
-          + " | R: " + categorizedUsers.right
-        ));
-      }
-
-      waitValue()
-      .then(function(){
-        return resolve();
-      })
-      .catch(function(err){
-        console.log(chalkError(MODULE_ID_PREFIX + " | *** waitValue ERROR: " + err));
-        return reject(err);
-      });
     })
     .catch(function(err){
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** categorizeUser ERROR: " + err));
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** waitValue ERROR: " + err));
       return reject(err);
     });
-
   });
 }
+
+// function cursorDataHandler(user){
+
+//   return new Promise(function(resolve, reject){
+
+//     if (!user.screenName){
+//       console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
+//       statsObj.users.processed.errors += 1;
+//       return resolve();
+//     }
+    
+//     if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
+
+//       statsObj.users.processed.empty += 1;
+
+//       if (statsObj.users.processed.empty % 100 === 0){
+//         console.log(chalkWarn(MODULE_ID_PREFIX 
+//           + " | --- EMPTY HISTOGRAMS"
+//           + " | SKIPPING"
+//           + " | PRCSD/REM/MT/ERR/TOT: " 
+//           + statsObj.users.processed.total 
+//           + "/" + statsObj.users.processed.remain 
+//           + "/" + statsObj.users.processed.empty 
+//           + "/" + statsObj.users.processed.errors
+//           + "/" + statsObj.users.grandTotal
+//           + " | @" + user.screenName 
+//         )); 
+//       }
+
+//       waitValue()
+//       .then(function(){
+//         return resolve();
+//       })
+//       .catch(function(err){
+//         console.log(chalkError(MODULE_ID_PREFIX + " | *** waitValue ERROR: " + err));
+//         return reject(err);
+//       });
+//     }
+
+//     if (!user.friends || user.friends == undefined) {
+//       user.friends = [];
+//     }
+//     else{
+//       user.friends = _.slice(user.friends, 0,5000);
+//     }
+
+//     categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode})
+//     .then(function(catUser){
+
+//       const subFolderIndex = Math.floor((statsObj.users.processed.total-1)/configuration.usersPerArchive) * configuration.usersPerArchive;
+
+//       const subFolderIndexString = subFolderIndex.toString().padStart(5,"0");
+
+//       const folder = path.join(configuration.userTempArchiveFolder, "data", subFolderIndexString);
+//       const file = catUser.nodeId + ".json";
+
+//       subFolderSet.add(subFolderIndexString);
+
+//       if (!configuration.testMode){
+//         statsObj.saveFileQueue = tcUtils.saveFileQueue({
+//           folder: folder,
+//           file: file,
+//           obj: catUser
+//         });
+
+//         categorizedUsers[catUser.category] += 1;
+//         statsObj.categorizedCount += 1;
+//       }
+//       else if (configuration.testMode && (categorizedUsers[user.category] <= 0.333333*configuration.totalMaxTestCount)){
+
+//         statsObj.saveFileQueue = tcUtils.saveFileQueue({
+//           folder: folder,
+//           file: file,
+//           obj: catUser
+//         });
+
+//         categorizedUsers[catUser.category] += 1;
+//         statsObj.categorizedCount += 1;
+//       }
+
+//       if (statsObj.categorizedCount % 100 === 0){
+//         console.log(chalkInfo(MODULE_ID_PREFIX
+//           + " [ SFQ: " + statsObj.saveFileQueue + " ]"
+//           + " | CATEGORIZED: " + statsObj.categorizedCount
+//           + " | L: " + categorizedUsers.left
+//           + " | N: " + categorizedUsers.neutral
+//           + " | R: " + categorizedUsers.right
+//         ));
+//       }
+
+//       waitValue()
+//       .then(function(){
+//         return resolve();
+//       })
+//       .catch(function(err){
+//         console.log(chalkError(MODULE_ID_PREFIX + " | *** waitValue ERROR: " + err));
+//         return reject(err);
+//       });
+
+//     })
+//     .catch(function(err){
+//       console.log(chalkError(MODULE_ID_PREFIX + " | *** categorizeUser ERROR: " + err));
+//       return reject(err);
+//     });
+
+//   });
+// }
 
 function categoryCursorStream(params){
 
@@ -1900,7 +1914,7 @@ function categoryCursorStream(params){
 
           if (user) {
 
-            // await cursorDataHandler(user);
+            await cursorDataHandler(user);
 
             statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;      
             cursorDataHandlerReady = true;
