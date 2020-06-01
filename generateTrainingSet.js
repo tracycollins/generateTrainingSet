@@ -1900,7 +1900,7 @@ function categoryCursorStream(params){
 
           if (user) {
 
-            await cursorDataHandler(user);
+            // await cursorDataHandler(user);
 
             statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;      
             cursorDataHandlerReady = true;
