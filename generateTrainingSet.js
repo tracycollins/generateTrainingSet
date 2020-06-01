@@ -749,30 +749,6 @@ console.log(MODULE_ID_PREFIX + " | =================================");
 // DROPBOX
 // ==================================================================
 
-const dropboxConfigFolder = "/config/utility";
-const dropboxConfigHostFolder = "/config/utility/" + hostname;
-
-const dropboxConfigDefaultFile = "default_" + configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE;
-const dropboxConfigHostFile = hostname + "_" + configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE;
-
-const statsFolder = "/stats/" + hostname + "/generateTrainingSet";
-const statsFile = "generateTrainingSetStats_" + statsObj.runId + ".json";
-
-debug("statsFolder : " + statsFolder);
-debug("statsFile : " + statsFile);
-
-console.log(MODULE_ID_PREFIX + " | DROPBOX_GTS_CONFIG_FILE: " + configuration.DROPBOX.DROPBOX_GTS_CONFIG_FILE);
-console.log(MODULE_ID_PREFIX + " | DROPBOX_GTS_STATS_FILE : " + configuration.DROPBOX.DROPBOX_GTS_STATS_FILE);
-
-debug("dropboxConfigFolder : " + dropboxConfigFolder);
-debug("dropboxConfigHostFolder : " + dropboxConfigHostFolder);
-debug("dropboxConfigDefaultFile : " + dropboxConfigDefaultFile);
-debug("dropboxConfigHostFile : " + dropboxConfigHostFile);
-
-debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_ACCESS_TOKEN :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_ACCESS_TOKEN);
-debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_KEY :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_KEY);
-debug(MODULE_ID_PREFIX + " | DROPBOX_WORD_ASSO_APP_SECRET :" + configuration.DROPBOX.DROPBOX_WORD_ASSO_APP_SECRET);
-
 async function showStats(options){
 
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
@@ -1805,7 +1781,6 @@ function cursorDataHandler(user){
         console.log(chalkError(MODULE_ID_PREFIX + " | *** waitValue ERROR: " + err));
         return reject(err);
       });
-
     }
 
     if (!user.friends || user.friends == undefined) {
@@ -1867,7 +1842,6 @@ function cursorDataHandler(user){
         console.log(chalkError(MODULE_ID_PREFIX + " | *** waitValue ERROR: " + err));
         return reject(err);
       });
-
     })
     .catch(function(err){
       console.log(chalkError(MODULE_ID_PREFIX + " | *** categorizeUser ERROR: " + err));
@@ -1943,17 +1917,32 @@ async function categoryCursorStream(params){
 
   if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
 
-  await cursor.eachAsync(async (user) => {
+  await cursor.eachAsync((user) => {
 
-    try{
-      await cursorDataHandler(user);
-      statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;
-    }
-    catch(e){
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** cursorDataHandler ERROR: " + e));
-      await session.endSession();
-      return statsObj.cursor[params.category].lastFetchedNodeId;
-    }
+    cursorDataHandler(user)
+    .then(function(){
+      statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;      
+    })
+    .catch(function(err){
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** cursorDataHandler ERROR: " + err));
+      session.endSession()
+      .then(function(){
+        return statsObj.cursor[params.category].lastFetchedNodeId;
+      })
+      .catch(function(err){
+
+      });
+    });
+
+    // try{
+    //   await cursorDataHandler(user);
+    //   statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;
+    // }
+    // catch(e){
+    //   console.log(chalkError(MODULE_ID_PREFIX + " | *** cursorDataHandler ERROR: " + e));
+    //   await session.endSession();
+    //   return statsObj.cursor[params.category].lastFetchedNodeId;
+    // }
 
   }, { parallel: configuration.cursorParallel });
 
