@@ -2444,7 +2444,7 @@ function saveMaxInputHashMap(){
         + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
       ));
 
-      statsObj.saveFileQueue = tcUtils.saveFileQueue({folder: configuration.maxInputHashMapsFolder, file: maxInputHashMapFile, obj: hashmap});
+      await tcUtils.saveFile({folder: configuration.maxInputHashMapsFolder, file: maxInputHashMapFile, obj: hashmap});
 
       return;
 
