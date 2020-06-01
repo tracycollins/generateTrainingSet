@@ -21,7 +21,7 @@ const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 
-const TOTAL_MAX_TEST_COUNT = 147;
+const TOTAL_MAX_TEST_COUNT = 1347;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -257,8 +257,14 @@ const statsPickArray = [
 
 statsObjSmall = pick(statsObj, statsPickArray);
 
-process.on("unhandledRejection", function(err, promise) {
+process.on("unhandledRejection", async function(err, promise) {
   console.trace("Unhandled rejection (promise: ", promise, ", reason: ", err, ").");
+  if (redisClient) {
+    await redisClient.quit();
+  }
+  if (redisServer) {
+    await redisServer.close();
+  }
   process.exit();
 });
 
@@ -317,7 +323,10 @@ configuration.DROPBOX.DROPBOX_GTS_STATS_FILE = process.env.DROPBOX_GTS_STATS_FIL
 
 const configDefaultFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility/default");
 const configHostFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility", hostname);
+
 const tempHostFolder = TEMP_ROOT_FOLDER;
+configuration.tempUserDataFolder = path.join(tempHostFolder, "trainingSets/users");
+
 const localHistogramsFolder = configHostFolder + "/histograms";
 const defaultHistogramsFolder = configDefaultFolder + "/histograms";
 const configDefaultFile = "default_" + configuration.DROPBOX.DROPBOX_CONFIG_FILE;
@@ -333,33 +342,32 @@ configuration.local.trainingSetsFolder = path.join(configHostFolder, "trainingSe
 configuration.local.maxInputHashMapsFolder = path.join(configHostFolder, "trainingSets/maxInputHashMaps");
 configuration.local.histogramsFolder = path.join(configHostFolder, "histograms");
 configuration.local.userArchiveFolder = path.join(configHostFolder, "trainingSets/users");
-configuration.local.userTempArchiveFolder = path.join(tempHostFolder, "trainingSets/users");
+// configuration.local.tempUserDataFolder = path.join(tempHostFolder, "trainingSets/users");
 configuration.local.userArchivePath = path.join(configuration.local.userArchiveFolder, configuration.userArchiveFile);
-configuration.local.userTempArchivePath = path.join(configuration.local.userTempArchiveFolder, configuration.userArchiveFile);
+// configuration.local.userTempArchivePath = path.join(configuration.local.userTempArchiveFolder, configuration.userArchiveFile);
 
 configuration.default = {};
 configuration.default.trainingSetsFolder = path.join(configDefaultFolder, "trainingSets");
 configuration.default.maxInputHashMapsFolder = path.join(configDefaultFolder, "trainingSets/maxInputHashMaps");
 configuration.default.histogramsFolder = path.join(configDefaultFolder, "histograms");
 configuration.default.userArchiveFolder = path.join(configDefaultFolder, "trainingSets/users");
-configuration.default.userTempArchiveFolder = path.join(tempHostFolder, "trainingSets/users");
+// configuration.default.tempUserDataFolder = path.join(tempHostFolder, "trainingSets/users");
 configuration.default.userArchivePath = path.join(configuration.default.userArchiveFolder, configuration.userArchiveFile);
-configuration.default.userTempArchivePath = path.join(configuration.default.userTempArchiveFolder, configuration.userArchiveFile);
+// configuration.default.userTempArchivePath = path.join(configuration.default.userTempArchiveFolder, configuration.userArchiveFile);
 
 configuration.trainingSetsFolder = configuration[HOST].trainingSetsFolder;
 configuration.maxInputHashMapsFolder = configuration[HOST].maxInputHashMapsFolder;
 configuration.archiveFileUploadCompleteFlagFolder = path.join(configuration[HOST].trainingSetsFolder, "users");
 configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
-configuration.userTempArchiveFolder = configuration[HOST].userTempArchiveFolder;
 configuration.userArchivePath = configuration[HOST].userArchivePath;
-configuration.userTempArchivePath = configuration[HOST].userTempArchivePath;
+// configuration.userTempArchivePath = configuration[HOST].userTempArchivePath;
 
 fs.mkdirSync(configuration.default.userArchiveFolder, { recursive: true });
-fs.mkdirSync(configuration.default.userTempArchiveFolder, { recursive: true });
+fs.mkdirSync(configuration.tempUserDataFolder, { recursive: true });
 
 fs.mkdirSync(configuration.local.userArchiveFolder, { recursive: true });
-fs.mkdirSync(configuration.local.userTempArchiveFolder, { recursive: true });
+// fs.mkdirSync(configuration.local.userTempArchiveFolder, { recursive: true });
 
 let mongooseDb;
 
@@ -1758,53 +1766,62 @@ function cursorDataHandler(user){
     }
 
     categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode})
-    .then(async function(catUser){
+    .then(function(catUser){
 
-      const subFolderIndex = Math.floor((statsObj.users.processed.total-1)/configuration.usersPerArchive) * configuration.usersPerArchive;
+      const subFolderIndex = Math.floor((statsObj.users.processed.total)/configuration.usersPerArchive) * configuration.usersPerArchive;
 
       const subFolderIndexString = subFolderIndex.toString().padStart(5,"0");
 
-      const folder = path.join(configuration.userTempArchiveFolder, "data", subFolderIndexString);
+      const folder = path.join(configuration.tempUserDataFolder, "data", subFolderIndexString);
       const file = catUser.nodeId + ".json";
 
       subFolderSet.add(subFolderIndexString);
 
-      if (!configuration.testMode){
+      // if (!configuration.testMode){
 
-        statsObj.saveFileQueue = tcUtils.saveFileQueue({
-          folder: folder,
-          file: file,
-          obj: catUser
-        });
+      //   statsObj.saveFileQueue = tcUtils.saveFileQueue({
+      //     folder: folder,
+      //     file: file,
+      //     obj: catUser
+      //   });
 
-        // await tcUtils.saveFile({
-        //   folder: folder,
-        //   file: file,
-        //   obj: catUser
-        // });
+      //   // await tcUtils.saveFile({
+      //   //   folder: folder,
+      //   //   file: file,
+      //   //   obj: catUser
+      //   // });
 
-        categorizedUsers[catUser.category] += 1;
+      //   categorizedUsers[catUser.category] += 1;
+      //   statsObj.categorizedCount += 1;
+      // }
+      // else if (configuration.testMode && (categorizedUsers[user.category] <= 0.333333*configuration.totalMaxTestCount)){
+
+      //   statsObj.saveFileQueue = tcUtils.saveFileQueue({
+      //     folder: folder,
+      //     file: file,
+      //     obj: catUser
+      //   });
+
+      //   // await tcUtils.saveFile({
+      //   //   folder: folder,
+      //   //   file: file,
+      //   //   obj: catUser
+      //   // });
+
+      //   categorizedUsers[catUser.category] += 1;
         statsObj.categorizedCount += 1;
-      }
-      else if (configuration.testMode && (categorizedUsers[user.category] <= 0.333333*configuration.totalMaxTestCount)){
+      // }
 
-        statsObj.saveFileQueue = tcUtils.saveFileQueue({
-          folder: folder,
-          file: file,
-          obj: catUser
-        });
+      statsObj.saveFileQueue = tcUtils.saveFileQueue({
+        folder: folder,
+        file: file,
+        obj: catUser
+      });
 
-        // await tcUtils.saveFile({
-        //   folder: folder,
-        //   file: file,
-        //   obj: catUser
-        // });
+      categorizedUsers[catUser.category] += 1;
+      statsObj.categorizedCount += 1;
 
-        categorizedUsers[catUser.category] += 1;
-        statsObj.categorizedCount += 1;
-      }
-
-      if (statsObj.categorizedCount % 100 === 0){
+      if (statsObj.categorizedCount > 0 && statsObj.categorizedCount % 100 === 0){
         console.log(chalkInfo(MODULE_ID_PREFIX
           + " [ SFQ: " + statsObj.saveFileQueue + " ]"
           + " | CATEGORIZED: " + statsObj.categorizedCount
@@ -2125,13 +2142,18 @@ function endSaveFileQueue(){
 
     statsObj.status = "endSaveFileQueue";
 
-    console.log(chalkLog(MODULE_ID_PREFIX + " | ... WAIT END SAVE FILE QUEUE"));
+    let saveFileQueue = tcUtils.getSaveFileQueue();
+
+    console.log(chalkLog(MODULE_ID_PREFIX + " | ... WAIT END SAVE FILE QUEUE"
+      + " | SFQ: " + saveFileQueue
+      + " | CDHQ: " + cursorDataHandlerQueue.length
+    ));
 
     endSaveFileQueueInterval = setInterval(function(){
 
-      const saveFileQueue = tcUtils.getSaveFileQueue();
+      saveFileQueue = tcUtils.getSaveFileQueue();
 
-      if (saveFileQueue === 0){
+      if ((saveFileQueue === 0) && (cursorDataHandlerQueue.length === 0)){
 
         clearInterval(endSaveFileQueueInterval);
 
@@ -2487,33 +2509,33 @@ async function generateGlobalTrainingTestSet(){
     const query = {};
     query.category = category;
 
-    if (statsObj.cursor[category].lastFetchedNodeId){
-      query.nodeId = { "$gt": statsObj.cursor[category].lastFetchedNodeId };
-      console.log(chalkAlert(MODULE_ID_PREFIX
-        + " | !!! USING LAST FETCH NODE ID: " + statsObj.cursor[category].lastFetchedNodeId
-      ));
-    }
+    // if (statsObj.cursor[category].lastFetchedNodeId){
+    //   query.nodeId = { "$gt": statsObj.cursor[category].lastFetchedNodeId };
+    //   console.log(chalkAlert(MODULE_ID_PREFIX
+    //     + " | !!! USING LAST FETCH NODE ID: " + statsObj.cursor[category].lastFetchedNodeId
+    //   ));
+    // }
 
-    let lastFetchedNodeId = await categoryCursorStream({
+    await categoryCursorStream({
       category: category, 
       query: query, 
       reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, 
       maxArchivedCount: maxCategoryArchivedCount
     });
 
-    if (lastFetchedNodeId !== undefined) {
+    // if (lastFetchedNodeId !== undefined) {
 
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? CURSOR TIMEOUT ??? | RETRY STARTING AT NODE ID: " + lastFetchedNodeId));
+    //   console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? CURSOR TIMEOUT ??? | RETRY STARTING AT NODE ID: " + lastFetchedNodeId));
 
-      query.nodeId = { "$gt": lastFetchedNodeId };
+    //   query.nodeId = { "$gt": lastFetchedNodeId };
 
-      lastFetchedNodeId = await categoryCursorStream({
-        category: category, 
-        query: query, 
-        reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, 
-        maxArchivedCount: maxCategoryArchivedCount
-      });
-    }
+    //   lastFetchedNodeId = await categoryCursorStream({
+    //     category: category, 
+    //     query: query, 
+    //     reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, 
+    //     maxArchivedCount: maxCategoryArchivedCount
+    //   });
+    // }
 
     statsObj.cursor[category].lastFetchedNodeId = false;
   }
@@ -2547,8 +2569,10 @@ setTimeout(async function(){
     // initSlackRtmClient();
     // initSlackWebClient();
 
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX TEMP ARCHIVE FOLDER: " + configuration.userTempArchiveFolder));
-    fs.rmdirSync(configuration.userTempArchiveFolder, { recursive: true });
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX TEMP USER DATA FOLDER: " + configuration.tempUserDataFolder));
+
+    fs.rmdirSync(configuration.tempUserDataFolder, { recursive: true });
+
     const runSubFolder = path.join(configuration.userArchiveFolder, statsObj.runId);
     fs.mkdirSync(runSubFolder, { recursive: true });
 
@@ -2582,8 +2606,13 @@ setTimeout(async function(){
     fileSizeArrayObj.histograms = {};
     fileSizeArrayObj.histograms = categorizedUserHistogram;
 
+    console.log(chalkAlert("TFE | ... WAIT 30 SEC FOR TMP USER DATA FILES TO STABILIZE ..."));
+    await endSaveFileQueue();
+
+    await delay({period: 30*ONE_SECOND});
+
     for(const subFolderIndexString of [...subFolderSet] ){
-      const folder = path.join(configuration.userTempArchiveFolder, "data", subFolderIndexString);
+      const folder = path.join(configuration.tempUserDataFolder, "data", subFolderIndexString);
       const archivePath = path.join(runSubFolder, "userArchive" + subFolderIndexString + ".zip");
       await archiveFolder({folder: folder, archivePath: archivePath});
       await updateArchiveFileUploadComplete({path: archivePath});
@@ -2636,6 +2665,8 @@ setTimeout(async function(){
     // await slackSendWebMessage({channel: slackChannel, text: slackText});
 
     await endSaveFileQueue();
+    console.log(chalkAlert("TFE | ... WAIT 30 SEC FOR FILES TO STABILIZE ..."));
+    await delay({period: 30*ONE_SECOND});
 
     clearInterval(showStatsInterval);
 
