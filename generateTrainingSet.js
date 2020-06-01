@@ -1877,7 +1877,6 @@ async function categoryCursorStream(params){
     cursor = global.wordAssoDb.User
     .find(params.query, {timeout: false})
     .sort({nodeId: 1})
-    .select('+nodeId')
     .lean()
     .batchSize(batchSize)
     .limit(maxArchivedCount)
@@ -1889,7 +1888,6 @@ async function categoryCursorStream(params){
     cursor = global.wordAssoDb.User
     .find(params.query, {timeout: false})
     .sort({nodeId: 1})
-    .select('+nodeId')
     .lean()
     .batchSize(batchSize)
     .session(session)
@@ -1914,25 +1912,22 @@ async function categoryCursorStream(params){
 
   if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
 
-  await cursor.eachAsync((u) => {
+  await cursor.eachAsync((user) => {
 
-    global.wordAssoDb.User.findOne({nodeId: u.nodeId}).lean().exec()
-    .then(function(user){
-      cursorDataHandler(user)
+    cursorDataHandler(user)
+    .then(function(){
+      statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;      
+    })
+    .catch(function(err){
+      console.log(chalkError(MODULE_ID_PREFIX + " | *** cursorDataHandler ERROR: " + err));
+      session.endSession()
       .then(function(){
-        statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;      
+        return statsObj.cursor[params.category].lastFetchedNodeId;
       })
       .catch(function(err){
-        console.log(chalkError(MODULE_ID_PREFIX + " | *** cursorDataHandler ERROR: " + err));
-        session.endSession()
-        .then(function(){
-          return statsObj.cursor[params.category].lastFetchedNodeId;
-        })
-        .catch(function(err){
-
-        });
+        throw err;
       });
-    })
+    });
 
     // try{
     //   await cursorDataHandler(user);
