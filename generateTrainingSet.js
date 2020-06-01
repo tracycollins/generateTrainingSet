@@ -2408,12 +2408,12 @@ setTimeout(async function(){
 
     statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
 
-    console.log(chalkInfo("TFE | ... SAVING NORMALIZATION FILE"
+    debug(chalkInfo("TFE | ... SAVING NORMALIZATION FILE"
       + " [ SFQ: " + statsObj.saveFileQueue
       + " | " + configuration.trainingSetsFolder + "/normalization.json"
     ));
 
-    console.log(chalkLog(MODULE_ID_PREFIX + " | NORMALIZATION"
+    debug(chalkLog(MODULE_ID_PREFIX + " | NORMALIZATION"
       + " | SCORE min: " + statsObj.normalization.score.min + " max: " + statsObj.normalization.score.max
       + " | MAG min: " + statsObj.normalization.magnitude.min + " max: " + statsObj.normalization.magnitude.max
       + " | COMP min: " + statsObj.normalization.comp.min + " max: " + statsObj.normalization.comp.max
