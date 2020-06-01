@@ -1854,7 +1854,7 @@ function categoryCursorStream(params){
       if (configuration.testMode) {
         cursor = global.wordAssoDb.User
         .find(params.query, {timeout: false})
-        .sort({nodeId: 1})
+        // .sort({nodeId: 1})
         .lean()
         .batchSize(batchSize)
         .limit(maxArchivedCount)
@@ -1865,7 +1865,7 @@ function categoryCursorStream(params){
       else{
         cursor = global.wordAssoDb.User
         .find(params.query, {timeout: false})
-        .sort({nodeId: 1})
+        // .sort({nodeId: 1})
         .lean()
         .batchSize(batchSize)
         .session(session)
