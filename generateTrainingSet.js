@@ -1,14 +1,16 @@
+const DEFAULT_CURSOR_PARALLEL = 8;
+const DEFAULT_BATCH_SIZE = 100;
+const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
+
+const DEFAULT_MAX_SAVE_FILE_QUEUE = 100;
 const DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE = 100;
+
 const DEFAULT_INTERVAL = 5;
-const DEFAULT_CURSOR_PARALLEL = 16;
 const DEFAULT_REDIS_SCAN_COUNT = 1000;
 const DEFAULT_MAX_INPUT_HASHMAP_LIMIT = 32;
-const DEFAULT_SAVE_FILE_MAX_PARALLEL = 8;
 const DEFAULT_USERS_PER_ARCHIVE = 10000;
-const DEFAULT_BATCH_SIZE = 1000;
 const DEFAULT_WAIT_VALUE_INTERVAL = 5;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
-const DEFAULT_MAX_SAVE_FILE_QUEUE = 100;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
@@ -745,7 +747,7 @@ async function showStats(options){
     console.log(chalkLog(MODULE_ID_PREFIX + " | ============================================================"
       + "\nGTS | S"
       + " | STATUS: " + statsObj.status
-      + " [ SFQ: " + statsObj.saveFileQueue + " ]"
+      + " [ SFQ: " + statsObj.saveFileQueue + " | CDHQ: " + cursorDataHandlerQueue.length + " ]"
       + " | CPUs: " + statsObj.cpus
       + " | " + testObj.testRunId
       + " | HEAP: " + statsObj.heap.toFixed(3) + " GB"
@@ -1647,7 +1649,7 @@ async function categorizeUser(params){
 
     userIndex += 1;
 
-    // await tcUtils.updateGlobalHistograms({user: user});
+    await tcUtils.updateGlobalHistograms({user: user});
 
     const subUser = pick(
       user,
@@ -1736,14 +1738,16 @@ function cursorDataHandler(user){
         )); 
       }
 
-      waitValue()
-      .then(function(){
-        return resolve();
-      })
-      .catch(function(err){
-        console.log(chalkError(MODULE_ID_PREFIX + " | *** waitValue ERROR: " + err));
-        reject(err);
-      });
+      return resolve();
+
+      // waitValue()
+      // .then(function(){
+      //   return resolve();
+      // })
+      // .catch(function(err){
+      //   console.log(chalkError(MODULE_ID_PREFIX + " | *** waitValue ERROR: " + err));
+      //   reject(err);
+      // });
     }
 
     if (!user.friends || user.friends == undefined) {
@@ -1850,7 +1854,8 @@ function initCursorDataHandlerQueue(params){
       parallelUserArray.length = 0;
 
       let u;
-      const currentParallel = (cursorDataHandlerQueue.length >= cursorParallel) ? cursorParallel : cursorDataHandlerQueue.length;
+
+      let currentParallel = (cursorDataHandlerQueue.length >= cursorParallel) ? cursorParallel : cursorDataHandlerQueue.length;
 
       while (parallelUserArray.length < currentParallel){
         u = cursorDataHandlerQueue.shift();
@@ -1877,7 +1882,7 @@ function initCursorDataHandlerQueue(params){
             categorizedUserHistogramTotal();
 
             console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
-              + " [CDHQ: " + cursorDataHandlerQueue + "]"
+              + " [CDHQ: " + cursorDataHandlerQueue.length + "]"
               + " | " + (statsObj.users.notCategorized + statsObj.users.processed.total) + "/" + statsObj.users.grandTotal
               + " (" + statsObj.users.processed.percent.toFixed(1) + "%)"
               + " | TOTAL: " + categorizedUserHistogram.total
@@ -2023,80 +2028,84 @@ function categoryCursorStream(params){
 
       if (statsObj.users.processed.startMoment === 0) { statsObj.users.processed.startMoment = moment(); }
 
-      cursorInterval = setInterval(async function(){
+      cursor.on("data", function(user){
+          cursorDataHandlerQueue.push(user);
+      });
 
-        if (cursorDataHandlerReady && (cursorDataHandlerQueue.length < configuration.maxCursorDataHandlerQueue)){
+      // cursorInterval = setInterval(async function(){
 
-          cursorDataHandlerReady = false;
+      //   if (cursorDataHandlerReady && (cursorDataHandlerQueue.length < configuration.maxCursorDataHandlerQueue)){
 
-          const user = await cursor.next();
+      //     cursorDataHandlerReady = false;
 
-          if (user) {
+      //     const user = await cursor.next();
 
-            cursorDataHandlerQueue.push(user);
+      //     if (user) {
 
-            // await cursorDataHandler(user);
+      //       cursorDataHandlerQueue.push(user);
 
-            // statsObj.users.processed.total += 1;
-            // statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
-            // statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
-            // statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
-            // statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
-            // statsObj.users.processed.endMoment = moment();
-            // statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
-            // statsObj.users.processed.percent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
+      //       // await cursorDataHandler(user);
 
-            // if (configuration.verbose 
-            //   // || configuration.testMode 
-            //   || ((statsObj.users.notCategorized + statsObj.users.processed.total) % 1000 === 0)){
+      //       // statsObj.users.processed.total += 1;
+      //       // statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
+      //       // statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
+      //       // statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
+      //       // statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
+      //       // statsObj.users.processed.endMoment = moment();
+      //       // statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
+      //       // statsObj.users.processed.percent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
 
-            //   categorizedUserHistogramTotal();
+      //       // if (configuration.verbose 
+      //       //   // || configuration.testMode 
+      //       //   || ((statsObj.users.notCategorized + statsObj.users.processed.total) % 1000 === 0)){
 
-            //   console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
-            //     + " | " + (statsObj.users.notCategorized + statsObj.users.processed.total) + "/" + statsObj.users.grandTotal
-            //     + " (" + statsObj.users.processed.percent.toFixed(1) + "%)"
-            //     + " | TOTAL: " + categorizedUserHistogram.total
-            //     + " | L: " + categorizedUserHistogram.left 
-            //     + " | R: " + categorizedUserHistogram.right
-            //     + " | N: " + categorizedUserHistogram.neutral
-            //     + " | +: " + categorizedUserHistogram.positive
-            //     + " | -: " + categorizedUserHistogram.negative
-            //     + " | 0: " + categorizedUserHistogram.none
-            //   ));
-            // }
+      //       //   categorizedUserHistogramTotal();
 
-            // statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;      
-            cursorDataHandlerReady = true;
-          }
-          else {
+      //       //   console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
+      //       //     + " | " + (statsObj.users.notCategorized + statsObj.users.processed.total) + "/" + statsObj.users.grandTotal
+      //       //     + " (" + statsObj.users.processed.percent.toFixed(1) + "%)"
+      //       //     + " | TOTAL: " + categorizedUserHistogram.total
+      //       //     + " | L: " + categorizedUserHistogram.left 
+      //       //     + " | R: " + categorizedUserHistogram.right
+      //       //     + " | N: " + categorizedUserHistogram.neutral
+      //       //     + " | +: " + categorizedUserHistogram.positive
+      //       //     + " | -: " + categorizedUserHistogram.negative
+      //       //     + " | 0: " + categorizedUserHistogram.none
+      //       //   ));
+      //       // }
 
-            clearInterval(cursorInterval);
-            await session.endSession();
+      //       // statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;      
+      //       cursorDataHandlerReady = true;
+      //     }
+      //     else {
 
-            console.log(chalkBlue(MODULE_ID_PREFIX
-              + " | CATEGORIZED: " + statsObj.categorizedCount
-              + " | L: " + categorizedUsers.left
-              + " | N: " + categorizedUsers.neutral
-              + " | R: " + categorizedUsers.right
-            ));
+      //       clearInterval(cursorInterval);
+      //       await session.endSession();
 
-            console.log(chalkBlue(MODULE_ID_PREFIX 
-              + " | CURSOR ASYNC END"
-              + " | PRCSD/REM/MT/ERR/TOT: " 
-              + statsObj.users.processed.total 
-              + "/" + statsObj.users.processed.remain 
-              + "/" + statsObj.users.processed.empty 
-              + "/" + statsObj.users.processed.errors 
-              + "/" + statsObj.users.grandTotal
-            ));
+      //       console.log(chalkBlue(MODULE_ID_PREFIX
+      //         + " | CATEGORIZED: " + statsObj.categorizedCount
+      //         + " | L: " + categorizedUsers.left
+      //         + " | N: " + categorizedUsers.neutral
+      //         + " | R: " + categorizedUsers.right
+      //       ));
 
-            return resolve();
+      //       console.log(chalkBlue(MODULE_ID_PREFIX 
+      //         + " | CURSOR ASYNC END"
+      //         + " | PRCSD/REM/MT/ERR/TOT: " 
+      //         + statsObj.users.processed.total 
+      //         + "/" + statsObj.users.processed.remain 
+      //         + "/" + statsObj.users.processed.empty 
+      //         + "/" + statsObj.users.processed.errors 
+      //         + "/" + statsObj.users.grandTotal
+      //       ));
 
-          }
+      //       return resolve();
 
-        }
+      //     }
 
-      }, interval);
+      //   }
+
+      // }, interval);
 
     })
     .catch(function(err){
