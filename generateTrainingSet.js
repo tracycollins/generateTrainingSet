@@ -9,7 +9,7 @@ const DEFAULT_INTERVAL = 5;
 const DEFAULT_REDIS_SCAN_COUNT = 1000;
 const DEFAULT_MAX_INPUT_HASHMAP_LIMIT = 32;
 const DEFAULT_USERS_PER_ARCHIVE = 10000;
-const DEFAULT_WAIT_VALUE_INTERVAL = 5;
+// const DEFAULT_WAIT_VALUE_INTERVAL = 5;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
@@ -21,7 +21,7 @@ const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
 const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
 const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 
-const TOTAL_MAX_TEST_COUNT = 10047;
+const TOTAL_MAX_TEST_COUNT = 147;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -267,7 +267,7 @@ let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 configuration.maxCursorDataHandlerQueue = DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE;
 configuration.redisScanCount = DEFAULT_REDIS_SCAN_COUNT;
 configuration.updateMaxInputHashMapLimit = DEFAULT_MAX_INPUT_HASHMAP_LIMIT;
-configuration.waitValueInterval = DEFAULT_WAIT_VALUE_INTERVAL;
+// configuration.waitValueInterval = DEFAULT_WAIT_VALUE_INTERVAL;
 configuration.saveFileMaxParallel = DEFAULT_SAVE_FILE_MAX_PARALLEL;
 configuration.usersPerArchive = DEFAULT_USERS_PER_ARCHIVE;
 configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
@@ -1686,29 +1686,29 @@ categorizedUsers.left = 0;
 categorizedUsers.neutral = 0;
 categorizedUsers.right = 0;
 
-function waitValue(){
+// function waitValue(){
 
-  return new Promise(function(resolve){
+//   return new Promise(function(resolve){
 
-    statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
+//     statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
 
-    if (statsObj.saveFileQueue <= configuration.maxSaveFileQueue){
-      return resolve(); 
-    }
+//     if (statsObj.saveFileQueue <= configuration.maxSaveFileQueue){
+//       return resolve(); 
+//     }
 
-    const interval = setInterval(function(){
+//     const interval = setInterval(function(){
 
-      statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
+//       statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
 
-      if (statsObj.saveFileQueue < configuration.maxSaveFileQueue){
-        clearInterval(interval);
-        return resolve();
-      }
+//       if (statsObj.saveFileQueue < configuration.maxSaveFileQueue){
+//         clearInterval(interval);
+//         return resolve();
+//       }
 
-    }, configuration.waitValueInterval);
+//     }, configuration.waitValueInterval);
 
-  });
-}
+//   });
+// }
 
 function cursorDataHandler(user){
 
@@ -1855,7 +1855,7 @@ function initCursorDataHandlerQueue(params){
 
       let u;
 
-      let currentParallel = (cursorDataHandlerQueue.length >= cursorParallel) ? cursorParallel : cursorDataHandlerQueue.length;
+      const currentParallel = (cursorDataHandlerQueue.length >= cursorParallel) ? cursorParallel : cursorDataHandlerQueue.length;
 
       while (parallelUserArray.length < currentParallel){
         u = cursorDataHandlerQueue.shift();
@@ -1959,7 +1959,7 @@ function categoryCursorStream(params){
 
     statsObj.categorizedCount = 0;
 
-    const interval = params.interval || configuration.cursorInterval;
+    // const interval = params.interval || configuration.cursorInterval;
     const batchSize = params.batchSize || configuration.batchSize;
     const cursorParallel = params.cursorParallel || configuration.cursorParallel;
     const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
@@ -1971,8 +1971,8 @@ function categoryCursorStream(params){
 
     let cursor;
 
-    let cursorInterval;
-    let cursorDataHandlerReady = true;
+    // let cursorInterval;
+    // let cursorDataHandlerReady = true;
 
     mongooseDb.startSession()
     .then(async function(session){
@@ -2020,11 +2020,12 @@ function categoryCursorStream(params){
 
       cursor.on("close", function() {
         console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
+        resolve();
       });
 
       if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
 
-      clearInterval(cursorInterval);
+      // clearInterval(cursorInterval);
 
       if (statsObj.users.processed.startMoment === 0) { statsObj.users.processed.startMoment = moment(); }
 
