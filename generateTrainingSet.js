@@ -1105,11 +1105,6 @@ async function loadConfigFile(params) {
       newConfiguration.maxSaveFileQueue = loadedConfigObj.GTS_MAX_SAVE_FILE_QUEUE;
     }
 
-    // if (loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD !== undefined){
-    //   console.log(MODULE_ID_PREFIX + " | LOADED GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD: " + loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD);
-    //   newConfiguration.archiveUserQueueIntervalPeriod = loadedConfigObj.GTS_ARCHIVE_USER_QUEUE_INTERVAL_PERIOD;
-    // }
-
     if (loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_MAX_HISTOGRAM_VALUE: " + loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE);
       newConfiguration.maxHistogramValue = loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE;
@@ -1882,6 +1877,7 @@ async function categoryCursorStream(params){
     cursor = global.wordAssoDb.User
     .find(params.query, {timeout: false})
     .sort({nodeId: 1})
+    .select({nodeId: 1})
     .lean()
     .batchSize(batchSize)
     .limit(maxArchivedCount)
@@ -1893,6 +1889,7 @@ async function categoryCursorStream(params){
     cursor = global.wordAssoDb.User
     .find(params.query, {timeout: false})
     .sort({nodeId: 1})
+    .select({nodeId: 1})
     .lean()
     .batchSize(batchSize)
     .session(session)
@@ -1917,22 +1914,25 @@ async function categoryCursorStream(params){
 
   if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
 
-  await cursor.eachAsync((user) => {
+  await cursor.eachAsync((nodeId) => {
 
-    cursorDataHandler(user)
-    .then(function(){
-      statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;      
-    })
-    .catch(function(err){
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** cursorDataHandler ERROR: " + err));
-      session.endSession()
+    global.wordAssoDb.Users.findOne({nodeId: nodeId}).lean()
+    .then(function(user){
+      cursorDataHandler(user)
       .then(function(){
-        return statsObj.cursor[params.category].lastFetchedNodeId;
+        statsObj.cursor[params.category].lastFetchedNodeId = user.nodeId;      
       })
       .catch(function(err){
+        console.log(chalkError(MODULE_ID_PREFIX + " | *** cursorDataHandler ERROR: " + err));
+        session.endSession()
+        .then(function(){
+          return statsObj.cursor[params.category].lastFetchedNodeId;
+        })
+        .catch(function(err){
 
+        });
       });
-    });
+    })
 
     // try{
     //   await cursorDataHandler(user);
