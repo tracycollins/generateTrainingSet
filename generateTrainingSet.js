@@ -1,3 +1,5 @@
+const MODULE_ID_PREFIX = "GTS";
+const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 const DEFAULT_CURSOR_PARALLEL = 8;
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
@@ -34,7 +36,7 @@ hostname = hostname.replace(/word0-instance-1/g, "google");
 hostname = hostname.replace(/word-1/g, "google");
 hostname = hostname.replace(/word/g, "google");
 
-const PRIMARY_HOST = process.env.PRIMARY_HOST || "macpro2";
+const PRIMARY_HOST = process.env.PRIMARY_HOST || "mms1";
 const HOST = (hostname === PRIMARY_HOST) ? "default" : "local";
 
 let TEMP_ROOT_FOLDER;
@@ -48,6 +50,18 @@ else {
   DROPBOX_ROOT_FOLDER = "/Users/tc/Dropbox/Apps/wordAssociation";
   TEMP_ROOT_FOLDER = "/Users/tc/tmp";
 }
+
+console.log("\n\n");
+console.log(MODULE_ID_PREFIX + "======================================================");
+console.log(MODULE_ID_PREFIX + "======================================================");
+console.log(MODULE_ID_PREFIX + " | HOST:                    " + HOST);
+console.log(MODULE_ID_PREFIX + " | PRIMARY_HOST:            " + PRIMARY_HOST);
+console.log(MODULE_ID_PREFIX + " | hostname:                " + hostname);
+console.log(MODULE_ID_PREFIX + " | DROPBOX_ROOT_FOLDER:     " + DROPBOX_ROOT_FOLDER);
+console.log(MODULE_ID_PREFIX + " | TEMP_ROOT_FOLDER:        " + TEMP_ROOT_FOLDER);
+console.log(MODULE_ID_PREFIX + "======================================================");
+console.log(MODULE_ID_PREFIX + "======================================================");
+console.log("\n\n");
 
 const DEFAULT_INPUT_TYPES = [
   "emoji",
@@ -108,8 +122,6 @@ const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 const DEFAULT_SERVER_MODE = false;
 const DEFAULT_QUIT_ON_COMPLETE = false;
 const DEFAULT_TEST_RATIO = 0.20;
-const MODULE_ID_PREFIX = "GTS";
-const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
 const path = require("path");
 const moment = require("moment");
