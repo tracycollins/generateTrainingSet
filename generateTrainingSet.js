@@ -52,15 +52,15 @@ else {
 }
 
 console.log("\n\n");
-console.log(MODULE_ID_PREFIX + "======================================================");
-console.log(MODULE_ID_PREFIX + "======================================================");
-console.log(MODULE_ID_PREFIX + " | HOST:                    " + HOST);
-console.log(MODULE_ID_PREFIX + " | PRIMARY_HOST:            " + PRIMARY_HOST);
-console.log(MODULE_ID_PREFIX + " | hostname:                " + hostname);
-console.log(MODULE_ID_PREFIX + " | DROPBOX_ROOT_FOLDER:     " + DROPBOX_ROOT_FOLDER);
-console.log(MODULE_ID_PREFIX + " | TEMP_ROOT_FOLDER:        " + TEMP_ROOT_FOLDER);
-console.log(MODULE_ID_PREFIX + "======================================================");
-console.log(MODULE_ID_PREFIX + "======================================================");
+console.log(MODULE_ID_PREFIX + " | ==================================================================================");
+console.log(MODULE_ID_PREFIX + " | ==================================================================================");
+console.log(MODULE_ID_PREFIX + " | HOST:                " + HOST);
+console.log(MODULE_ID_PREFIX + " | PRIMARY_HOST:        " + PRIMARY_HOST);
+console.log(MODULE_ID_PREFIX + " | hostname:            " + hostname);
+console.log(MODULE_ID_PREFIX + " | DROPBOX_ROOT_FOLDER: " + DROPBOX_ROOT_FOLDER);
+console.log(MODULE_ID_PREFIX + " | TEMP_ROOT_FOLDER:    " + TEMP_ROOT_FOLDER);
+console.log(MODULE_ID_PREFIX + " | ==================================================================================");
+console.log(MODULE_ID_PREFIX + " | ==================================================================================");
 console.log("\n\n");
 
 const DEFAULT_INPUT_TYPES = [
@@ -1496,9 +1496,9 @@ async function updateCategorizedUser(params){
     if (!userIn.friends || (userIn.friends == undefined)){
       userIn.friends = [];
     }
-    else if (userIn.friends.length > 5000){
-      userIn.friends = _.slice(userIn.friends, 0,5000);
-    }
+    // else if (userIn.friends.length > 5000){
+    //   userIn.friends = _.slice(userIn.friends, 0,5000);
+    // }
 
     const u = await tcUtils.encodeHistogramUrls({user: userIn});
 
@@ -1668,7 +1668,7 @@ async function categorizeUser(params){
       userPropertyPickArray
     );
 
-    subUser.friends = _.slice(subUser.friends, 0,5000);
+    // subUser.friends = _.slice(subUser.friends, 0,5000);
 
     if (params.verbose) {
       console.log(chalkInfo(MODULE_ID_PREFIX + " | -<- UPDATE CL USR <DB"
@@ -1836,7 +1836,6 @@ function cursorDataHandler(user){
       }
 
       resolve();
-
     })
     .catch(function(err){
       console.log(chalkError(MODULE_ID_PREFIX + " | *** categorizeUser ERROR: " + err));
