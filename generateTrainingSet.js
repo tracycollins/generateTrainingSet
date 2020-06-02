@@ -369,9 +369,8 @@ configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
 configuration.userArchivePath = configuration[HOST].userArchivePath;
 
-fs.mkdirSync(configuration.default.userArchiveFolder, { recursive: true });
 fs.mkdirSync(configuration.tempUserDataFolder, { recursive: true });
-fs.mkdirSync(configuration.local.userArchiveFolder, { recursive: true });
+fs.mkdirSync(configuration[HOST].userArchiveFolder, { recursive: true });
 
 let mongooseDb;
 
