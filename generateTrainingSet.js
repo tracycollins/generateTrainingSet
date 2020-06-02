@@ -2396,11 +2396,14 @@ function redisScan(params){
   });
 }
 
-function saveMaxInputHashMap(){
+function saveMaxInputHashMap(p){
 
   return new Promise(function(resolve, reject){
 
     statsObj.status = "saveMaxInputHashMap";
+
+    const params = p || {};
+    const verbose = params.verbose || configuration.verbose;
 
     let scanCursor = 0;
 
@@ -2444,7 +2447,12 @@ function saveMaxInputHashMap(){
         + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
       ));
 
-      await tcUtils.saveFile({folder: configuration.maxInputHashMapsFolder, file: maxInputHashMapFile, obj: hashmap});
+      await tcUtils.saveFile({
+        folder: configuration.maxInputHashMapsFolder, 
+        file: maxInputHashMapFile, 
+        obj: hashmap,
+        verbose: verbose
+      });
 
       return;
 
