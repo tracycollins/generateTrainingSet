@@ -2641,11 +2641,16 @@ setTimeout(async function(){
       : localHistogramsFolder + "/types/";
     }
 
-    console.log(chalkInfo("TFE | ... SAVING HISTOGRAMS"));
+    console.log(chalkInfo("TFE | ... SAVING HISTOGRAMS | " + rootFolder));
 
     const inputTypeMinHash = (configuration.testMode) ? testInputTypeMinHash : defaultInputTypeMinHash;
 
-    await tcUtils.saveGlobalHistograms({rootFolder: rootFolder, pruneFlag: true, inputTypeMinHash: inputTypeMinHash});
+    await tcUtils.saveGlobalHistograms({
+      rootFolder: rootFolder, 
+      pruneFlag: true, 
+      inputTypeMinHash: inputTypeMinHash,
+      verbose: configuration.verbose
+    });
 
     if (configuration.testMode) {
       configuration.archiveFileUploadCompleteFlagFile = configuration.archiveFileUploadCompleteFlagFile.replace(/\.json/, "_test.json");
