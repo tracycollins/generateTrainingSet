@@ -34,7 +34,7 @@ hostname = hostname.replace(/word0-instance-1/g, "google");
 hostname = hostname.replace(/word-1/g, "google");
 hostname = hostname.replace(/word/g, "google");
 
-const PRIMARY_HOST = process.env.PRIMARY_HOST || "mms1";
+const PRIMARY_HOST = process.env.PRIMARY_HOST || "macpro2";
 const HOST = (hostname === PRIMARY_HOST) ? "default" : "local";
 
 let TEMP_ROOT_FOLDER;
@@ -157,7 +157,6 @@ const redis = require("redis");
 const redisClient = redis.createClient();
 
 let archive;
-
 
 const subFolderSet = new Set();
 
@@ -342,18 +341,14 @@ configuration.local.trainingSetsFolder = path.join(configHostFolder, "trainingSe
 configuration.local.maxInputHashMapsFolder = path.join(configHostFolder, "trainingSets/maxInputHashMaps");
 configuration.local.histogramsFolder = path.join(configHostFolder, "histograms");
 configuration.local.userArchiveFolder = path.join(configHostFolder, "trainingSets/users");
-// configuration.local.tempUserDataFolder = path.join(tempHostFolder, "trainingSets/users");
 configuration.local.userArchivePath = path.join(configuration.local.userArchiveFolder, configuration.userArchiveFile);
-// configuration.local.userTempArchivePath = path.join(configuration.local.userTempArchiveFolder, configuration.userArchiveFile);
 
 configuration.default = {};
 configuration.default.trainingSetsFolder = path.join(configDefaultFolder, "trainingSets");
 configuration.default.maxInputHashMapsFolder = path.join(configDefaultFolder, "trainingSets/maxInputHashMaps");
 configuration.default.histogramsFolder = path.join(configDefaultFolder, "histograms");
 configuration.default.userArchiveFolder = path.join(configDefaultFolder, "trainingSets/users");
-// configuration.default.tempUserDataFolder = path.join(tempHostFolder, "trainingSets/users");
 configuration.default.userArchivePath = path.join(configuration.default.userArchiveFolder, configuration.userArchiveFile);
-// configuration.default.userTempArchivePath = path.join(configuration.default.userTempArchiveFolder, configuration.userArchiveFile);
 
 configuration.trainingSetsFolder = configuration[HOST].trainingSetsFolder;
 configuration.maxInputHashMapsFolder = configuration[HOST].maxInputHashMapsFolder;
@@ -361,13 +356,10 @@ configuration.archiveFileUploadCompleteFlagFolder = path.join(configuration[HOST
 configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
 configuration.userArchivePath = configuration[HOST].userArchivePath;
-// configuration.userTempArchivePath = configuration[HOST].userTempArchivePath;
 
 fs.mkdirSync(configuration.default.userArchiveFolder, { recursive: true });
 fs.mkdirSync(configuration.tempUserDataFolder, { recursive: true });
-
 fs.mkdirSync(configuration.local.userArchiveFolder, { recursive: true });
-// fs.mkdirSync(configuration.local.userTempArchiveFolder, { recursive: true });
 
 let mongooseDb;
 
@@ -2577,11 +2569,14 @@ setTimeout(async function(){
     // initSlackRtmClient();
     // initSlackWebClient();
 
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX TEMP USER DATA FOLDER: " + configuration.tempUserDataFolder));
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX DELETE TEMP USER DATA FOLDER: " + configuration.tempUserDataFolder));
 
     fs.rmdirSync(configuration.tempUserDataFolder, { recursive: true });
 
     const runSubFolder = path.join(configuration.userArchiveFolder, statsObj.runId);
+
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | +++ CREATE USER ARCHIVE FOLDER: " + runSubFolder));
+
     fs.mkdirSync(runSubFolder, { recursive: true });
 
     await initWatchAllConfigFolders();
