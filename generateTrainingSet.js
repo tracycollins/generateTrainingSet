@@ -2343,16 +2343,16 @@ function saveMaxInputHashMap(p){
 
     async.eachSeries(DEFAULT_INPUT_TYPES, async function(type){
 
+      let hashmap = {};
+      let more = true;
+      const maxInputHashMapFile = filePrefix + type + fileSufffix;
+
       console.log(chalkLog(MODULE_ID_PREFIX
         + " | ... ASSEMBLING MAX INPUT HASHMAP"
         + " | TYPE: " + type
         + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
       ));
-
-      let hashmap = {};
-      let more = true;
-      const maxInputHashMapFile = filePrefix + type + fileSufffix;
-
+      
       while (more){
 
         const results = await redisScan({type: type, scanCursor: scanCursor});
