@@ -2163,7 +2163,7 @@ function archiveFolder(params){
     output.on("close", function() {
       const archiveSize = toMegabytes(archive.pointer());
       console.log(chalkGreen(MODULE_ID_PREFIX
-        + " | +++ ARCHIVE ZIP OUTPUT | CLOSED" 
+        + " | +O+ ARCHIVE OUTPUT | CLOSED" 
         + " | SRC: " + params.folder
         + " | DST: " + params.archivePath
         + " | SIZE: " + archiveSize.toFixed(2) + " MB"
@@ -2174,7 +2174,7 @@ function archiveFolder(params){
     output.on("end", function() {
       const archiveSize = toMegabytes(archive.pointer());
       console.log(chalkGreen(MODULE_ID_PREFIX
-        + " | +++ ARCHIVE ZIP OUTPUT | END" 
+        + " | 000 ARCHIVE OUTPUT | END" 
         + " | SRC: " + params.folder
         + " | DST: " + params.archivePath
         + " | SIZE: " + archiveSize.toFixed(2) + " MB"
@@ -2215,7 +2215,7 @@ function archiveFolder(params){
      
     archive.on("error", function(err) {
       console.log(chalkError(MODULE_ID_PREFIX
-        + " | *** ARCHIVE ERROR" 
+        + " | *** ARCHIVE | ERROR" 
         + " | SRC: " + params.folder
         + " | DST: " + params.archivePath
         + " | ERROR: " + err
@@ -2352,7 +2352,7 @@ function saveMaxInputHashMap(p){
         + " | TYPE: " + type
         + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
       ));
-      
+
       while (more){
 
         const results = await redisScan({type: type, scanCursor: scanCursor});
