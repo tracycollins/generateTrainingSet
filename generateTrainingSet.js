@@ -4,6 +4,9 @@ const DEFAULT_CURSOR_PARALLEL = 8;
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
 
+const DEFAULT_SPLIT_SIZE_MB = 50;
+const DEFAULT_SPLIT_SIZE_KEYS = 100000;
+
 const DEFAULT_MAX_SAVE_FILE_QUEUE = 100;
 const DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE = 100;
 
@@ -281,6 +284,9 @@ const statsPickArray = [
 statsObjSmall = pick(statsObj, statsPickArray);
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
+
+configuration.splitSizeMB = DEFAULT_SPLIT_SIZE_MB;
+configuration.splitSizeKeys = DEFAULT_SPLIT_SIZE_KEYS;
 
 configuration.maxCursorDataHandlerQueue = DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE;
 configuration.redisScanCount = DEFAULT_REDIS_SCAN_COUNT;
@@ -1105,6 +1111,16 @@ async function loadConfigFile(params) {
     if (loadedConfigObj.GTS_MAX_INPUT_HASHMAP_LIMIT !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_MAX_INPUT_HASHMAP_LIMIT: " + loadedConfigObj.GTS_MAX_INPUT_HASHMAP_LIMIT);
       newConfiguration.updateMaxInputHashMapLimit = loadedConfigObj.GTS_MAX_INPUT_HASHMAP_LIMIT;
+    }
+
+    if (loadedConfigObj.GTS_SPLIT_SIZE_MB !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_SPLIT_SIZE_MB: " + loadedConfigObj.GTS_SPLIT_SIZE_MB);
+      newConfiguration.splitSizeMB = loadedConfigObj.GTS_SPLIT_SIZE_MB;
+    }
+
+    if (loadedConfigObj.GTS_SPLIT_SIZE_KEYS !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_SPLIT_SIZE_KEYS: " + loadedConfigObj.GTS_SPLIT_SIZE_KEYS);
+      newConfiguration.splitSizeKeys = loadedConfigObj.GTS_SPLIT_SIZE_KEYS;
     }
 
     if (loadedConfigObj.GTS_REDIS_SCAN_COUNT !== undefined){
@@ -2363,7 +2379,9 @@ function saveMaxInputHashMap(p){
 
         hashmap = merge(hashmap, results.hashmap);
 
-        if ((type === "ngram") && (Object.keys(hashmap).length % 1000 === 0)){
+        if ((splitIndex === 0)
+          && ((Object.keys(hashmap).length % 5000 === 0) || configuration.testMode && (Object.keys(hashmap).length % 1000 === 0))
+        ){
           console.log(chalkLog(MODULE_ID_PREFIX
             + " | ... IN PROCESS MAX INPUT HASHMAP"
             + " | TYPE: " + type
@@ -2373,14 +2391,17 @@ function saveMaxInputHashMap(p){
           ));
         }
 
-        if ((type === "ngram") && ((sizeof(hashmap)/ONE_MEGABYTE) >= 50)){
+        if ( (!configuration.testMode && ((sizeof(hashmap)/ONE_MEGABYTE) >= configuration.splitSizeMB))
+          || ( configuration.testMode && (Object.keys(hashmap).length >= configuration.splitSizeKeys))
+        ){
 
           const fileSufffix_split = (configuration.testMode) ? "_" + splitIndex + "_test.json" : "_" + splitIndex + ".json";
           const maxInputHashMapFile_split = filePrefix + type + fileSufffix_split;
 
           console.log(chalkAlert(MODULE_ID_PREFIX
             + " | !!! IN PROCESS MAX INPUT HASHMAP | LARGE HASHMAP | SPLITTING ..."
-            + " | SPLIT: " + splitIndex
+            + " | SPLIT INDEX: " + splitIndex
+            + " | SPLIT SIZE: " + configuration.splitSizeKeys + " KEYS / " + configuration.splitSizeMB + " MB"
             + " | TYPE: " + type
             + " | " + Object.keys(hashmap).length + " KEYS"
             + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
@@ -2389,7 +2410,7 @@ function saveMaxInputHashMap(p){
 
           await tcUtils.saveFile({
             folder: configuration.maxInputHashMapsFolder, 
-            file: maxInputHashMapFile, 
+            file: maxInputHashMapFile_split, 
             obj: hashmap,
             verbose: verbose
           });
@@ -2400,28 +2421,30 @@ function saveMaxInputHashMap(p){
 
       }
 
-      console.log(chalkLog(MODULE_ID_PREFIX
-        + " | ... SAVING MAX INPUT HASHMAP FILE"
-        + " | TYPE: " + type
-        + " | " + Object.keys(hashmap).length + " KEYS"
-        + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
-        + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
-      ));
+      if (splitIndex === 0){
+        console.log(chalkLog(MODULE_ID_PREFIX
+          + " | ... SAVING MAX INPUT HASHMAP FILE"
+          + " | TYPE: " + type
+          + " | " + Object.keys(hashmap).length + " KEYS"
+          + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
+          + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
+        ));
 
-      await tcUtils.saveFile({
-        folder: configuration.maxInputHashMapsFolder, 
-        file: maxInputHashMapFile, 
-        obj: hashmap,
-        verbose: verbose
-      });
+        await tcUtils.saveFile({
+          folder: configuration.maxInputHashMapsFolder, 
+          file: maxInputHashMapFile, 
+          obj: hashmap,
+          verbose: verbose
+        });
 
-      console.log(chalkBlue(MODULE_ID_PREFIX
-        + " | +++ SAVED MAX INPUT HASHMAP FILE"
-        + " | TYPE: " + type
-        + " | " + Object.keys(hashmap).length + " KEYS"
-        + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
-        + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
-      ));
+        console.log(chalkBlue(MODULE_ID_PREFIX
+          + " | +++ SAVED MAX INPUT HASHMAP FILE"
+          + " | TYPE: " + type
+          + " | " + Object.keys(hashmap).length + " KEYS"
+          + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
+          + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
+        ));
+      }
 
       return;
 
