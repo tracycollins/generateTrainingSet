@@ -168,6 +168,18 @@ redisServer.open(function(err){
 const redis = require("redis");
 const redisClient = redis.createClient();
 
+redisClient.on("error", function(err){
+  console.log(chalkError(MODULE_ID_PREFIX
+    + " | *** REDIS CLIENT ERROR *** | " + err
+  ));
+});
+
+redisClient.on("ready", function(){
+  console.log(chalkAlert(MODULE_ID_PREFIX
+    + " | >>> REDIS CLIENT READY <<<"
+  ));
+});
+
 let archive;
 
 const subFolderSet = new Set();
@@ -1355,56 +1367,61 @@ function updateMaxInputHashMap(params){
 
     const histogramTypes = Object.keys(histograms);
 
-    for (const type of histogramTypes){
+    // for (const type of histogramTypes){
+    async.each(histogramTypes, function(type, cb0){
 
-      if (type !== "sentiment") {
-
-        const histogramTypeEntities = Object.keys(histograms[type]);
-
-        if (histogramTypeEntities.length > 0) {
-
-          async.eachLimit(histogramTypeEntities, limit, function(entity, cb){
-
-            if (histograms[type][entity] === undefined){
-              console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNDEFINED histograms[type][entity]"
-                + " | TYPE: " + type
-                + " | ENTITY: " + entity
-              ));
-              delete histograms[type][entity];
-              return cb();
-            }
-
-            updateMaxInput({type: type, entity: entity, value: histograms[type][entity]})
-            .then(function(value){
-
-              debug(chalkLog(MODULE_ID_PREFIX + " | --> MAX INPUT"
-                + " | TYPE: " + type
-                + " | ENTITY: " + entity
-                + " | " + value
-              ));
-
-              cb();
-            })
-            .catch(function(err){
-              console.log(chalkAlert(MODULE_ID_PREFIX + " | *** updateMaxInput ERROR"
-                + " | TYPE: " + type
-                + " | ENTITY: " + entity
-                + " | ERROR: " + err
-              ));
-              return cb(err);
-            });
-
-          }, function(err){
-            if (err) { return reject(err); }
-          });
-
-        }
+      if (type === "sentiment") {
+        return cb0();
       }
-    }
 
-    resolve();
+      const histogramTypeEntities = Object.keys(histograms[type]);
 
-  })
+      if (histogramTypeEntities.length === 0) {
+        return cb0();
+      }  
+
+      async.eachLimit(histogramTypeEntities, limit, function(entity, cb1){
+
+        if (histograms[type][entity] === undefined){
+          console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNDEFINED histograms[type][entity]"
+            + " | TYPE: " + type
+            + " | ENTITY: " + entity
+          ));
+          delete histograms[type][entity];
+          return cb1();
+        }
+
+        updateMaxInput({type: type, entity: entity, value: histograms[type][entity]})
+        .then(function(value){
+
+          debug(chalkLog(MODULE_ID_PREFIX + " | --> MAX INPUT"
+            + " | TYPE: " + type
+            + " | ENTITY: " + entity
+            + " | " + value
+          ));
+
+          cb1();
+        })
+        .catch(function(err){
+          console.log(chalkAlert(MODULE_ID_PREFIX + " | *** updateMaxInput ERROR"
+            + " | TYPE: " + type
+            + " | ENTITY: " + entity
+            + " | ERROR: " + err
+          ));
+          return cb1(err);
+        });
+
+      }, function(err){
+        if (err) { return cb0(err); }
+        cb0();
+      });
+
+    }, function(err){
+      if (err) { return reject(err); }
+      resolve();
+    });
+
+  });
 }
 
 async function updateUserAndMaxInputHashMap(params){
