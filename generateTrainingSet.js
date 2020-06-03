@@ -1074,6 +1074,9 @@ async function loadConfigFile(params) {
     if (loadedConfigObj.GTS_TOTAL_MAX_TEST_COUNT !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_TOTAL_MAX_TEST_COUNT: " + loadedConfigObj.GTS_TOTAL_MAX_TEST_COUNT);
       newConfiguration.totalMaxTestCount = loadedConfigObj.GTS_TOTAL_MAX_TEST_COUNT;
+      newConfiguration.maxTestCount.left = parseInt(0.333333*loadedConfigObj.GTS_TOTAL_MAX_TEST_COUNT);
+      newConfiguration.maxTestCount.neutral = parseInt(0.333333*loadedConfigObj.GTS_TOTAL_MAX_TEST_COUNT);
+      newConfiguration.maxTestCount.right = parseInt(0.333333*loadedConfigObj.GTS_TOTAL_MAX_TEST_COUNT);
     }
 
     if (loadedConfigObj.GTS_CURSOR_PARALLEL !== undefined){
