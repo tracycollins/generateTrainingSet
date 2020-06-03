@@ -2345,6 +2345,8 @@ function saveMaxInputHashMap(p){
 
       let hashmap = {};
       let more = true;
+      let splitIndex = 0;
+
       const maxInputHashMapFile = filePrefix + type + fileSufffix;
 
       console.log(chalkLog(MODULE_ID_PREFIX
@@ -2361,8 +2363,41 @@ function saveMaxInputHashMap(p){
 
         hashmap = merge(hashmap, results.hashmap);
 
-        debug(chalkBlue("TYPE: " + type + " | scanCursor: " + scanCursor + " | results.hashmap KEYS: " + Object.keys(results.hashmap).length));
-        debug(chalkBlue("TYPE: " + type + " | scanCursor: " + scanCursor + " | hashmap KEYS: " + Object.keys(hashmap).length));
+        if ((type === "ngram") && (Object.keys(hashmap).length % 1000 === 0)){
+          console.log(chalkLog(MODULE_ID_PREFIX
+            + " | ... IN PROCESS MAX INPUT HASHMAP"
+            + " | TYPE: " + type
+            + " | " + Object.keys(hashmap).length + " KEYS"
+            + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
+            + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
+          ));
+        }
+
+        if ((type === "ngram") && ((sizeof(hashmap)/ONE_MEGABYTE) >= 50)){
+
+          const fileSufffix_split = (configuration.testMode) ? "_" + splitIndex + "_test.json" : "_" + splitIndex + ".json";
+          const maxInputHashMapFile_split = filePrefix + type + fileSufffix_split;
+
+          console.log(chalkAlert(MODULE_ID_PREFIX
+            + " | !!! IN PROCESS MAX INPUT HASHMAP | LARGE HASHMAP | SPLITTING ..."
+            + " | SPLIT: " + splitIndex
+            + " | TYPE: " + type
+            + " | " + Object.keys(hashmap).length + " KEYS"
+            + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
+            + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile_split
+          ));
+
+          await tcUtils.saveFile({
+            folder: configuration.maxInputHashMapsFolder, 
+            file: maxInputHashMapFile, 
+            obj: hashmap,
+            verbose: verbose
+          });
+
+          splitIndex += 1;
+          hashmap = {};
+        }
+
       }
 
       console.log(chalkLog(MODULE_ID_PREFIX
