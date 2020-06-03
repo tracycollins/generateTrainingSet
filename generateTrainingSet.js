@@ -1790,180 +1790,6 @@ function cursorDataHandler(user){
   });
 }
 
-// let cursorDataHandlerQueueInterval;
-// let cursorDataHandlerQueueReady = true;
-// const cursorDataHandlerQueue = [];
-// const parallelUserArray = [];
-
-// function initCursorDataHandlerQueue(params){
-
-//   const cursorParallel = params.cursorParallel || configuration.cursorParallel;
-//   const interval = params.interval || configuration.cursorDataHandlerQueueInterval;
-
-//   clearInterval(cursorDataHandlerQueueInterval);
-//   cursorDataHandlerQueueReady = true;
-//   cursorDataHandlerQueue.length = 0;
-
-//   console.log(chalkLog(MODULE_ID_PREFIX 
-//     + " | initCursorDataHandlerQueue"
-//     + " | cursorParallel: " + cursorParallel 
-//     + " | INTERVAL: " + interval
-//   ));
-
-//   cursorDataHandlerQueueInterval = setInterval(async function(){
-
-//     if (cursorDataHandlerQueueReady && (cursorDataHandlerQueue.length > 0)){
-
-//       cursorDataHandlerQueueReady = false;
-
-//       parallelUserArray.length = 0;
-
-//       let u;
-
-//       const currentParallel = (cursorDataHandlerQueue.length >= cursorParallel) ? cursorParallel : cursorDataHandlerQueue.length;
-
-//       while (parallelUserArray.length < currentParallel){
-//         u = cursorDataHandlerQueue.shift();
-//         parallelUserArray.push(u);
-//       }
-
-//       Promise.all(parallelUserArray.map(async function(user){
-//         try{
-//           await cursorDataHandler(user);
-
-//           statsObj.users.processed.total += 1;
-//           statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
-//           statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
-//           statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
-//           statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
-//           statsObj.users.processed.endMoment = moment();
-//           statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
-//           statsObj.users.processed.percent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
-
-//           if (configuration.verbose 
-//             // || configuration.testMode 
-//             || ((statsObj.users.notCategorized + statsObj.users.processed.total) % 1000 === 0)){
-
-//             categorizedUserHistogramTotal();
-
-//             console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
-//               + " [CDHQ: " + cursorDataHandlerQueue.length + "]"
-//               + " | " + (statsObj.users.notCategorized + statsObj.users.processed.total) + "/" + statsObj.users.grandTotal
-//               + " (" + statsObj.users.processed.percent.toFixed(1) + "%)"
-//               + " | TOTAL: " + categorizedUserHistogram.total
-//               + " | L: " + categorizedUserHistogram.left 
-//               + " | R: " + categorizedUserHistogram.right
-//               + " | N: " + categorizedUserHistogram.neutral
-//               + " | +: " + categorizedUserHistogram.positive
-//               + " | -: " + categorizedUserHistogram.negative
-//               + " | 0: " + categorizedUserHistogram.none
-//             ));
-//           }
-
-//           statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;      
-//           cursorDataHandlerQueueReady = true;
-
-//         }
-//         catch(err){
-//           console.log(chalkError(
-//             MODULE_ID_PREFIX 
-//             + " [Q: " + parallelUserArray.length + "] " 
-//             + " | *** ERROR cursorDataHandler PARALLEL"
-//             + " | ERROR: " + err
-//           ));
-//           cursorDataHandlerQueueReady = true;
-//         }
-//       }));
-//     }
-
-//   }, interval);
-// }
-
-// function categoryCursorStream(params){
-
-//   return new Promise(function(resolve, reject){
-
-//     statsObj.status = "categoryCursorStream";
-
-//     statsObj.categorizedCount = 0;
-
-//     const batchSize = params.batchSize || configuration.batchSize;
-//     const cursorParallel = params.cursorParallel || configuration.cursorParallel;
-//     const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
-//     const reSaveUserDocsFlag = params.reSaveUserDocsFlag || configuration.reSaveUserDocsFlag;
-
-//     if (reSaveUserDocsFlag) {
-//       console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
-//     }
-
-//     let cursor;
-
-//     mongooseDb.startSession()
-//     .then(async function(session){
-
-//       debug("MONGO DB SESSION\n" + session.id);
-
-//       console.log(chalkBlue(MODULE_ID_PREFIX
-//         + " | categoryCursorStream"
-//         + " | batchSize: " + batchSize
-//         + " | cursorParallel: " + cursorParallel
-//         + " | maxArchivedCount: " + maxArchivedCount
-//         + " | reSaveUserDocsFlag: " + reSaveUserDocsFlag
-//       ));
-
-//       if (configuration.testMode) {
-//         cursor = global.wordAssoDb.User
-//         .find(params.query, {timeout: false})
-//         // .sort({nodeId: 1})
-//         .lean()
-//         .batchSize(batchSize)
-//         .limit(maxArchivedCount)
-//         .session(session)
-//         .cursor()
-//         .addCursorFlag("noCursorTimeout", true);
-//       }
-//       else{
-//         cursor = global.wordAssoDb.User
-//         .find(params.query, {timeout: false})
-//         // .sort({nodeId: 1})
-//         .lean()
-//         .batchSize(batchSize)
-//         .session(session)
-//         .cursor()
-//         .addCursorFlag("noCursorTimeout", true);
-//       }
-
-//       cursor.on("end", function() {
-//         console.log(chalkAlert(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
-//       });
-
-//       cursor.on("error", function(err) {
-//         console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
-//         return reject(err);
-//       });
-
-//       cursor.on("close", function() {
-//         console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
-//         resolve();
-//       });
-
-//       if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
-
-//       if (statsObj.users.processed.startMoment === 0) { statsObj.users.processed.startMoment = moment(); }
-
-//       cursor.on("data", function(user){
-//         cursorDataHandlerQueue.push(user);
-//       });
-
-//     })
-//     .catch(function(err){
-//       return reject(err);
-//     });
-
-
-//   });
-// }
-
 async function categoryCursorStream(params){
 
   try{
@@ -2048,13 +1874,11 @@ async function categoryCursorStream(params){
       statsObj.users.processed.percent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
 
       if (configuration.verbose 
-        // || configuration.testMode 
         || ((statsObj.users.notCategorized + statsObj.users.processed.total) % 1000 === 0)){
 
         categorizedUserHistogramTotal();
 
         console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
-          // + " [CDHQ: " + cursorDataHandlerQueue.length + "]"
           + " | " + (statsObj.users.notCategorized + statsObj.users.processed.total) + "/" + statsObj.users.grandTotal
           + " (" + statsObj.users.processed.percent.toFixed(1) + "%)"
           + " | TOTAL: " + categorizedUserHistogram.total
@@ -2068,7 +1892,6 @@ async function categoryCursorStream(params){
       }
 
       statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;      
-      // cursorDataHandlerQueueReady = true;
 
     }, {parallel: cursorParallel});
 
