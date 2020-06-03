@@ -1071,6 +1071,11 @@ async function loadConfigFile(params) {
       newConfiguration.batchSize = loadedConfigObj.GTS_BATCH_SIZE;
     }
 
+    if (loadedConfigObj.GTS_TOTAL_MAX_TEST_COUNT !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_TOTAL_MAX_TEST_COUNT: " + loadedConfigObj.GTS_TOTAL_MAX_TEST_COUNT);
+      newConfiguration.totalMaxTestCount = loadedConfigObj.GTS_TOTAL_MAX_TEST_COUNT;
+    }
+
     if (loadedConfigObj.GTS_CURSOR_PARALLEL !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_CURSOR_PARALLEL: " + loadedConfigObj.GTS_CURSOR_PARALLEL);
       newConfiguration.cursorParallel = loadedConfigObj.GTS_CURSOR_PARALLEL;
