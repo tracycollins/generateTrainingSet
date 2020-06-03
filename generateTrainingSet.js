@@ -2341,7 +2341,7 @@ function saveMaxInputHashMap(p){
       + " | >>> SAVING MAX INPUT HASHMAPS ..."
     ));
 
-    async.each(DEFAULT_INPUT_TYPES, async function(type){
+    async.eachSeries(DEFAULT_INPUT_TYPES, async function(type){
 
       // redisClient.hlen("maxInputHashMap_" + type, function(err, numberEntries){
       //   console.log(chalkBlue(MODULE_ID_PREFIX
@@ -2366,7 +2366,7 @@ function saveMaxInputHashMap(p){
         debug(chalkBlue("TYPE: " + type + " | scanCursor: " + scanCursor + " | hashmap KEYS: " + Object.keys(hashmap).length));
       }
 
-      console.log(chalkBlue(MODULE_ID_PREFIX
+      console.log(log(MODULE_ID_PREFIX
         + " | ... SAVING MAX INPUT HASHMAP FILE"
         + " | TYPE: " + type
         + " | " + Object.keys(hashmap).length + " KEYS"
@@ -2380,6 +2380,14 @@ function saveMaxInputHashMap(p){
         obj: hashmap,
         verbose: verbose
       });
+
+      console.log(chalkBlue(MODULE_ID_PREFIX
+        + " | +++ SAVED MAX INPUT HASHMAP FILE"
+        + " | TYPE: " + type
+        + " | " + Object.keys(hashmap).length + " KEYS"
+        + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
+        + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
+      ));
 
       return;
 
