@@ -4,6 +4,8 @@ const DEFAULT_CURSOR_PARALLEL = 8;
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
 
+const DEFAULT_ENABLE_CREATE_USER_ARCHIVE = false;
+
 // const DEFAULT_SPLIT_SIZE_MB = 50;
 // const DEFAULT_SPLIT_SIZE_KEYS = 100000;
 
@@ -257,7 +259,7 @@ let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 
 // configuration.splitSizeMB = DEFAULT_SPLIT_SIZE_MB;
 // configuration.splitSizeKeys = DEFAULT_SPLIT_SIZE_KEYS;
-
+configuration.enableCreateUserArchive = DEFAULT_ENABLE_CREATE_USER_ARCHIVE;
 configuration.maxCursorDataHandlerQueue = DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE;
 configuration.redisScanCount = DEFAULT_REDIS_SCAN_COUNT;
 // configuration.updateMaxInputHashMapLimit = DEFAULT_MAX_INPUT_HASHMAP_LIMIT;
@@ -312,8 +314,11 @@ configuration.DROPBOX.DROPBOX_GTS_STATS_FILE = process.env.DROPBOX_GTS_STATS_FIL
 const configDefaultFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility/default");
 const configHostFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility", hostname);
 
+const nas3dataFolder = "/Volumes/nas3/data";
+
 const tempHostFolder = TEMP_ROOT_FOLDER;
 configuration.tempUserDataFolder = path.join(tempHostFolder, "trainingSets/users");
+configuration.nasUserDataFolder = path.join(nas3dataFolder, "users");
 
 const localHistogramsFolder = configHostFolder + "/histograms";
 const defaultHistogramsFolder = configDefaultFolder + "/histograms";
@@ -784,6 +789,15 @@ async function showStats(options){
       + " | ETC: " + msToTime(statsObj.users.processed.remainMS) + " " + statsObj.users.processed.endMoment.format(compactDateTimeFormat)
       + "\nGTS | ============================================================"
     ));
+
+    if (statsObj.status === "archiveFolder"){
+      console.log(chalkGreen(MODULE_ID_PREFIX
+        + " | ->- ARCHIVE" 
+        + " | PROGRESS: " + statsObj.progressMbytes.toFixed(3) + " MB"
+        + " | TOTAL: " + statsObj.totalMbytes.toFixed(3) + " MB"
+        + " | DST: " + statsObj.archivePath
+      ));
+    }
   }
 }
 
@@ -1716,14 +1730,24 @@ function cursorDataHandler(user){
     categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode})
     .then(function(catUser){
 
-      const subFolderIndex = Math.floor((statsObj.users.processed.total)/configuration.usersPerArchive) * configuration.usersPerArchive;
+      // 18,446,744,073,709,551,615 max 64-bit unsigned integer  ==> 20 characters
+      // twitter user id
+      //  min:   999 99969 98380 05251
+      //  max:  1000 00443 87638 96833
 
-      const subFolderIndexString = subFolderIndex.toString().padStart(5,"0");
+      // "24913074" => "00000000000024913074"
+      const paddedUserNodeId = catUser.nodeId.padStart(20,"0");
 
-      const folder = path.join(configuration.tempUserDataFolder, "data", subFolderIndexString);
+      // "00000000000024913074" => "00000000000024000000"
+      const subFolder = paddedUserNodeId.substring(0, 11) + "000000000";
+
+      // const subFolderIndex = Math.floor((statsObj.users.processed.total)/configuration.usersPerArchive) * configuration.usersPerArchive;
+      // const subFolder = subFolderIndex.toString().padStart(5,"0");
+
+      const folder = path.join(configuration.nasUserDataFolder, subFolder);
       const file = catUser.nodeId + ".json";
 
-      subFolderSet.add(subFolderIndexString);
+      if (configuration.enableCreateUserArchive){ subFolderSet.add(subFolder); }
 
       statsObj.categorizedCount += 1;
 
@@ -1923,6 +1947,8 @@ async function updateArchiveFileUploadComplete(params){
 
   try{
 
+    statsObj.status = "updateArchiveFileUploadComplete";
+
     fileSizeArrayObj.runId = statsObj.runId;
 
     const stats = fs.statSync(params.path);
@@ -1952,7 +1978,10 @@ function archiveFolder(params){
 
   return new Promise(function(resolve, reject){
 
+    const verbose = params.verbose || configuration.verbose;
+
     statsObj.status = "archiveFolder";
+    statsObj.archivePath = params.archivePath;
 
     console.log(chalkBlue(MODULE_ID_PREFIX + " | ARCHIVE FOLDER"
       + " | SRC: " + params.folder
@@ -1993,9 +2022,20 @@ function archiveFolder(params){
     });
      
     archive.on("progress", function(progress) {
+
       statsObj.progress = progress;
       statsObj.progressMbytes = toMegabytes(progress.fs.processedBytes);
       statsObj.totalMbytes = toMegabytes(archive.pointer());
+
+      if (verbose){
+        console.log(chalkGreen(MODULE_ID_PREFIX
+          + " | ->- ARCHIVE" 
+          + " | PROGRESS: " + statsObj.progressMbytes.toFixed(3) + " MB"
+          + " | TOTAL: " + statsObj.totalMbytes.toFixed(3) + " MB"
+          + " | DST: " + params.archivePath
+        ));
+      }
+
     });
      
     archive.on("close", function() {
@@ -2359,15 +2399,17 @@ setTimeout(async function(){
     // initSlackRtmClient();
     // initSlackWebClient();
 
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX DELETE TEMP USER DATA FOLDER: " + configuration.tempUserDataFolder));
+    if (configuration.enableCreateUserArchive){
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX DELETE TEMP USER DATA FOLDER: " + configuration.tempUserDataFolder));
 
-    fs.rmdirSync(configuration.tempUserDataFolder, { recursive: true });
+      fs.rmdirSync(configuration.tempUserDataFolder, { recursive: true });
 
-    const runSubFolder = path.join(configuration.userArchiveFolder, statsObj.runId);
+      statsObj.runSubFolder = path.join(configuration.userArchiveFolder, statsObj.runId);
 
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | +++ CREATE USER ARCHIVE FOLDER: " + runSubFolder));
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | +++ CREATE USER ARCHIVE FOLDER: " + statsObj.runSubFolder));
 
-    fs.mkdirSync(runSubFolder, { recursive: true });
+      fs.mkdirSync(statsObj.runSubFolder, { recursive: true });
+    }
 
     await initWatchAllConfigFolders();
 
@@ -2404,13 +2446,15 @@ setTimeout(async function(){
 
     await delay({period: 30*ONE_SECOND});
 
-    console.log(chalkLog("TFE | SAVE USER DATA ARCHIVES ..."));
+    if (configuration.enableCreateUserArchive){
+      console.log(chalkLog("TFE | SAVE USER DATA ARCHIVES ..."));
 
-    for(const subFolderIndexString of [...subFolderSet] ){
-      const folder = path.join(configuration.tempUserDataFolder, "data", subFolderIndexString);
-      const archivePath = path.join(runSubFolder, "userArchive" + subFolderIndexString + ".zip");
-      await archiveFolder({folder: folder, archivePath: archivePath});
-      await updateArchiveFileUploadComplete({path: archivePath});
+      for(const subFolderIndexString of [...subFolderSet] ){
+        const folder = path.join(configuration.tempUserDataFolder, "data", subFolderIndexString);
+        const archivePath = path.join(statsObj.runSubFolder, "userArchive" + subFolderIndexString + ".zip");
+        await archiveFolder({folder: folder, archivePath: archivePath});
+        await updateArchiveFileUploadComplete({path: archivePath});
+      }
     }
 
     // await saveMaxInputHashMap();
