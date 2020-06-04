@@ -2186,12 +2186,13 @@ function saveMaxInputHashMap(p){
       let more = true;
       let splitIndex = 0;
 
+      const folder = path.join(configuration.maxInputHashMapsFolder, type);
       const maxInputHashMapFile = filePrefix + type + fileSufffix;
 
       console.log(chalkLog(MODULE_ID_PREFIX
         + " | ... ASSEMBLING MAX INPUT HASHMAP"
         + " | TYPE: " + type
-        + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
+        + " | " + folder + "/" + maxInputHashMapFile
       ));
 
       while (more){
@@ -2210,7 +2211,7 @@ function saveMaxInputHashMap(p){
             + " | TYPE: " + type
             + " | " + Object.keys(hashmap).length + " KEYS"
             + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
-            + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
+            + " | " + folder + "/" + maxInputHashMapFile
           ));
         }
 
@@ -2228,11 +2229,11 @@ function saveMaxInputHashMap(p){
             + " | TYPE: " + type
             + " | " + Object.keys(hashmap).length + " KEYS"
             + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
-            + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile_split
+            + " | " + folder + "/" + maxInputHashMapFile_split
           ));
 
           await tcUtils.saveFile({
-            folder: configuration.maxInputHashMapsFolder, 
+            folder: folder, 
             file: maxInputHashMapFile_split, 
             obj: hashmap,
             verbose: verbose
@@ -2250,11 +2251,11 @@ function saveMaxInputHashMap(p){
           + " | TYPE: " + type
           + " | " + Object.keys(hashmap).length + " KEYS"
           + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
-          + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
+          + " | " + folder + "/" + maxInputHashMapFile
         ));
 
         await tcUtils.saveFile({
-          folder: configuration.maxInputHashMapsFolder, 
+          folder: folder, 
           file: maxInputHashMapFile, 
           obj: hashmap,
           verbose: verbose
@@ -2265,7 +2266,7 @@ function saveMaxInputHashMap(p){
           + " | TYPE: " + type
           + " | " + Object.keys(hashmap).length + " KEYS"
           + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
-          + " | " + configuration.maxInputHashMapsFolder + "/" + maxInputHashMapFile
+          + " | " + folder + "/" + maxInputHashMapFile
         ));
       }
 
