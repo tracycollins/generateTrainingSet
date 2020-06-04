@@ -153,36 +153,6 @@ const chalkWarn = chalk.red;
 const chalkLog = chalk.gray;
 const chalkInfo = chalk.black;
 
-// const RedisServer = require("redis-server");
-// const redisServer = new RedisServer(6379);
-
-// redisServer.open(function(err){
-//   if (err) { 
-//     console.log(chalkError(MODULE_ID_PREFIX
-//       + " | *** REDIS SERVER ERROR *** | " + err
-//     ));
-//     throw err; 
-//   }
-//   console.log(chalkAlert(MODULE_ID_PREFIX
-//     + " | >>> REDIS SERVER READY <<<"
-//   ));
-// });
-
-// const redis = require("redis");
-// const redisClient = redis.createClient();
-
-// redisClient.on("error", function(err){
-//   console.log(chalkError(MODULE_ID_PREFIX
-//     + " | *** REDIS CLIENT ERROR *** | " + err
-//   ));
-// });
-
-// redisClient.on("ready", function(){
-//   console.log(chalkAlert(MODULE_ID_PREFIX
-//     + " | >>> REDIS CLIENT READY <<<"
-//   ));
-// });
-
 let archive;
 
 const subFolderSet = new Set();
@@ -357,20 +327,17 @@ configuration.userArchiveFile = hostname + "_" + statsObj.startTimeMoment.format
 
 configuration.local = {};
 configuration.local.trainingSetsFolder = path.join(configHostFolder, "trainingSets");
-// configuration.local.maxInputHashMapsFolder = path.join(configHostFolder, "trainingSets/maxInputHashMaps");
 configuration.local.histogramsFolder = path.join(configHostFolder, "histograms");
 configuration.local.userArchiveFolder = path.join(configHostFolder, "trainingSets/users");
 configuration.local.userArchivePath = path.join(configuration.local.userArchiveFolder, configuration.userArchiveFile);
 
 configuration.default = {};
 configuration.default.trainingSetsFolder = path.join(configDefaultFolder, "trainingSets");
-// configuration.default.maxInputHashMapsFolder = path.join(configDefaultFolder, "trainingSets/maxInputHashMaps");
 configuration.default.histogramsFolder = path.join(configDefaultFolder, "histograms");
 configuration.default.userArchiveFolder = path.join(configDefaultFolder, "trainingSets/users");
 configuration.default.userArchivePath = path.join(configuration.default.userArchiveFolder, configuration.userArchiveFile);
 
 configuration.trainingSetsFolder = configuration[HOST].trainingSetsFolder;
-// configuration.maxInputHashMapsFolder = configuration[HOST].maxInputHashMapsFolder;
 configuration.archiveFileUploadCompleteFlagFolder = path.join(configuration[HOST].trainingSetsFolder, "users");
 configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
