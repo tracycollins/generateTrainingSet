@@ -1736,7 +1736,7 @@ function cursorDataHandlerPromise(user){
 
         const period = queueOverShoot * defaultPeriod;
 
-        delay({
+        wait({
 
           message: "BK PRSSR: " + saveFileQueue, 
           period: period
@@ -1994,6 +1994,25 @@ function delay(params){
 
     setTimeout(function(){
       resolve(true);
+    }, params.period);
+
+  });
+}
+
+function wait(params){
+  return new Promise(function(resolve){
+
+    if (params.message) {
+      console.log(chalkLog(MODULE_ID_PREFIX 
+        + " | " + params.message 
+        + " | PERIOD: " + params.period + " MS"
+      ));
+    }
+    const w = setInterval(function(){
+      if (saveFileQueue < configuration.maxSaveFileQueue){
+        clearInterval(w);
+        resolve(true);
+      }
     }, params.period);
 
   });
