@@ -1692,7 +1692,7 @@ categorizedUsers.right = 0;
 
 const defaultPeriod = 100;
 let period = defaultPeriod;
-const periodMultiplier = 1.1;
+const periodMultiplier = 1.05;
 
 function cursorDataHandlerPromise(user){
   return new Promise(function(resolve, reject){
