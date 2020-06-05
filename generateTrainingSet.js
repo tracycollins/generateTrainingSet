@@ -2009,7 +2009,7 @@ function wait(params){
       ));
     }
     const w = setInterval(function(){
-      if (tcUtils.getSaveFileQueue() < configuration.maxSaveFileQueue){
+      if (saveFileQueue < configuration.maxSaveFileQueue){
         clearInterval(w);
         resolve(true);
       }
