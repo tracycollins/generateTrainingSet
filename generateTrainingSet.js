@@ -1690,7 +1690,9 @@ categorizedUsers.left = 0;
 categorizedUsers.neutral = 0;
 categorizedUsers.right = 0;
 
-let period = 100;
+const defaultPeriod = 100;
+let period = defaultPeriod;
+const periodMultiplier = 1.1;
 
 function cursorDataHandlerPromise(user){
   return new Promise(function(resolve, reject){
@@ -1728,17 +1730,22 @@ function cursorDataHandlerPromise(user){
       statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;      
 
       if (saveFileQueue >= configuration.maxSaveFileQueue){
-        period *= 1.1;
         delay({
           message: "BK PRSSR: " + saveFileQueue, 
-          period: parseInt(period)
+          period: period
         })
         .then(function(){
+          if (saveFileQueue >= configuration.maxSaveFileQueue){
+            period = parseInt(periodMultiplier*period);
+          }
+          else{
+            period = defaultPeriod;
+          }
           resolve();
         });
       }
       else{
-        period = (period > 100) ? parseInt(0.7*period) : 100;
+        period = (period > defaultPeriod) ? parseInt(period/periodMultiplier) : defaultPeriod;
         resolve();
       }
 
