@@ -1728,7 +1728,7 @@ function cursorDataHandlerPromise(user){
       statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;      
 
       if (saveFileQueue >= configuration.maxSaveFileQueue){
-        period *= 2;
+        period *= 1.5;
         delay({
           message: "BK PRSSR: " + saveFileQueue, 
           period: parseInt(period)
@@ -1738,7 +1738,7 @@ function cursorDataHandlerPromise(user){
         });
       }
       else{
-        period = (period > 100) ? parseInt(0.9*period) : 100;
+        period = (period > 100) ? parseInt(0.7*period) : 100;
         resolve();
       }
 
