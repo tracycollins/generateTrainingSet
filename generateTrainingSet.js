@@ -4,6 +4,8 @@ const DEFAULT_CURSOR_PARALLEL = 8;
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 32;
 
+let saveFileQueue = 0;
+
 const DEFAULT_ENABLE_CREATE_USER_ARCHIVE = false;
 
 // const DEFAULT_SPLIT_SIZE_MB = 50;
@@ -741,7 +743,7 @@ async function showStats(options){
 
   statsObjSmall = pick(statsObj, statsPickArray);
 
-  statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
+  saveFileQueue = tcUtils.getSaveFileQueue();
 
   if (options) {
     console.log(MODULE_ID_PREFIX + " | STATS\nGTS | " + jsonPrint(statsObjSmall));
@@ -750,7 +752,7 @@ async function showStats(options){
     console.log(chalkLog(MODULE_ID_PREFIX + " | ============================================================"
       + "\nGTS | S"
       + " | STATUS: " + statsObj.status
-      + " [ SFQ: " + statsObj.saveFileQueue + " ]"
+      + " [ SFQ: " + saveFileQueue + " ]"
       + " | CPUs: " + statsObj.cpus
       + " | " + testObj.testRunId
       + " | HEAP: " + statsObj.heap.toFixed(3) + " GB"
@@ -1688,14 +1690,74 @@ categorizedUsers.left = 0;
 categorizedUsers.neutral = 0;
 categorizedUsers.right = 0;
 
-function cursorDataHandler(user){
+let period = 100;
 
+function cursorDataHandlerPromise(user){
   return new Promise(function(resolve, reject){
+
+    cursorDataHandler(user)
+    .then(function(){
+
+      statsObj.users.processed.total += 1;
+      statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
+      statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
+      statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
+      statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
+      statsObj.users.processed.endMoment = moment();
+      statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
+      statsObj.users.processed.percent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
+
+      if (configuration.verbose 
+        || ((statsObj.users.notCategorized + statsObj.users.processed.total) % 1000 === 0)){
+
+        categorizedUserHistogramTotal();
+
+        console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
+          + " | " + (statsObj.users.notCategorized + statsObj.users.processed.total) + "/" + statsObj.users.grandTotal
+          + " (" + statsObj.users.processed.percent.toFixed(1) + "%)"
+          + " | TOTAL: " + categorizedUserHistogram.total
+          + " | L: " + categorizedUserHistogram.left 
+          + " | R: " + categorizedUserHistogram.right
+          + " | N: " + categorizedUserHistogram.neutral
+          + " | +: " + categorizedUserHistogram.positive
+          + " | -: " + categorizedUserHistogram.negative
+          + " | 0: " + categorizedUserHistogram.none
+        ));
+      }
+
+      statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;      
+
+      if (saveFileQueue >= configuration.maxSaveFileQueue){
+        period *= 2;
+        delay({
+          message: "BK PRSSR: " + saveFileQueue, 
+          period: parseInt(period)
+        })
+        .then(function(){
+          resolve();
+        });
+      }
+      else{
+        period = (period > 100) ? parseInt(0.9*period) : 100;
+        resolve();
+      }
+
+    })
+    .catch(function(err){
+      reject(err);
+    });
+
+  });
+}
+
+async function cursorDataHandler(user){
+
+  try{
 
     if (!user.screenName){
       console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
       statsObj.users.processed.errors += 1;
-      return resolve();
+      return;
     }
     
     if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
@@ -1715,9 +1777,7 @@ function cursorDataHandler(user){
           + " | @" + user.screenName 
         )); 
       }
-
-      return resolve();
-
+      return;
     }
 
     if (!user.friends || user.friends == undefined) {
@@ -1727,60 +1787,47 @@ function cursorDataHandler(user){
       user.friends = _.slice(user.friends, 0,5000);
     }
 
-    categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode})
-    .then(async function(catUser){
-
-      // 18,446,744,073,709,551,615 max 64-bit unsigned integer  ==> 20 characters
-      // twitter user id
-      //  min:   999 99969 98380 05251
-      //  max:  1000 00443 87638 96833
-
-      // "24913074" => "00000000000024913074"
-      // const paddedUserNodeId = catUser.nodeId.padStart(20,"0");
-
-      // "00000000000024913074" => "00000000000024000000"
-      // const subFolder = paddedUserNodeId.substring(0, 11) + "000000000";
-
-      const hash = await tcUtils.hashUserId({nodeId: user.nodeId});  // 1000 buckets/subfolders by default
-      const subFolder = hash.toString().padStart(8,"0");
-
-      // const subFolderIndex = Math.floor((statsObj.users.processed.total)/configuration.usersPerArchive) * configuration.usersPerArchive;
-      // const subFolder = subFolderIndex.toString().padStart(5,"0");
-
-      const folder = path.join(configuration.userDataFolder, subFolder);
-      const file = catUser.nodeId + ".json";
-
-      if (configuration.enableCreateUserArchive){ subFolderSet.add(subFolder); }
-
-      statsObj.categorizedCount += 1;
-
-      statsObj.saveFileQueue = tcUtils.saveFileQueue({
-        folder: folder,
-        file: file,
-        obj: catUser
-      });
-
-      categorizedUsers[catUser.category] += 1;
-      statsObj.categorizedCount += 1;
-
-      if (statsObj.categorizedCount > 0 && statsObj.categorizedCount % 100 === 0){
-        console.log(chalkInfo(MODULE_ID_PREFIX
-          + " [ SFQ: " + statsObj.saveFileQueue + " ]"
-          + " | CATEGORIZED: " + statsObj.categorizedCount
-          + " | L: " + categorizedUsers.left
-          + " | N: " + categorizedUsers.neutral
-          + " | R: " + categorizedUsers.right
-        ));
-      }
-
-      resolve();
-    })
-    .catch(function(err){
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** categorizeUser ERROR: " + err));
-      reject(err);
+    const catUser = await categorizeUser({
+      user: user, 
+      verbose: configuration.verbose, 
+      testMode: configuration.testMode
     });
 
-  });
+    const hash = await tcUtils.hashUserId({nodeId: user.nodeId});  // 1000 buckets/subfolders by default
+    const subFolder = hash.toString().padStart(8,"0");
+
+    const folder = path.join(configuration.userDataFolder, subFolder);
+    const file = catUser.nodeId + ".json";
+
+    if (configuration.enableCreateUserArchive){ subFolderSet.add(subFolder); }
+
+    statsObj.categorizedCount += 1;
+
+    saveFileQueue = await tcUtils.saveFileQueue({
+      folder: folder,
+      file: file,
+      obj: catUser
+    });
+
+    categorizedUsers[catUser.category] += 1;
+    statsObj.categorizedCount += 1;
+
+    if (statsObj.categorizedCount > 0 && statsObj.categorizedCount % 100 === 0){
+      console.log(chalkInfo(MODULE_ID_PREFIX
+        + " [ SFQ: " + saveFileQueue + " ]"
+        + " | CATEGORIZED: " + statsObj.categorizedCount
+        + " | L: " + categorizedUsers.left
+        + " | N: " + categorizedUsers.neutral
+        + " | R: " + categorizedUsers.right
+      ));
+    }
+
+    return;
+
+  }
+  catch(err){
+    throw err;
+  }
 }
 
 async function categoryCursorStream(params){
@@ -1855,36 +1902,36 @@ async function categoryCursorStream(params){
 
     await cursor.eachAsync(async function(user){
 
-      await cursorDataHandler(user);
+      await cursorDataHandlerPromise(user);
 
-      statsObj.users.processed.total += 1;
-      statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
-      statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
-      statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
-      statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
-      statsObj.users.processed.endMoment = moment();
-      statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
-      statsObj.users.processed.percent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
+      // statsObj.users.processed.total += 1;
+      // statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
+      // statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
+      // statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
+      // statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
+      // statsObj.users.processed.endMoment = moment();
+      // statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
+      // statsObj.users.processed.percent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
 
-      if (configuration.verbose 
-        || ((statsObj.users.notCategorized + statsObj.users.processed.total) % 1000 === 0)){
+      // if (configuration.verbose 
+      //   || ((statsObj.users.notCategorized + statsObj.users.processed.total) % 1000 === 0)){
 
-        categorizedUserHistogramTotal();
+      //   categorizedUserHistogramTotal();
 
-        console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
-          + " | " + (statsObj.users.notCategorized + statsObj.users.processed.total) + "/" + statsObj.users.grandTotal
-          + " (" + statsObj.users.processed.percent.toFixed(1) + "%)"
-          + " | TOTAL: " + categorizedUserHistogram.total
-          + " | L: " + categorizedUserHistogram.left 
-          + " | R: " + categorizedUserHistogram.right
-          + " | N: " + categorizedUserHistogram.neutral
-          + " | +: " + categorizedUserHistogram.positive
-          + " | -: " + categorizedUserHistogram.negative
-          + " | 0: " + categorizedUserHistogram.none
-        ));
-      }
+      //   console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
+      //     + " | " + (statsObj.users.notCategorized + statsObj.users.processed.total) + "/" + statsObj.users.grandTotal
+      //     + " (" + statsObj.users.processed.percent.toFixed(1) + "%)"
+      //     + " | TOTAL: " + categorizedUserHistogram.total
+      //     + " | L: " + categorizedUserHistogram.left 
+      //     + " | R: " + categorizedUserHistogram.right
+      //     + " | N: " + categorizedUserHistogram.neutral
+      //     + " | +: " + categorizedUserHistogram.positive
+      //     + " | -: " + categorizedUserHistogram.negative
+      //     + " | 0: " + categorizedUserHistogram.none
+      //   ));
+      // }
 
-      statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;      
+      // statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;      
 
     }, {parallel: cursorParallel});
 
@@ -1908,9 +1955,9 @@ function endSaveFileQueue(){
 
     let saveFileQueue = tcUtils.getSaveFileQueue();
 
-    console.log(chalkLog(MODULE_ID_PREFIX + " | ... WAIT END SAVE FILE QUEUE"
+    console.log(chalkLog(MODULE_ID_PREFIX
+      + " | ... WAIT END SAVE FILE QUEUE"
       + " | SFQ: " + saveFileQueue
-      // + " | CDHQ: " + cursorDataHandlerQueue.length
     ));
 
     endSaveFileQueueInterval = setInterval(function(){
@@ -1918,11 +1965,8 @@ function endSaveFileQueue(){
       saveFileQueue = tcUtils.getSaveFileQueue();
 
       if (saveFileQueue === 0){
-
         clearInterval(endSaveFileQueueInterval);
-
         console.log(chalkBlueBold(MODULE_ID_PREFIX + " | +++ END SAVE FILE QUEUE"));
-
         resolve();
       }
 
@@ -1935,11 +1979,13 @@ function delay(params){
   return new Promise(function(resolve){
 
     if (params.message) {
-      console.log(chalkLog(MODULE_ID_PREFIX + " | " + params.message + " | PERIOD: " + msToTime(params.period)));
+      console.log(chalkLog(MODULE_ID_PREFIX + " | " + params.message + " | PERIOD: " + params.period + " MS"));
     }
+
     setTimeout(function(){
       resolve(true);
     }, params.period);
+
   });
 }
 
@@ -2342,33 +2388,12 @@ async function generateGlobalTrainingTestSet(){
     const query = {};
     query.category = category;
 
-    // if (statsObj.cursor[category].lastFetchedNodeId){
-    //   query.nodeId = { "$gt": statsObj.cursor[category].lastFetchedNodeId };
-    //   console.log(chalkAlert(MODULE_ID_PREFIX
-    //     + " | !!! USING LAST FETCH NODE ID: " + statsObj.cursor[category].lastFetchedNodeId
-    //   ));
-    // }
-
     await categoryCursorStream({
       category: category, 
       query: query, 
       reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, 
       maxArchivedCount: maxCategoryArchivedCount
     });
-
-    // if (lastFetchedNodeId !== undefined) {
-
-    //   console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? CURSOR TIMEOUT ??? | RETRY STARTING AT NODE ID: " + lastFetchedNodeId));
-
-    //   query.nodeId = { "$gt": lastFetchedNodeId };
-
-    //   lastFetchedNodeId = await categoryCursorStream({
-    //     category: category, 
-    //     query: query, 
-    //     reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, 
-    //     maxArchivedCount: maxCategoryArchivedCount
-    //   });
-    // }
 
     statsObj.cursor[category].lastFetchedNodeId = false;
   }
@@ -2392,8 +2417,6 @@ setTimeout(async function(){
       configuration.usersPerArchive = 100;
       console.log(chalkAlert(MODULE_ID_PREFIX + " | TEST MODE | USERS PER ARCHIVE: " + configuration.usersPerArchive));
     }
-
-    // initCursorDataHandlerQueue({interval: DEFAULT_INTERVAL});
 
     tcUtils.setSaveFileMaxParallel(configuration.saveFileMaxParallel);
     tcUtils.enableSaveFileMaxParallel(true);
@@ -2422,10 +2445,10 @@ setTimeout(async function(){
 
     categorizedUserHistogramTotal();
 
-    statsObj.saveFileQueue = tcUtils.getSaveFileQueue();
+    saveFileQueue = tcUtils.getSaveFileQueue();
 
     console.log(chalkInfo("TFE | ... SAVING NORMALIZATION FILE"
-      + " [ SFQ: " + statsObj.saveFileQueue
+      + " [ SFQ: " + saveFileQueue
       + " | " + configuration.trainingSetsFolder + "/normalization.json"
     ));
 
@@ -2435,7 +2458,7 @@ setTimeout(async function(){
       + " | COMP min: " + statsObj.normalization.comp.min + " max: " + statsObj.normalization.comp.max
     ));
 
-    statsObj.saveFileQueue = tcUtils.saveFileQueue({
+    saveFileQueue = await tcUtils.saveFileQueue({
       folder: configuration.trainingSetsFolder, 
       file: "normalization.json", 
       obj: statsObj.normalization
@@ -2493,7 +2516,7 @@ setTimeout(async function(){
       + " | " + configuration.trainingSetsFolder + "/" + configuration.archiveFileUploadCompleteFlagFile
     ));
 
-    statsObj.saveFileQueue = tcUtils.saveFileQueue({
+    saveFileQueue = await tcUtils.saveFileQueue({
       folder: configuration.trainingSetsFolder,
       file: configuration.archiveFileUploadCompleteFlagFile,
       obj: fileSizeArrayObj
