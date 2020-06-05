@@ -2,7 +2,7 @@ const MODULE_ID_PREFIX = "GTS";
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 const DEFAULT_CURSOR_PARALLEL = 8;
 const DEFAULT_BATCH_SIZE = 100;
-const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
+const DEFAULT_SAVE_FILE_MAX_PARALLEL = 32;
 
 const DEFAULT_ENABLE_CREATE_USER_ARCHIVE = false;
 
@@ -1655,7 +1655,7 @@ async function categorizeUser(params){
 
     userIndex += 1;
 
-    await tcUtils.updateGlobalHistograms({user: user});
+    await tcUtils.updateGlobalHistograms({user: user, verbose: true});
 
     const subUser = pick(
       user,
