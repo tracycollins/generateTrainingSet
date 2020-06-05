@@ -314,11 +314,11 @@ configuration.DROPBOX.DROPBOX_GTS_STATS_FILE = process.env.DROPBOX_GTS_STATS_FIL
 const configDefaultFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility/default");
 const configHostFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility", hostname);
 
-const nas3dataFolder = "/Volumes/nas3/data";
+const defaultDataFolder = "/Volumes/nas4/data";
 
 const tempHostFolder = TEMP_ROOT_FOLDER;
 configuration.tempUserDataFolder = path.join(tempHostFolder, "trainingSets/users");
-configuration.nasUserDataFolder = path.join(nas3dataFolder, "users");
+configuration.userDataFolder = path.join(defaultDataFolder, "users");
 
 const localHistogramsFolder = configHostFolder + "/histograms";
 const defaultHistogramsFolder = configDefaultFolder + "/histograms";
@@ -1728,7 +1728,7 @@ function cursorDataHandler(user){
     }
 
     categorizeUser({user: user, verbose: configuration.verbose, testMode: configuration.testMode})
-    .then(function(catUser){
+    .then(async function(catUser){
 
       // 18,446,744,073,709,551,615 max 64-bit unsigned integer  ==> 20 characters
       // twitter user id
@@ -1736,15 +1736,18 @@ function cursorDataHandler(user){
       //  max:  1000 00443 87638 96833
 
       // "24913074" => "00000000000024913074"
-      const paddedUserNodeId = catUser.nodeId.padStart(20,"0");
+      // const paddedUserNodeId = catUser.nodeId.padStart(20,"0");
 
       // "00000000000024913074" => "00000000000024000000"
-      const subFolder = paddedUserNodeId.substring(0, 11) + "000000000";
+      // const subFolder = paddedUserNodeId.substring(0, 11) + "000000000";
+
+      const hash = await tcUtils.hashUserId({nodeId: user.nodeId});  // 1000 buckets/subfolders by default
+      const subFolder = hash.toString().padStart(8,"0");
 
       // const subFolderIndex = Math.floor((statsObj.users.processed.total)/configuration.usersPerArchive) * configuration.usersPerArchive;
       // const subFolder = subFolderIndex.toString().padStart(5,"0");
 
-      const folder = path.join(configuration.nasUserDataFolder, subFolder);
+      const folder = path.join(configuration.userDataFolder, subFolder);
       const file = catUser.nodeId + ".json";
 
       if (configuration.enableCreateUserArchive){ subFolderSet.add(subFolder); }
