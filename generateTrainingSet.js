@@ -1694,6 +1694,8 @@ const defaultPeriod = 100;
 let period = defaultPeriod;
 const periodMultiplier = 1.05;
 
+let queueOverShoot = 0;
+
 function cursorDataHandlerPromise(user){
   return new Promise(function(resolve, reject){
 
@@ -1727,25 +1729,27 @@ function cursorDataHandlerPromise(user){
         ));
       }
 
-      statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;      
+      statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;    
 
-      if (saveFileQueue >= configuration.maxSaveFileQueue){
+      queueOverShoot = tcUtils.getSaveFileQueue() - configuration.maxSaveFileQueue;
+
+      if (queueOverShoot > 0){
+
+        const period = queueOverShoot * defaultPeriod;
+
         delay({
+
           message: "BK PRSSR: " + saveFileQueue, 
           period: period
+
         })
         .then(function(){
-          if (saveFileQueue >= configuration.maxSaveFileQueue){
-            period = parseInt(periodMultiplier*period);
-          }
-          else{
-            period = defaultPeriod;
-          }
+
           resolve();
+
         });
       }
       else{
-        period = defaultPeriod;
         resolve();
       }
 
