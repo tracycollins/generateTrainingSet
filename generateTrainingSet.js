@@ -1690,8 +1690,7 @@ categorizedUsers.left = 0;
 categorizedUsers.neutral = 0;
 categorizedUsers.right = 0;
 
-const defaultPeriod = 100;
-// let period = defaultPeriod;
+const defaultPeriod = 10;
 const periodMultiplier = 1.05;
 
 let queueOverShoot = 0;
