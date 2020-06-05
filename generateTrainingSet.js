@@ -1745,7 +1745,7 @@ function cursorDataHandlerPromise(user){
         });
       }
       else{
-        period = (period > defaultPeriod) ? parseInt(period/periodMultiplier) : defaultPeriod;
+        period = defaultPeriod;
         resolve();
       }
 
