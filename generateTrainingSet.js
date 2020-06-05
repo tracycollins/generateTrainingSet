@@ -1691,7 +1691,7 @@ categorizedUsers.neutral = 0;
 categorizedUsers.right = 0;
 
 const defaultPeriod = 100;
-let period = defaultPeriod;
+// let period = defaultPeriod;
 const periodMultiplier = 1.05;
 
 let queueOverShoot = 0;
