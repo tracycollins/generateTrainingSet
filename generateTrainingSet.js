@@ -316,7 +316,7 @@ configuration.DROPBOX.DROPBOX_GTS_STATS_FILE = process.env.DROPBOX_GTS_STATS_FIL
 const configDefaultFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility/default");
 const configHostFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility", hostname);
 
-const defaultDataFolder = "/Volumes/nas4/data";
+// const defaultDataFolder = "/Volumes/nas4/data";
 
 const tempHostFolder = TEMP_ROOT_FOLDER;
 configuration.tempUserDataFolder = path.join(tempHostFolder, "trainingSets/users");
@@ -1951,8 +1951,6 @@ async function categoryCursorStream(params){
   catch(err){
     throw err;
   }
-
-
 }
 
 let endSaveFileQueueInterval;
