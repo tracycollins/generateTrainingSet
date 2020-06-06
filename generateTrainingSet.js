@@ -320,7 +320,7 @@ const defaultDataFolder = "/Volumes/nas4/data";
 
 const tempHostFolder = TEMP_ROOT_FOLDER;
 configuration.tempUserDataFolder = path.join(tempHostFolder, "trainingSets/users");
-configuration.userDataFolder = path.join(defaultDataFolder, "users");
+configuration.userDataFolder = path.join(tempHostFolder, "users");
 
 const localHistogramsFolder = configHostFolder + "/histograms";
 const defaultHistogramsFolder = configDefaultFolder + "/histograms";
