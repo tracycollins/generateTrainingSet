@@ -1690,8 +1690,8 @@ categorizedUsers.left = 0;
 categorizedUsers.neutral = 0;
 categorizedUsers.right = 0;
 
-const defaultPeriod = 5;
-const periodMultiplier = 1.05;
+const defaultPeriod = 1;
+// const periodMultiplier = 1.05;
 
 let queueOverShoot = 0;
 
@@ -2002,16 +2002,21 @@ function delay(params){
 function wait(params){
   return new Promise(function(resolve){
 
+    if (saveFileQueue <= configuration.maxSaveFileQueue){
+      return resolve(true);
+    }
+
     if (params.message) {
       console.log(chalkLog(MODULE_ID_PREFIX 
         + " | " + params.message 
         + " | PERIOD: " + params.period + " MS"
       ));
     }
+
     const w = setInterval(function(){
       if (saveFileQueue < configuration.maxSaveFileQueue){
         clearInterval(w);
-        resolve(true);
+        return resolve(true);
       }
     }, params.period);
 
