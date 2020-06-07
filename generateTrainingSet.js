@@ -1762,195 +1762,181 @@ function cursorDataHandlerPromise(user){
 
 async function cursorDataHandler(user){
 
-  try{
-
-    if (!user.screenName){
-      console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
-      statsObj.users.processed.errors += 1;
-      return;
-    }
-    
-    if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
-
-      statsObj.users.processed.empty += 1;
-
-      if (statsObj.users.processed.empty % 100 === 0){
-        console.log(chalkWarn(MODULE_ID_PREFIX 
-          + " | --- EMPTY HISTOGRAMS"
-          + " | SKIPPING"
-          + " | PRCSD/REM/MT/ERR/TOT: " 
-          + statsObj.users.processed.total 
-          + "/" + statsObj.users.processed.remain 
-          + "/" + statsObj.users.processed.empty 
-          + "/" + statsObj.users.processed.errors
-          + "/" + statsObj.users.grandTotal
-          + " | @" + user.screenName 
-        )); 
-      }
-      return;
-    }
-
-    if (!user.friends || user.friends == undefined) {
-      user.friends = [];
-    }
-    else{
-      user.friends = _.slice(user.friends, 0,5000);
-    }
-
-    const catUser = await categorizeUser({
-      user: user, 
-      verbose: configuration.verbose, 
-      testMode: configuration.testMode
-    });
-
-    const hash = await tcUtils.hashUserId({nodeId: user.nodeId});  // 1000 buckets/subfolders by default
-    const subFolder = hash.toString().padStart(8,"0");
-
-    const folder = path.join(configuration.userDataFolder, subFolder);
-    const file = catUser.nodeId + ".json";
-
-    if (configuration.enableCreateUserArchive){ subFolderSet.add(subFolder); }
-
-    statsObj.categorizedCount += 1;
-
-    saveFileQueue = await tcUtils.saveFileQueue({
-      folder: folder,
-      file: file,
-      obj: catUser
-    });
-
-    categorizedUsers[catUser.category] += 1;
-    statsObj.categorizedCount += 1;
-
-    if (statsObj.categorizedCount > 0 && statsObj.categorizedCount % 100 === 0){
-      console.log(chalkInfo(MODULE_ID_PREFIX
-        + " [ SFQ: " + saveFileQueue + " ]"
-        + " | CATEGORIZED: " + statsObj.categorizedCount
-        + " | L: " + categorizedUsers.left
-        + " | N: " + categorizedUsers.neutral
-        + " | R: " + categorizedUsers.right
-      ));
-    }
-
+  if (!user.screenName){
+    console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
+    statsObj.users.processed.errors += 1;
     return;
+  }
+  
+  if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
 
+    statsObj.users.processed.empty += 1;
+
+    if (statsObj.users.processed.empty % 100 === 0){
+      console.log(chalkWarn(MODULE_ID_PREFIX 
+        + " | --- EMPTY HISTOGRAMS"
+        + " | SKIPPING"
+        + " | PRCSD/REM/MT/ERR/TOT: " 
+        + statsObj.users.processed.total 
+        + "/" + statsObj.users.processed.remain 
+        + "/" + statsObj.users.processed.empty 
+        + "/" + statsObj.users.processed.errors
+        + "/" + statsObj.users.grandTotal
+        + " | @" + user.screenName 
+      )); 
+    }
+    return;
   }
-  catch(err){
-    throw err;
+
+  if (!user.friends || user.friends == undefined) {
+    user.friends = [];
   }
+  else{
+    user.friends = _.slice(user.friends, 0,5000);
+  }
+
+  const catUser = await categorizeUser({
+    user: user, 
+    verbose: configuration.verbose, 
+    testMode: configuration.testMode
+  });
+
+  const hash = await tcUtils.hashUserId({nodeId: user.nodeId}); // 1000 buckets/subfolders by default
+  const subFolder = hash.toString().padStart(8,"0");
+
+  const folder = path.join(configuration.userDataFolder, subFolder);
+  const file = catUser.nodeId + ".json";
+
+  if (configuration.enableCreateUserArchive){ subFolderSet.add(subFolder); }
+
+  statsObj.categorizedCount += 1;
+
+  saveFileQueue = await tcUtils.saveFileQueue({
+    folder: folder,
+    file: file,
+    obj: catUser
+  });
+
+  categorizedUsers[catUser.category] += 1;
+  statsObj.categorizedCount += 1;
+
+  if (statsObj.categorizedCount > 0 && statsObj.categorizedCount % 100 === 0){
+    console.log(chalkInfo(MODULE_ID_PREFIX
+      + " [ SFQ: " + saveFileQueue + " ]"
+      + " | CATEGORIZED: " + statsObj.categorizedCount
+      + " | L: " + categorizedUsers.left
+      + " | N: " + categorizedUsers.neutral
+      + " | R: " + categorizedUsers.right
+    ));
+  }
+
+  return;
 }
 
 async function categoryCursorStream(params){
 
-  try{
+  statsObj.status = "categoryCursorStream";
 
-    statsObj.status = "categoryCursorStream";
+  statsObj.categorizedCount = 0;
 
-    statsObj.categorizedCount = 0;
+  const batchSize = params.batchSize || configuration.batchSize;
+  const cursorParallel = params.cursorParallel || configuration.cursorParallel;
+  const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
+  const reSaveUserDocsFlag = params.reSaveUserDocsFlag || configuration.reSaveUserDocsFlag;
 
-    const batchSize = params.batchSize || configuration.batchSize;
-    const cursorParallel = params.cursorParallel || configuration.cursorParallel;
-    const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
-    const reSaveUserDocsFlag = params.reSaveUserDocsFlag || configuration.reSaveUserDocsFlag;
-
-    if (reSaveUserDocsFlag) {
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
-    }
-
-    let cursor;
-
-    const session = await mongooseDb.startSession();
-
-    debug("MONGO DB SESSION\n" + session.id);
-
-    console.log(chalkBlue(MODULE_ID_PREFIX
-      + " | categoryCursorStream"
-      + " | batchSize: " + batchSize
-      + " | cursorParallel: " + cursorParallel
-      + " | maxArchivedCount: " + maxArchivedCount
-      + " | reSaveUserDocsFlag: " + reSaveUserDocsFlag
-    ));
-
-    if (configuration.testMode) {
-      cursor = global.wordAssoDb.User
-      .find(params.query, {timeout: false})
-      // .sort({nodeId: 1})
-      .lean()
-      .batchSize(batchSize)
-      .limit(maxArchivedCount)
-      .session(session)
-      .cursor()
-      .addCursorFlag("noCursorTimeout", true);
-    }
-    else{
-      cursor = global.wordAssoDb.User
-      .find(params.query, {timeout: false})
-      // .sort({nodeId: 1})
-      .lean()
-      .batchSize(batchSize)
-      .session(session)
-      .cursor()
-      .addCursorFlag("noCursorTimeout", true);
-    }
-
-    cursor.on("end", function() {
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
-    });
-
-    cursor.on("error", function(err) {
-      console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
-      throw err;
-    });
-
-    cursor.on("close", function() {
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
-    });
-
-    if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
-
-    if (statsObj.users.processed.startMoment === 0) { statsObj.users.processed.startMoment = moment(); }
-
-    await cursor.eachAsync(async function(user){
-
-      await cursorDataHandlerPromise(user);
-
-      // statsObj.users.processed.total += 1;
-      // statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
-      // statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
-      // statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
-      // statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
-      // statsObj.users.processed.endMoment = moment();
-      // statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
-      // statsObj.users.processed.percent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
-
-      // if (configuration.verbose 
-      //   || ((statsObj.users.notCategorized + statsObj.users.processed.total) % 1000 === 0)){
-
-      //   categorizedUserHistogramTotal();
-
-      //   console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
-      //     + " | " + (statsObj.users.notCategorized + statsObj.users.processed.total) + "/" + statsObj.users.grandTotal
-      //     + " (" + statsObj.users.processed.percent.toFixed(1) + "%)"
-      //     + " | TOTAL: " + categorizedUserHistogram.total
-      //     + " | L: " + categorizedUserHistogram.left 
-      //     + " | R: " + categorizedUserHistogram.right
-      //     + " | N: " + categorizedUserHistogram.neutral
-      //     + " | +: " + categorizedUserHistogram.positive
-      //     + " | -: " + categorizedUserHistogram.negative
-      //     + " | 0: " + categorizedUserHistogram.none
-      //   ));
-      // }
-
-      // statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;      
-
-    }, {parallel: cursorParallel});
-
-    return;
-
+  if (reSaveUserDocsFlag) {
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
   }
-  catch(err){
+
+  let cursor;
+
+  const session = await mongooseDb.startSession();
+
+  debug("MONGO DB SESSION\n" + session.id);
+
+  console.log(chalkBlue(MODULE_ID_PREFIX
+    + " | categoryCursorStream"
+    + " | batchSize: " + batchSize
+    + " | cursorParallel: " + cursorParallel
+    + " | maxArchivedCount: " + maxArchivedCount
+    + " | reSaveUserDocsFlag: " + reSaveUserDocsFlag
+  ));
+
+  if (configuration.testMode) {
+    cursor = global.wordAssoDb.User
+    .find(params.query, {timeout: false})
+    // .sort({nodeId: 1})
+    .lean()
+    .batchSize(batchSize)
+    .limit(maxArchivedCount)
+    .session(session)
+    .cursor()
+    .addCursorFlag("noCursorTimeout", true);
+  }
+  else{
+    cursor = global.wordAssoDb.User
+    .find(params.query, {timeout: false})
+    // .sort({nodeId: 1})
+    .lean()
+    .batchSize(batchSize)
+    .session(session)
+    .cursor()
+    .addCursorFlag("noCursorTimeout", true);
+  }
+
+  cursor.on("end", function() {
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
+  });
+
+  cursor.on("error", function(err) {
+    console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
     throw err;
-  }
+  });
+
+  cursor.on("close", function() {
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
+  });
+
+  if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
+
+  if (statsObj.users.processed.startMoment === 0) { statsObj.users.processed.startMoment = moment(); }
+
+  await cursor.eachAsync(async function(user){
+
+    await cursorDataHandlerPromise(user);
+
+    // statsObj.users.processed.total += 1;
+    // statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
+    // statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
+    // statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
+    // statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
+    // statsObj.users.processed.endMoment = moment();
+    // statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
+    // statsObj.users.processed.percent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
+
+    // if (configuration.verbose 
+    //   || ((statsObj.users.notCategorized + statsObj.users.processed.total) % 1000 === 0)){
+
+    //   categorizedUserHistogramTotal();
+
+    //   console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
+    //     + " | " + (statsObj.users.notCategorized + statsObj.users.processed.total) + "/" + statsObj.users.grandTotal
+    //     + " (" + statsObj.users.processed.percent.toFixed(1) + "%)"
+    //     + " | TOTAL: " + categorizedUserHistogram.total
+    //     + " | L: " + categorizedUserHistogram.left 
+    //     + " | R: " + categorizedUserHistogram.right
+    //     + " | N: " + categorizedUserHistogram.neutral
+    //     + " | +: " + categorizedUserHistogram.positive
+    //     + " | -: " + categorizedUserHistogram.negative
+    //     + " | 0: " + categorizedUserHistogram.none
+    //   ));
+    // }
+
+    // statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;      
+
+  }, {parallel: cursorParallel});
+
+  return;
 }
 
 let endSaveFileQueueInterval;
