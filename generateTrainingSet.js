@@ -2399,7 +2399,7 @@ async function generateGlobalTrainingTestSet(){
       + "\n" + MODULE_ID_PREFIX + " | MAX COUNT: " + maxCategoryArchivedCount
       + " | BATCH SIZE: " + configuration.batchSize
       + " | MAX SFQ: " + configuration.maxSaveFileQueue
-      + " | TOTAL CATEGORIZED: " + statsObj.users.grandTotal
+      + " | TOTAL USERS: " + statsObj.users.grandTotal
     ));
     console.log(chalkGreen(MODULE_ID_PREFIX + " | ========================================================================\n"));
 
