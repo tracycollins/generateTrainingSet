@@ -2520,10 +2520,13 @@ setTimeout(async function(){
 
     const inputTypeMinHash = (configuration.testMode) ? testInputTypeMinHash : defaultInputTypeMinHash;
 
+    // will use default input min hashmaps
+
     await tcUtils.saveGlobalHistograms({
       rootFolder: rootFolder, 
       pruneFlag: true, 
-      inputTypeMinHash: inputTypeMinHash,
+      // inputTypeMinProfileHashMap: DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP,
+      // inputTypeMinTweetsHashMap: DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP,
       verbose: true
     });
 
