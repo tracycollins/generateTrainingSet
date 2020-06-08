@@ -26,23 +26,23 @@ const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 
 const DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP = {};
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.emoji = 10;
-DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.friends = 200;
-DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.hashtags = 20;
+DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.friends = 250;
+DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.hashtags = 25;
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.images = 10;
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.locations = 5;
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.media = 2;
-DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.ngrams = 200;
-DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.places = 3;
+DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.ngrams = 250;
+DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.places = 2;
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.sentiment = 1;
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.urls = 3;
-DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.userMentions = 10;
+DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.userMentions = 20;
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.words = 100;
 
 const DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP = {};
 DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.emoji = 5;
 DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.hashtags = 10;
-DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.ngrams = 20;
-DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.images = 10;
+DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.ngrams = 25;
+DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.images = 15;
 DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.locations = 5;
 DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.media = 1;
 DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.places = 1;
@@ -300,6 +300,9 @@ configuration.verbose = false;
 configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
 configuration.totalMaxTestCount = TOTAL_MAX_TEST_COUNT;
+
+configuration.inputTypeMinTweetsHashMap = DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP;
+configuration.inputTypeMinProfileHashMap = DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP;
 
 configuration.maxTestCount = {};
 configuration.maxTestCount.left = parseInt(0.333333*TOTAL_MAX_TEST_COUNT);
@@ -1107,6 +1110,16 @@ async function loadConfigFile(params) {
         newConfiguration.maxTestCount.left += 1;
         sum = newConfiguration.maxTestCount.left + newConfiguration.maxTestCount.neutral + newConfiguration.maxTestCount.right;
       }
+    }
+
+    if (loadedConfigObj.GTS_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP: " + loadedConfigObj.GTS_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP);
+      newConfiguration.inputTypeMinTweetsHashMap = loadedConfigObj.GTS_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP;
+    }
+
+    if (loadedConfigObj.GTS_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP: " + loadedConfigObj.GTS_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP);
+      newConfiguration.inputTypeMinProfileHashMap = loadedConfigObj.GTS_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP
     }
 
     if (loadedConfigObj.GTS_CURSOR_PARALLEL !== undefined){
@@ -2319,8 +2332,8 @@ setTimeout(async function(){
     await tcUtils.saveGlobalHistograms({
       rootFolder: rootFolder, 
       pruneFlag: true, 
-      inputTypeMinProfileHashMap: DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP,
-      inputTypeMinTweetsHashMap: DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP,
+      inputTypeMinProfileHashMap: configuration.inputTypeMinProfileHashMap, // DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP
+      inputTypeMinTweetsHashMap: configuration.inputTypeMinTweetsHashMap, // DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP
       verbose: true
     });
 
