@@ -403,12 +403,6 @@ userServerController.on("ready", function(appname){
 
 process.on("unhandledRejection", async function(err, promise) {
   console.trace("Unhandled rejection (promise: ", promise, ", reason: ", err, ").");
-  // if (redisClient) {
-  //   await redisClient.quit();
-  // }
-  // if (redisServer) {
-  //   await redisServer.close();
-  // }
   process.exit();
 });
 
@@ -1390,90 +1384,6 @@ configEvents.once("INIT_MONGODB", function(){
   console.log(chalkLog(MODULE_ID_PREFIX + " | INIT_MONGODB"));
 });
 
-// async function updateMaxInput(params){
-
-//   try{
-//     const value = await redisClient.hincrby("maxInputHashMap_" + params.type, params.entity, params.value);
-//     return value;
-//   }
-//   catch(err){
-//     console.log(chalkError(MODULE_ID_PREFIX
-//       + " | *** REDIS HM INC BY ERROR"
-//       + " | TYPE: " + params.type
-//       + " | ENTITY: " + params.entity
-//       + " | UPDATE: " + params.value
-//       + " | ERR: " + err
-//     ));
-//     throw err;
-//   }
-// }
-
-// function updateMaxInputHashMap(params){
-
-//   return new Promise(function(resolve, reject){
-
-//     const histograms = params.histograms;
-//     const limit = params.limit || configuration.updateMaxInputHashMapLimit;
-
-//     const histogramTypes = Object.keys(histograms);
-
-//     // for (const type of histogramTypes){
-//     async.each(histogramTypes, function(type, cb0){
-
-//       if (type === "sentiment") {
-//         return cb0();
-//       }
-
-//       const histogramTypeEntities = Object.keys(histograms[type]);
-
-//       if (histogramTypeEntities.length === 0) {
-//         return cb0();
-//       }  
-
-//       async.eachLimit(histogramTypeEntities, limit, function(entity, cb1){
-
-//         if (histograms[type][entity] === undefined){
-//           console.log(chalkAlert(MODULE_ID_PREFIX + " | ??? UNDEFINED histograms[type][entity]"
-//             + " | TYPE: " + type
-//             + " | ENTITY: " + entity
-//           ));
-//           delete histograms[type][entity];
-//           return cb1();
-//         }
-
-//         updateMaxInput({type: type, entity: entity, value: histograms[type][entity]})
-//         .then(function(value){
-
-//           debug(chalkLog(MODULE_ID_PREFIX + " | --> MAX INPUT"
-//             + " | TYPE: " + type
-//             + " | ENTITY: " + entity
-//             + " | " + value
-//           ));
-
-//           cb1();
-//         })
-//         .catch(function(err){
-//           console.log(chalkAlert(MODULE_ID_PREFIX + " | *** updateMaxInput ERROR"
-//             + " | TYPE: " + type
-//             + " | ENTITY: " + entity
-//             + " | ERROR: " + err
-//           ));
-//           return cb1(err);
-//         });
-
-//       }, function(err){
-//         if (err) { return cb0(err); }
-//         cb0();
-//       });
-
-//     }, function(err){
-//       if (err) { return reject(err); }
-//       resolve();
-//     });
-
-//   });
-// }
-
 async function updateUserHistograms(params){
 
   const user = params.user;
@@ -2234,160 +2144,6 @@ async function initialize(cnf){
   return configuration;
 }
 
-// async function redisScan(params){
-
-//   try{
-//     let scanCursor = 0;
-//     const hashmap = {};
-//     const count = params.count || configuration.redisScanCount;
-
-//     const scanResultArray = await redisClient.hscan("maxInputHashMap_" + params.type, params.scanCursor, "count", count);
-
-//     scanCursor = parseInt(scanResultArray[0]);
-
-//     const resultsArray = scanResultArray[1];
-
-//     debug("scanCursor: " + scanCursor + " | scanResultArray[1]: " + resultsArray.length);
-
-//     for(let i=0;i<resultsArray.length;i += 2){
-
-//       const key = resultsArray[i];
-//       const value = parseInt(resultsArray[i+1]);
-
-//       hashmap[key] = value;
-
-//       debug("entity: " + key + ": " + hashmap[key]);
-
-//     }
-
-//     debug("END scanCursor | " + params.type);
-
-//     return({scanCursor: scanCursor, hashmap: hashmap});
-//   }
-//   catch(err){
-//     console.log(chalkError(MODULE_ID_PREFIX + " | *** REDIS HM SCAN ERROR: " + err));
-//     throw err;
-//   }
-// }
-
-// function saveMaxInputHashMap(p){
-
-//   return new Promise(function(resolve, reject){
-
-//     statsObj.status = "saveMaxInputHashMap";
-
-//     const params = p || {};
-//     const verbose = params.verbose || configuration.verbose;
-
-//     let scanCursor = 0;
-
-//     const filePrefix = "maxInputHashMap_";
-//     const fileSufffix = (configuration.testMode) ? "_test.json" : ".json";
-
-//     console.log(chalkBlue(MODULE_ID_PREFIX
-//       + " | >>> SAVING MAX INPUT HASHMAPS ..."
-//     ));
-
-//     async.eachSeries(DEFAULT_INPUT_TYPES, async function(type){
-
-//       let hashmap = {};
-//       let more = true;
-//       let splitIndex = 0;
-
-//       const folder = path.join(configuration.maxInputHashMapsFolder, type);
-//       const maxInputHashMapFile = filePrefix + type + fileSufffix;
-
-//       console.log(chalkLog(MODULE_ID_PREFIX
-//         + " | ... ASSEMBLING MAX INPUT HASHMAP"
-//         + " | TYPE: " + type
-//         + " | " + folder + "/" + maxInputHashMapFile
-//       ));
-
-//       while (more){
-
-//         const results = await redisScan({type: type, scanCursor: scanCursor});
-//         scanCursor = results.scanCursor;
-//         more = (scanCursor > 0);
-
-//         hashmap = merge(hashmap, results.hashmap);
-
-//         if ((splitIndex === 0)
-//           && ((Object.keys(hashmap).length % 5000 === 0) || configuration.testMode && (Object.keys(hashmap).length % 1000 === 0))
-//         ){
-//           console.log(chalkLog(MODULE_ID_PREFIX
-//             + " | ... IN PROCESS MAX INPUT HASHMAP"
-//             + " | TYPE: " + type
-//             + " | " + Object.keys(hashmap).length + " KEYS"
-//             + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
-//             + " | " + folder + "/" + maxInputHashMapFile
-//           ));
-//         }
-
-//         if ( (!configuration.testMode && ((sizeof(hashmap)/ONE_MEGABYTE) >= configuration.splitSizeMB))
-//           || ( configuration.testMode && (Object.keys(hashmap).length >= configuration.splitSizeKeys))
-//         ){
-
-//           const fileSufffix_split = (configuration.testMode) ? "_" + splitIndex + "_test.json" : "_" + splitIndex + ".json";
-//           const maxInputHashMapFile_split = filePrefix + type + fileSufffix_split;
-
-//           console.log(chalkAlert(MODULE_ID_PREFIX
-//             + " | !!! IN PROCESS MAX INPUT HASHMAP | LARGE HASHMAP | SPLITTING ..."
-//             + " | SPLIT INDEX: " + splitIndex
-//             + " | SPLIT SIZE: " + configuration.splitSizeKeys + " KEYS / " + configuration.splitSizeMB + " MB"
-//             + " | TYPE: " + type
-//             + " | " + Object.keys(hashmap).length + " KEYS"
-//             + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
-//             + " | " + folder + "/" + maxInputHashMapFile_split
-//           ));
-
-//           await tcUtils.saveFile({
-//             folder: folder, 
-//             file: maxInputHashMapFile_split, 
-//             obj: hashmap,
-//             verbose: verbose
-//           });
-
-//           splitIndex += 1;
-//           hashmap = {};
-//         }
-
-//       }
-
-//       if (splitIndex === 0){
-//         console.log(chalkLog(MODULE_ID_PREFIX
-//           + " | ... SAVING MAX INPUT HASHMAP FILE"
-//           + " | TYPE: " + type
-//           + " | " + Object.keys(hashmap).length + " KEYS"
-//           + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
-//           + " | " + folder + "/" + maxInputHashMapFile
-//         ));
-
-//         await tcUtils.saveFile({
-//           folder: folder, 
-//           file: maxInputHashMapFile, 
-//           obj: hashmap,
-//           verbose: verbose
-//         });
-
-//         console.log(chalkBlue(MODULE_ID_PREFIX
-//           + " | +++ SAVED MAX INPUT HASHMAP FILE"
-//           + " | TYPE: " + type
-//           + " | " + Object.keys(hashmap).length + " KEYS"
-//           + " | " + (sizeof(hashmap)/ONE_MEGABYTE).toFixed(3) + " MB"
-//           + " | " + folder + "/" + maxInputHashMapFile
-//         ));
-//       }
-
-//       return;
-
-//     }, function(err){
-//       if (err) { return reject(err); }
-//       resolve();
-//     })
-
-//   });
-// }
-
 async function generateGlobalTrainingTestSet(){
 
   statsObj.status = "generateGlobalTrainingTestSet";
@@ -2602,7 +2358,6 @@ setTimeout(async function(){
     await tcUtils.stopSaveFileQueue();
 
     await redisClient.quit();
-    // await redisServer.close();
 
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
     quit("OK");
