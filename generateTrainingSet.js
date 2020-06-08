@@ -2544,7 +2544,7 @@ setTimeout(async function(){
 
     console.log(chalkInfo("TFE | ... SAVING HISTOGRAMS | " + rootFolder));
 
-    const inputTypeMinHash = (configuration.testMode) ? testInputTypeMinHash : defaultInputTypeMinHash;
+    // const inputTypeMinHash = (configuration.testMode) ? testInputTypeMinHash : defaultInputTypeMinHash;
 
     // will use default input min hashmaps
 
