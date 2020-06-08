@@ -1,5 +1,7 @@
 const MODULE_ID_PREFIX = "GTS";
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
+
+const DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY = false;
 const DEFAULT_CURSOR_PARALLEL = 8;
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 32;
@@ -18,26 +20,18 @@ const DEFAULT_INTERVAL = 5;
 const DEFAULT_REDIS_SCAN_COUNT = 1000;
 // const DEFAULT_MAX_INPUT_HASHMAP_LIMIT = 32;
 const DEFAULT_USERS_PER_ARCHIVE = 10000;
-// const DEFAULT_WAIT_VALUE_INTERVAL = 5;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
-// const DEFAULT_HISTOGRAM_TOTAL_MIN_ITEM = 5;
-// const DEFAULT_HISTOGRAM_TEST_TOTAL_MIN_ITEM = 2;
-// const DEFAULT_INPUT_TYPE_MIN_FRIENDS = 1000;
-// const DEFAULT_INPUT_TYPE_MIN_MEDIA = 3;
-// const DEFAULT_INPUT_TYPE_MIN_NGRAMS = 10;
-// const DEFAULT_INPUT_TYPE_MIN_PLACES = 2;
-// const DEFAULT_INPUT_TYPE_MIN_URLS = 2;
 
 const DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP = {};
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.emoji = 10;
-DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.friends = 1000;
+DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.friends = 100;
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.hashtags = 10;
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.images = 10;
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.locations = 10;
-DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.media = 3;
-DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.ngrams = 10;
+DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.media = 2;
+DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.ngrams = 100;
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.places = 3;
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.sentiment = 1;
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.urls = 3;
@@ -287,6 +281,7 @@ statsObjSmall = pick(statsObj, statsPickArray);
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 
+configuration.saveGlobalHistogramsOnly = DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY;
 // configuration.splitSizeMB = DEFAULT_SPLIT_SIZE_MB;
 // configuration.splitSizeKeys = DEFAULT_SPLIT_SIZE_KEYS;
 configuration.enableCreateUserArchive = DEFAULT_ENABLE_CREATE_USER_ARCHIVE;
@@ -687,6 +682,7 @@ let stdin;
 //   });
 // }
 
+const saveGlobalHistogramsOnly = { name: "saveGlobalHistogramsOnly", alias: "H", type: Boolean };
 const maxHistogramValue = { name: "maxHistogramValue", alias: "M", type: Number };
 const help = { name: "help", alias: "h", type: Boolean};
 const enableStdin = { name: "enableStdin", alias: "S", type: Boolean, defaultValue: true };
@@ -696,6 +692,7 @@ const verbose = { name: "verbose", alias: "v", type: Boolean };
 const testMode = { name: "testMode", alias: "X", type: Boolean };
 
 const optionDefinitions = [
+  saveGlobalHistogramsOnly,
   maxHistogramValue,
   enableStdin, 
   quitOnComplete, 
@@ -1047,6 +1044,20 @@ async function loadConfigFile(params) {
       }
       else {
         newConfiguration.offlineMode = false;
+      }
+    }
+
+    if (loadedConfigObj.GTS_SAVE_GLOBAL_HISTOGRAMS_ONLY !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_SAVE_GLOBAL_HISTOGRAMS_ONLY: " + loadedConfigObj.GTS_SAVE_GLOBAL_HISTOGRAMS_ONLY);
+
+      if ((loadedConfigObj.GTS_SAVE_GLOBAL_HISTOGRAMS_ONLY === false) || (loadedConfigObj.GTS_SAVE_GLOBAL_HISTOGRAMS_ONLY === "false")) {
+        newConfiguration.saveGlobalHistogramsOnly = false;
+      }
+      else if ((loadedConfigObj.GTS_SAVE_GLOBAL_HISTOGRAMS_ONLY === true) || (loadedConfigObj.GTS_SAVE_GLOBAL_HISTOGRAMS_ONLY === "true")) {
+        newConfiguration.saveGlobalHistogramsOnly = true;
+      }
+      else {
+        newConfiguration.saveGlobalHistogramsOnly = false;
       }
     }
 
@@ -2201,10 +2212,6 @@ async function initialize(cnf){
 
   await initStdIn();
 
-  const redisResult = await redisClient.flushall();
-
-  console.log(chalkAlert(MODULE_ID_PREFIX + " | REDIS FLUSH ALL RESULT: " + redisResult));
-
   configuration = await loadAllConfigFiles(configuration);
 
   await loadCommandLineArgs();
@@ -2464,6 +2471,14 @@ setTimeout(async function(){
       console.log(chalkAlert(MODULE_ID_PREFIX + " | TEST MODE | USERS PER ARCHIVE: " + configuration.usersPerArchive));
     }
 
+    if (configuration.saveGlobalHistogramsOnly){
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! SAVE GLOBAL HISTOGRAMS ONLY | NO REDIS FLUSH"));
+    }
+    else{
+      const redisResult = await redisClient.flushall();
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | REDIS FLUSH ALL RESULT: " + redisResult));
+    }
+
     tcUtils.setSaveFileMaxParallel(configuration.saveFileMaxParallel);
     tcUtils.enableSaveFileMaxParallel(true);
     await tcUtils.initSaveFileQueue({interval: configuration.saveFileQueueInterval});
@@ -2471,7 +2486,7 @@ setTimeout(async function(){
     // initSlackRtmClient();
     // initSlackWebClient();
 
-    if (configuration.enableCreateUserArchive){
+    if (configuration.enableCreateUserArchive && !configuration.saveGlobalHistogramsOnly){
       console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX DELETE TEMP USER DATA FOLDER: " + configuration.tempUserDataFolder));
 
       fs.rmdirSync(configuration.tempUserDataFolder, { recursive: true });
@@ -2483,40 +2498,39 @@ setTimeout(async function(){
       fs.mkdirSync(statsObj.runSubFolder, { recursive: true });
     }
 
-    await initWatchAllConfigFolders();
+    if (!configuration.saveGlobalHistogramsOnly){
+      await initWatchAllConfigFolders();
+      await generateGlobalTrainingTestSet();
+      await endSaveFileQueue();
+      categorizedUserHistogramTotal();
 
-    await generateGlobalTrainingTestSet();
+      console.log(chalkAlert("TFE | ... WAIT 30 SEC FOR TMP USER DATA FILES TO STABILIZE ..."));
+      await delay({period: 30*ONE_SECOND});
 
-    await endSaveFileQueue();
+      saveFileQueue = tcUtils.getSaveFileQueue();
 
-    categorizedUserHistogramTotal();
+      console.log(chalkInfo("TFE | ... SAVING NORMALIZATION FILE"
+        + " [ SFQ: " + saveFileQueue
+        + " | " + configuration.trainingSetsFolder + "/normalization.json"
+      ));
 
-    saveFileQueue = tcUtils.getSaveFileQueue();
+      console.log(chalkLog(MODULE_ID_PREFIX + " | NORMALIZATION"
+        + " | SCORE min: " + statsObj.normalization.score.min + " max: " + statsObj.normalization.score.max
+        + " | MAG min: " + statsObj.normalization.magnitude.min + " max: " + statsObj.normalization.magnitude.max
+        + " | COMP min: " + statsObj.normalization.comp.min + " max: " + statsObj.normalization.comp.max
+      ));
 
-    console.log(chalkInfo("TFE | ... SAVING NORMALIZATION FILE"
-      + " [ SFQ: " + saveFileQueue
-      + " | " + configuration.trainingSetsFolder + "/normalization.json"
-    ));
-
-    console.log(chalkLog(MODULE_ID_PREFIX + " | NORMALIZATION"
-      + " | SCORE min: " + statsObj.normalization.score.min + " max: " + statsObj.normalization.score.max
-      + " | MAG min: " + statsObj.normalization.magnitude.min + " max: " + statsObj.normalization.magnitude.max
-      + " | COMP min: " + statsObj.normalization.comp.min + " max: " + statsObj.normalization.comp.max
-    ));
-
-    saveFileQueue = await tcUtils.saveFileQueue({
-      folder: configuration.trainingSetsFolder, 
-      file: "normalization.json", 
-      obj: statsObj.normalization
-    });
+      saveFileQueue = await tcUtils.saveFileQueue({
+        folder: configuration.trainingSetsFolder, 
+        file: "normalization.json", 
+        obj: statsObj.normalization
+      });
+    }
 
     fileSizeArrayObj.histograms = {};
     fileSizeArrayObj.histograms = categorizedUserHistogram;
 
-    console.log(chalkAlert("TFE | ... WAIT 30 SEC FOR TMP USER DATA FILES TO STABILIZE ..."));
     await endSaveFileQueue();
-
-    await delay({period: 30*ONE_SECOND});
 
     if (configuration.enableCreateUserArchive){
       console.log(chalkLog("TFE | SAVE USER DATA ARCHIVES ..."));
@@ -2528,8 +2542,6 @@ setTimeout(async function(){
         await updateArchiveFileUploadComplete({path: archivePath});
       }
     }
-
-    // await saveMaxInputHashMap();
 
     let rootFolder;
 
@@ -2545,8 +2557,6 @@ setTimeout(async function(){
     }
 
     console.log(chalkInfo("TFE | ... SAVING HISTOGRAMS | " + rootFolder));
-
-    // const inputTypeMinHash = (configuration.testMode) ? testInputTypeMinHash : defaultInputTypeMinHash;
 
     // will use default input min hashmaps
 
