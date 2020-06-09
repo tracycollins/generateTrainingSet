@@ -36,7 +36,7 @@
     "command-line-args": "^5.1.1",
     "deep-copy": "^1.4.2",
     "deepmerge": "^4.2.2",
-    "dropbox": "^4.0.30",
+    "dropbox": "^5.0.0",
     "es6-promise-pool": "^2.5.0",
     "eventemitter3": "^4.0.4",
     "google-auth-library": "^6.0.1",
