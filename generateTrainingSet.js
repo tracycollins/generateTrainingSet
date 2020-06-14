@@ -77,7 +77,7 @@ if (hostname === "google") {
 }
 else {
   DROPBOX_ROOT_FOLDER = "/Users/tc/Dropbox/Apps/wordAssociation";
-  TEMP_ROOT_FOLDER = "/Users/tc/tmp";
+  TEMP_ROOT_FOLDER = "/Volumes/RAID1/tmp";
 }
 
 console.log("\n\n");
