@@ -63,8 +63,9 @@ hostname = hostname.replace(/word0-instance-1/g, "google");
 hostname = hostname.replace(/word-1/g, "google");
 hostname = hostname.replace(/word/g, "google");
 
-const PRIMARY_HOST = process.env.PRIMARY_HOST || "mms1";
-const HOST = (hostname === PRIMARY_HOST) ? "default" : "local";
+const PRIMARY_HOST = process.env.PRIMARY_HOST || "google";
+const DATABASE_HOST = process.env.DATABASE_HOST || "macpro2";
+const HOST = (hostname === PRIMARY_HOST || hostname === DATABASE_HOST) ? "default" : "local";
 
 let TEMP_ROOT_FOLDER;
 let DROPBOX_ROOT_FOLDER;
@@ -83,6 +84,7 @@ console.log(MODULE_ID_PREFIX + " | =============================================
 console.log(MODULE_ID_PREFIX + " | ==================================================================================");
 console.log(MODULE_ID_PREFIX + " | HOST:                " + HOST);
 console.log(MODULE_ID_PREFIX + " | PRIMARY_HOST:        " + PRIMARY_HOST);
+console.log(MODULE_ID_PREFIX + " | DATABASE_HOST:       " + DATABASE_HOST);
 console.log(MODULE_ID_PREFIX + " | hostname:            " + hostname);
 console.log(MODULE_ID_PREFIX + " | DROPBOX_ROOT_FOLDER: " + DROPBOX_ROOT_FOLDER);
 console.log(MODULE_ID_PREFIX + " | TEMP_ROOT_FOLDER:    " + TEMP_ROOT_FOLDER);
