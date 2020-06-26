@@ -67,16 +67,14 @@ const PRIMARY_HOST = process.env.PRIMARY_HOST || "google";
 const DATABASE_HOST = process.env.DATABASE_HOST || "macpro2";
 const HOST = (hostname === PRIMARY_HOST || hostname === DATABASE_HOST) ? "default" : "local";
 
-let TEMP_ROOT_FOLDER;
+const DATA_ROOT_FOLDER = "/Volumes/gDrive4TB/data";
 let DROPBOX_ROOT_FOLDER;
 
 if (hostname === "google") {
   DROPBOX_ROOT_FOLDER = "/home/tc/Dropbox/Apps/wordAssociation";
-  TEMP_ROOT_FOLDER = "/home/tc/tmp";
 }
 else {
   DROPBOX_ROOT_FOLDER = "/Users/tc/Dropbox/Apps/wordAssociation";
-  TEMP_ROOT_FOLDER = "/Volumes/RAID1/tmp";
 }
 
 console.log("\n\n");
@@ -87,7 +85,7 @@ console.log(MODULE_ID_PREFIX + " | PRIMARY_HOST:        " + PRIMARY_HOST);
 console.log(MODULE_ID_PREFIX + " | DATABASE_HOST:       " + DATABASE_HOST);
 console.log(MODULE_ID_PREFIX + " | hostname:            " + hostname);
 console.log(MODULE_ID_PREFIX + " | DROPBOX_ROOT_FOLDER: " + DROPBOX_ROOT_FOLDER);
-console.log(MODULE_ID_PREFIX + " | TEMP_ROOT_FOLDER:    " + TEMP_ROOT_FOLDER);
+console.log(MODULE_ID_PREFIX + " | DATA_ROOT_FOLDER:    " + DATA_ROOT_FOLDER);
 console.log(MODULE_ID_PREFIX + " | ==================================================================================");
 console.log(MODULE_ID_PREFIX + " | ==================================================================================");
 console.log("\n\n");
@@ -344,9 +342,9 @@ const configHostFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility", hostna
 
 // const defaultDataFolder = "/Volumes/nas4/data";
 
-const tempHostFolder = TEMP_ROOT_FOLDER;
-configuration.tempUserDataFolder = path.join(tempHostFolder, "trainingSets/users");
-configuration.userDataFolder = path.join(tempHostFolder, "users");
+configuration.dataRootFolder = DATA_ROOT_FOLDER;
+configuration.tempUserDataFolder = path.join(configuration.dataRootFolder, "trainingSets/users");
+configuration.userDataFolder = path.join(configuration.dataRootFolder, "users");
 
 const localHistogramsFolder = configHostFolder + "/histograms";
 const defaultHistogramsFolder = configDefaultFolder + "/histograms";
@@ -1090,6 +1088,11 @@ async function loadConfigFile(params) {
     if (loadedConfigObj.GTS_ENABLE_STDIN !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_ENABLE_STDIN: " + loadedConfigObj.GTS_ENABLE_STDIN);
       newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
+    }
+
+    if (loadedConfigObj.GTS_DATA_ROOT_FOLDER !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_DATA_ROOT_FOLDER: " + loadedConfigObj.GTS_DATA_ROOT_FOLDER);
+      newConfiguration.dataRootFolder = loadedConfigObj.GTS_DATA_ROOT_FOLDER;
     }
 
     if (loadedConfigObj.GTS_BATCH_SIZE !== undefined){
