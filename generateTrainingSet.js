@@ -4,19 +4,15 @@ const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 const DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY = false;
 const DEFAULT_CURSOR_PARALLEL = 8;
 const DEFAULT_BATCH_SIZE = 100;
-const DEFAULT_SAVE_FILE_MAX_PARALLEL = 32;
+const DEFAULT_SAVE_FILE_MAX_PARALLEL = 50;
 
 const DEFAULT_ENABLE_CREATE_USER_ARCHIVE = false;
-
-// const DEFAULT_SPLIT_SIZE_MB = 50;
-// const DEFAULT_SPLIT_SIZE_KEYS = 100000;
 
 const DEFAULT_MAX_SAVE_FILE_QUEUE = 100;
 const DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE = 100;
 
 const DEFAULT_INTERVAL = 5;
 const DEFAULT_REDIS_SCAN_COUNT = 1000;
-// const DEFAULT_MAX_INPUT_HASHMAP_LIMIT = 32;
 const DEFAULT_USERS_PER_ARCHIVE = 10000;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
@@ -67,7 +63,8 @@ const PRIMARY_HOST = process.env.PRIMARY_HOST || "google";
 const DATABASE_HOST = process.env.DATABASE_HOST || "macpro2";
 const HOST = (hostname === PRIMARY_HOST || hostname === DATABASE_HOST) ? "default" : "local";
 
-const DATA_ROOT_FOLDER = "/Volumes/gDrive4TB/data";
+const DATA_ROOT_FOLDER = process.env.DATA_ROOT_FOLDER || "/Volumes/gDrive4TB/data";
+
 let DROPBOX_ROOT_FOLDER;
 
 if (hostname === "google") {
@@ -854,10 +851,14 @@ function quit(options){
   showStats();
 
   setTimeout(function(){
+    
+    showStats();
+
     console.log(chalkBlueBold(
-               MODULE_ID_PREFIX + " | =================================="
+               MODULE_ID_PREFIX + " | ==================================================================="
       + "\n" + MODULE_ID_PREFIX + " | *** QUIT GENERATE TRAINING SET ***"
-      + "\n" + MODULE_ID_PREFIX + " | =================================="
+      + "\n" + MODULE_ID_PREFIX + " | DATA_ROOT_FOLDER: " + configuration.dataRootFolder
+      + "\n" + MODULE_ID_PREFIX + " | ==================================================================="
     ));
     process.exit();
   }, 1000);
