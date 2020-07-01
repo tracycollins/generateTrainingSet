@@ -1662,13 +1662,9 @@ categorizedUsers.neutral = 0;
 categorizedUsers.right = 0;
 
 const defaultPeriod = 5;
-// const periodMultiplier = 1.05;
-
-// let queueOverShoot = 0;
 
 async function cursorDataHandlerPromise(user){
 
-  // return new Promise(function(resolve, reject){
   try {
 
     await cursorDataHandler(user);
@@ -1681,24 +1677,6 @@ async function cursorDataHandlerPromise(user){
     statsObj.users.processed.endMoment = moment();
     statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
     statsObj.users.processed.percent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
-
-    // if (configuration.verbose 
-    //   || ((statsObj.users.notCategorized + statsObj.users.processed.total) % 1000 === 0)){
-
-    //   categorizedUserHistogramTotal();
-
-    //   console.log(chalkLog(MODULE_ID_PREFIX + " | CATEGORIZED"
-    //     + " | " + (statsObj.users.notCategorized + statsObj.users.processed.total) + "/" + statsObj.users.grandTotal
-    //     + " (" + statsObj.users.processed.percent.toFixed(1) + "%)"
-    //     + " | TOTAL: " + categorizedUserHistogram.total
-    //     + " | L: " + categorizedUserHistogram.left 
-    //     + " | R: " + categorizedUserHistogram.right
-    //     + " | N: " + categorizedUserHistogram.neutral
-    //     + " | +: " + categorizedUserHistogram.positive
-    //     + " | -: " + categorizedUserHistogram.negative
-    //     + " | 0: " + categorizedUserHistogram.none
-    //   ));
-    // }
 
     statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;    
 
@@ -1726,10 +1704,23 @@ async function cursorDataHandlerPromise(user){
 
 }
 
+function isValidUser(user){
+  if (!user || user === undefined || user === {} || typeof user !== "object") { return false; }
+  if (!user.screenName || user.screenName === undefined) { return false; }
+  if ((/[^\d]/).test(user.nodeId)) { return false; }
+  return true;
+}
+
 async function cursorDataHandler(user){
 
-  if (!user.screenName){
-    console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
+  // if (!user.screenName){
+  //   console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
+  //   statsObj.users.processed.errors += 1;
+  //   return;
+  // }
+  
+  if (!isValidUser(user)){
+    console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! INVALID USER ... SKIPPING\n" + jsonPrint(user)));
     statsObj.users.processed.errors += 1;
     return;
   }
