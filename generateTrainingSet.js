@@ -1712,12 +1712,6 @@ function isValidUser(user){
 }
 
 async function cursorDataHandler(user){
-
-  // if (!user.screenName){
-  //   console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! USER SCREENNAME UNDEFINED\n" + jsonPrint(user)));
-  //   statsObj.users.processed.errors += 1;
-  //   return;
-  // }
   
   if (!isValidUser(user)){
     console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! INVALID USER ... SKIPPING\n" + jsonPrint(user)));
