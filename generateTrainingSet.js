@@ -1970,7 +1970,7 @@ function wait(params){
     }
 
 
-    const start = moment().now;
+    const start = moment().valueOf();
 
     const w = setInterval(function(){
 
@@ -1978,7 +1978,7 @@ function wait(params){
 
       if (saveFileQueue < configuration.maxSaveFileQueue){
 
-        const deltaMS = (moment().now - start);
+        const deltaMS = (moment().valueOf() - start);
 
         clearInterval(w);
 
