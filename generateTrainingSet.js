@@ -4,8 +4,8 @@ const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 const DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY = false;
 const DEFAULT_CURSOR_PARALLEL = 8;
 const DEFAULT_BATCH_SIZE = 100;
-const DEFAULT_SAVE_FILE_MAX_PARALLEL = 50;
-
+const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
+const DEFAULT_SAVE_FILE_BACKPRESSURE_PERIOD = 10; // ms
 const DEFAULT_ENABLE_CREATE_USER_ARCHIVE = false;
 
 const DEFAULT_MAX_SAVE_FILE_QUEUE = 100;
@@ -63,7 +63,8 @@ const PRIMARY_HOST = process.env.PRIMARY_HOST || "google";
 const DATABASE_HOST = process.env.DATABASE_HOST || "macpro2";
 const HOST = (hostname === PRIMARY_HOST || hostname === DATABASE_HOST) ? "default" : "local";
 
-const DATA_ROOT_FOLDER = process.env.DATA_ROOT_FOLDER || "/Volumes/gDrive4TB/data";
+// const DATA_ROOT_FOLDER = process.env.DATA_ROOT_FOLDER || "/Volumes/RAID1/data";
+const DATA_ROOT_FOLDER = "/Volumes/RAID1/data";
 
 let DROPBOX_ROOT_FOLDER;
 
@@ -276,6 +277,7 @@ statsObjSmall = pick(statsObj, statsPickArray);
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 
+configuration.saveFileBackPressurePeriod = DEFAULT_SAVE_FILE_BACKPRESSURE_PERIOD;
 configuration.saveGlobalHistogramsOnly = DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY;
 // configuration.splitSizeMB = DEFAULT_SPLIT_SIZE_MB;
 // configuration.splitSizeKeys = DEFAULT_SPLIT_SIZE_KEYS;
@@ -1094,6 +1096,10 @@ async function loadConfigFile(params) {
     if (loadedConfigObj.GTS_DATA_ROOT_FOLDER !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_DATA_ROOT_FOLDER: " + loadedConfigObj.GTS_DATA_ROOT_FOLDER);
       newConfiguration.dataRootFolder = loadedConfigObj.GTS_DATA_ROOT_FOLDER;
+
+      newConfiguration.tempUserDataFolder = path.join(newConfiguration.dataRootFolder, "trainingSets/users");
+      newConfiguration.userDataFolder = path.join(newConfiguration.dataRootFolder, "users");
+
     }
 
     if (loadedConfigObj.GTS_BATCH_SIZE !== undefined){
@@ -1176,6 +1182,12 @@ async function loadConfigFile(params) {
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_MAX_SAVE_FILE_QUEUE: " + loadedConfigObj.GTS_MAX_SAVE_FILE_QUEUE);
       newConfiguration.maxSaveFileQueue = loadedConfigObj.GTS_MAX_SAVE_FILE_QUEUE;
     }
+
+    if (loadedConfigObj.GTS_SAVE_FILE_BACKPRESSURE_PERIOD !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_SAVE_FILE_BACKPRESSURE_PERIOD: " + loadedConfigObj.GTS_SAVE_FILE_BACKPRESSURE_PERIOD);
+      newConfiguration.saveFileBackPressurePeriod = loadedConfigObj.GTS_SAVE_FILE_BACKPRESSURE_PERIOD;
+    }
+
 
     if (loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_MAX_HISTOGRAM_VALUE: " + loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE);
@@ -1324,76 +1336,78 @@ async function clampHistogram(params){
 
   for (const type of histogramTypes){
 
-    if (type === "friends"){
-      continue;
-    }
+    // if (type === "friends"){
+    //   continue;
+    // }
 
-    histogram[type] = {};
+    if (type !== "friends"){
+      histogram[type] = {};
 
-    const entities = Object.keys(params.histogram[type]);
+      const entities = Object.keys(params.histogram[type]);
 
-    for (const entity of entities){
+      for (const entity of entities){
 
-      if (entity.startsWith("[") || typeof entity !== "string"){
-
-        modifiedFlag = true;
-
-        console.log(chalkAlert(MODULE_ID_PREFIX + " | *** ENTITY ERROR"
-          + " | TYPE: " + type
-          + " | NID: " + params.nodeId
-          + " | @" + params.screenName
-          + " | ENTITY: " + entity
-          + " | typeof ENTITY: " + typeof entity
-          + " | params.histogram[type][entity]: " + params.histogram[type][entity]
-        ));
-
-        if (type === "media" && entity.startsWith("[object Object]")){
-          delete params.histogram[type][entity];
-        }
-
-        if (type === "hashtag" && entity.startsWith("[#")){
-          const newEntity = entity.slice(1);
-          // if (histogram[type][newEntity] === undefined) { histogram[type][newEntity] = 1; }
-          histogram[type][newEntity] = Math.min(maxValue, params.histogram[type][entity]) || 1;
-          params.histogram[type][newEntity] = histogram[type][newEntity];
-          delete params.histogram[type][entity];
-        }
-      }
-      else{
-
-        if (params.histogram[type][entity] > maxValue){
+        if (entity.startsWith("[") || typeof entity !== "string"){
 
           modifiedFlag = true;
 
-          console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: " + maxValue
+          console.log(chalkAlert(MODULE_ID_PREFIX + " | *** ENTITY ERROR"
+            + " | TYPE: " + type
             + " | NID: " + params.nodeId
             + " | @" + params.screenName
-            + " | TYPE: " + type
             + " | ENTITY: " + entity
-            + " | MAX VALUE: " + maxValue
-            + " | VALUE: " + params.histogram[type][entity]
+            + " | typeof ENTITY: " + typeof entity
+            + " | params.histogram[type][entity]: " + params.histogram[type][entity]
           ));
 
-          histogram[type][entity] = maxValue;
-        }
-        else if (params.histogram[type][entity] <= 0){
+          if (type === "media" && entity.startsWith("[object Object]")){
+            delete params.histogram[type][entity];
+          }
 
-          modifiedFlag = true;
-
-          console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE <= 0 | SET TO 1"
-            + " | NID: " + params.nodeId
-            + " | @" + params.screenName
-            + " | TYPE: " + type
-            + " | ENTITY: " + entity
-            + " | VALUE: " + params.histogram[type][entity]
-          ));
-
-          histogram[type][entity] = 1;
+          if (type === "hashtag" && entity.startsWith("[#")){
+            const newEntity = entity.slice(1);
+            // if (histogram[type][newEntity] === undefined) { histogram[type][newEntity] = 1; }
+            histogram[type][newEntity] = Math.min(maxValue, params.histogram[type][entity]) || 1;
+            params.histogram[type][newEntity] = histogram[type][newEntity];
+            delete params.histogram[type][entity];
+          }
         }
         else{
-          histogram[type][entity] = params.histogram[type][entity];
-        }
 
+          if (params.histogram[type][entity] > maxValue){
+
+            modifiedFlag = true;
+
+            console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: " + maxValue
+              + " | NID: " + params.nodeId
+              + " | @" + params.screenName
+              + " | TYPE: " + type
+              + " | ENTITY: " + entity
+              + " | MAX VALUE: " + maxValue
+              + " | VALUE: " + params.histogram[type][entity]
+            ));
+
+            histogram[type][entity] = maxValue;
+          }
+          else if (params.histogram[type][entity] <= 0){
+
+            modifiedFlag = true;
+
+            console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE <= 0 | SET TO 1"
+              + " | NID: " + params.nodeId
+              + " | @" + params.screenName
+              + " | TYPE: " + type
+              + " | ENTITY: " + entity
+              + " | VALUE: " + params.histogram[type][entity]
+            ));
+
+            histogram[type][entity] = 1;
+          }
+          else{
+            histogram[type][entity] = params.histogram[type][entity];
+          }
+
+        }
       }
     }
 
@@ -1615,7 +1629,7 @@ async function categorizeUser(params){
 
       statsObj.users.processed.errors += 1;
 
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | *** UPDATE CL USR NOT FOUND: "
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USR NOT FOUND: "
         // + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
         + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.users.processed.errors + " ]"
         + " | USER ID: " + params.nodeId
@@ -1636,7 +1650,7 @@ async function categorizeUser(params){
     );
 
     if (params.verbose) {
-      console.log(chalkInfo(MODULE_ID_PREFIX + " | -<- UPDATE CL USR <DB"
+      console.log(chalkInfo(MODULE_ID_PREFIX + " | -<- UPDATE CATEGORIZED USR <DB"
         // + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
         + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.users.processed.errors + "]"
         + " | " + user.nodeId
@@ -1661,7 +1675,7 @@ categorizedUsers.left = 0;
 categorizedUsers.neutral = 0;
 categorizedUsers.right = 0;
 
-const defaultPeriod = 5;
+// const defaultPeriod = 5;
 
 async function cursorDataHandlerPromise(user){
 
@@ -1685,11 +1699,12 @@ async function cursorDataHandlerPromise(user){
 
     if (queueOverShoot > 0){
 
-      const period = queueOverShoot * defaultPeriod;
+      const period = queueOverShoot * configuration.saveFileBackPressurePeriod;
 
       await wait({
         message: "BK PRSSR | SFQ: " + saveFileQueue, 
-        period: period
+        period: period,
+        verbose: configuration.verbose
       });
     }
 
@@ -1763,7 +1778,8 @@ async function cursorDataHandler(user){
   const saveFileQueue = tcUtils.saveFileQueue({
     folder: folder,
     file: file,
-    obj: catUser
+    obj: catUser,
+    verbose: configuration.verbose
   });
 
   categorizedUsers[catUser.category] += 1;
@@ -1782,69 +1798,6 @@ async function cursorDataHandler(user){
   return;
 }
 
-// function cursorData(params){
-
-//   return new Promise(function(resolve, reject){
-
-//     const interval = params.interval || configuration.cursorInterval;
-
-//     const cursor = params.cursor;
-
-//     cursor.on("end", function() {
-//       console.log(chalkAlert(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
-//     });
-
-//     cursor.on("error", function(err) {
-//       console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
-//       return reject(err);
-//     });
-
-//     cursor.on("close", function() {
-//       console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
-//     });
-
-//     let cursorDataReady = true;
-
-//     const cursorDataInterval = setInterval(async function(){
-
-//       try{
-
-//         if (cursorDataReady){
-
-//           cursorDataReady = false;
-
-//           const user = await cursor.next();
-
-//           if (!user) {
-//             console.log("XXX CURSOR DATA");
-//             clearInterval(cursorDataInterval);
-//             return resolve();
-//           }
-//           else{
-//             // console.log(">>> USER | NID: " + user.nodeId + " | @" + user.screenName);
-//             await cursorDataHandlerPromise(user);
-//             cursorDataReady = true;
-//           }
-//         }
-
-//       }
-//       catch(err){
-//         if (err.code === 43){
-//           debug(chalkAlert(MODULE_ID_PREFIX 
-//             + " | cursorData COMPLETE"
-//           ));
-//           return resolve();
-//         }
-//         console.log("cursorData ERROR: ", err);
-//         cursorDataReady = true;
-//       }
-
-
-//     }, interval);
-
-//   });
-// }
-
 async function categoryCursorStream(params){
 
   statsObj.status = "categoryCursorStream";
@@ -1853,7 +1806,6 @@ async function categoryCursorStream(params){
 
   const batchSize = params.batchSize || configuration.batchSize;
   const cursorParallel = params.cursorParallel || configuration.cursorParallel;
-  // const maxArchivedCount = (params.maxArchivedCount) ? params.maxArchivedCount : configuration.totalMaxTestCount;
   const reSaveUserDocsFlag = params.reSaveUserDocsFlag || configuration.reSaveUserDocsFlag;
 
   let maxArchivedCount;
@@ -1879,6 +1831,7 @@ async function categoryCursorStream(params){
     + " | MAX COUNT: " + maxArchivedCount
     + " | BATCH SIZE: " + batchSize
     + " | MAX SFQ: " + configuration.maxSaveFileQueue
+    + " | SAVE BACK PRESSURE PERIOD: " + configuration.saveFileBackPressurePeriod
     + " | SFQ PARALLEL: " + configuration.saveFileMaxParallel
     + " | TOTAL USERS: " + statsObj.users.grandTotal
   ));
@@ -1942,15 +1895,9 @@ async function categoryCursorStream(params){
 
   if (statsObj.users.processed.startMoment === 0) { statsObj.users.processed.startMoment = moment(); }
 
-  // await cursorData({
-  //   cursor: cursor,
-  //   parallel: cursorParallel
-  // });
 
   await cursor.eachAsync(async function(user){
-    // console.log(">>> USER | " + user.nodeId + " | @" + user.screenName);
     await cursorDataHandlerPromise(user);
-    // console.log("<<< USER | " + user.nodeId + " | @" + user.screenName);
   }, {parallel: cursorParallel});
 
   console.log(chalkBlueBold(MODULE_ID_PREFIX 
@@ -2022,14 +1969,31 @@ function wait(params){
       ));
     }
 
+
+    const start = moment().now;
+
     const w = setInterval(function(){
 
       saveFileQueue = tcUtils.getSaveFileQueue();
 
       if (saveFileQueue < configuration.maxSaveFileQueue){
+
+        const deltaMS = (moment().now - start);
+
         clearInterval(w);
+
+        if (params.verbose) {
+          console.log(chalkLog(MODULE_ID_PREFIX 
+            + " | XXX WAIT END BACK PRESSURE"
+            + " | SFQ: " + saveFileQueue
+            + " | PERIOD: " + params.period + " MS"
+            + " | TOTAL WAIT: " + deltaMS + " MS"
+          ));
+        }
+
         return resolve(true);
       }
+
     }, params.period);
 
   });
@@ -2250,8 +2214,10 @@ async function generateGlobalTrainingTestSet(){
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
 
   if (configuration.testMode) {
+    configuration.maxSaveFileQueue = 100;
     statsObj.users.grandTotal = Math.min(statsObj.users.grandTotal, configuration.totalMaxTestCount);
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.users.grandTotal + " USERS"));
+    console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | MAX SAVE FILE QUEUE: " + configuration.maxSaveFileQueue));
   }
 
   let maxCategoryArchivedCount;
@@ -2338,7 +2304,8 @@ setTimeout(async function(){
       tcUtils.saveFileQueue({
         folder: configuration.trainingSetsFolder, 
         file: "normalization.json", 
-        obj: statsObj.normalization
+        obj: statsObj.normalization,
+        verbose: configuration.verbose
       });
     }
 
@@ -2393,7 +2360,8 @@ setTimeout(async function(){
     tcUtils.saveFileQueue({
       folder: configuration.trainingSetsFolder,
       file: configuration.archiveFileUploadCompleteFlagFile,
-      obj: fileSizeArrayObj
+      obj: fileSizeArrayObj,
+      verbose: configuration.verbose
     });
 
     // let slackText = "\n*" + MODULE_ID_PREFIX + " | TRAINING SET*";
