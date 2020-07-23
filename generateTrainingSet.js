@@ -1962,7 +1962,7 @@ function wait(params){
       return resolve(true);
     }
 
-    if (params.message) {
+    if (params.message && params.verbose) {
       console.log(chalkLog(MODULE_ID_PREFIX 
         + " | " + params.message 
         + " | PERIOD: " + params.period + " MS"
