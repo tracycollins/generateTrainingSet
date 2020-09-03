@@ -39,7 +39,7 @@
     "es6-promise-pool": "^2.5.0",
     "eventemitter3": "^4.0.7",
     "google-auth-library": "^6.0.6",
-    "google-gax": "^2.7.0",
+    "google-gax": "^2.8.0",
     "graceful-fs": "^4.2.4",
     "hashmap": "^2.4.0",
     "is-url-superb": "^4.0.0",
