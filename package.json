@@ -23,7 +23,7 @@
     "@slack/client": "^5.0.2",
     "@threeceelabs/mergehistograms": "^1.0.8",
     "@threeceelabs/mongoose-twitter": "^1.0.334",
-    "@threeceelabs/threecee-utilities": "^1.0.389",
+    "@threeceelabs/threecee-utilities": "^1.0.400",
     "@threeceelabs/twitter-image-parser": "^1.0.96",
     "@threeceelabs/twitter-text-parser": "^1.0.101",
     "@threeceelabs/user-server-controller": "^1.0.527",
