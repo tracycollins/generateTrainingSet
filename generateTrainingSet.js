@@ -2065,6 +2065,7 @@ setTimeout(async function(){
       console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! SAVE GLOBAL HISTOGRAMS ONLY | NO REDIS FLUSH"));
     }
     else{
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | FLUSHING ALL REDIS ..."));
       const redisResult = await redisClient.flushall();
       console.log(chalkAlert(MODULE_ID_PREFIX + " | REDIS FLUSH ALL RESULT: " + redisResult));
     }
