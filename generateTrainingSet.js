@@ -5,7 +5,7 @@ if (envConfig.error) {
   throw envConfig.error
 }
  
-console.log("TNN | ENV CONFIG")
+console.log("GTS | ENV CONFIG")
 console.log(envConfig.parsed)
 
 const MODULE_NAME = "generateTrainingSet  ";
@@ -421,9 +421,6 @@ let stdin;
 //=========================================================================
 // SLACK
 //=========================================================================
-//=========================================================================
-// SLACK
-//=========================================================================
 const { WebClient } = require('@slack/web-api');
 
 console.log("process.env.SLACK_BOT_TOKEN: ", process.env.SLACK_BOT_TOKEN)
@@ -465,7 +462,7 @@ async function initSlackWebClient(){
 
     conversationsListResponse.channels.forEach(async function(channel){
 
-      debug(chalkLog("TNN | SLACK CHANNEL | " + channel.id + " | " + channel.name));
+      debug(chalkLog(MODULE_ID + " | SLACK CHANNEL | " + channel.id + " | " + channel.name));
 
       if (channel.name === slackChannel) {
         configuration.slackChannel = channel;
@@ -495,7 +492,7 @@ async function initSlackWebClient(){
     return;
   }
   catch(err){
-    console.log(chalkError("TNN | *** INIT SLACK WEB CLIENT ERROR: " + err));
+    console.log(chalkError(MODULE_ID + " | *** INIT SLACK WEB CLIENT ERROR: " + err));
     throw err;
   }
 }
@@ -669,7 +666,7 @@ function quit(options){
       let slackText = "\n*" + statsObj.runId + "*";
       slackText = slackText + " | RUN " + msToTime(statsObj.elapsed);
       slackText = slackText + " | QUIT CAUSE: " + options;
-      debug(MODULE_ID_PREFIX + " | SLACK TEXT: " + slackText);
+      debug(MODULE_ID + " | SLACK TEXT: " + slackText);
       slackSendWebMessage({channel: slackChannel, text: slackText});
     }
   }
@@ -2177,6 +2174,8 @@ setTimeout(async function(){
     let slackText = "\n*" + MODULE_ID_PREFIX + " | TRAINING SET*";
     slackText = slackText + "\n" + configuration.userArchivePath;
     slackText = slackText + "\nUSERS ARCHIVED: " + statsObj.users.grandTotal;
+    slackText = slackText + "\nEMPTY: " + statsObj.users.processed.empty;
+    slackText = slackText + "\nERRORS: " + statsObj.users.processed.errors;
     slackText = slackText + "\nLEFT: " + categorizedUserHistogram.left;
     slackText = slackText + "\nRIGHT: " + categorizedUserHistogram.right;
     slackText = slackText + "\nNEUTRAL: " + categorizedUserHistogram.neutral;
