@@ -28,6 +28,7 @@ const DEFAULT_USERS_PER_ARCHIVE = 10000;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
 const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
+const DEFAULT_MAX_USER_FRIENDS = 10000;
 
 const DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP = {};
 DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.emoji = 10;
@@ -241,6 +242,7 @@ statsObjSmall = pick(statsObj, statsPickArray);
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 
+configuration.maxUserFriends = DEFAULT_MAX_USER_FRIENDS;
 configuration.saveFileBackPressurePeriod = DEFAULT_SAVE_FILE_BACKPRESSURE_PERIOD;
 configuration.saveGlobalHistogramsOnly = DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY;
 // configuration.splitSizeMB = DEFAULT_SPLIT_SIZE_MB;
@@ -954,6 +956,11 @@ async function loadConfigFile(params) {
       newConfiguration.inputTypeMinProfileHashMap = loadedConfigObj.GTS_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP
     }
 
+    if (loadedConfigObj.GTS_MAX_USER_FRIENDS !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_MAX_USER_FRIENDS: " + loadedConfigObj.GTS_MAX_USER_FRIENDS);
+      newConfiguration.maxUserFriends = loadedConfigObj.GTS_MAX_USER_FRIENDS;
+    }
+
     if (loadedConfigObj.GTS_CURSOR_PARALLEL !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_CURSOR_PARALLEL: " + loadedConfigObj.GTS_CURSOR_PARALLEL);
       newConfiguration.cursorParallel = loadedConfigObj.GTS_CURSOR_PARALLEL;
@@ -1226,56 +1233,56 @@ configEvents.once("INIT_MONGODB", function(){
   console.log(chalkLog(MODULE_ID_PREFIX + " | INIT_MONGODB"));
 });
 
-async function updateUserHistograms(params){
+// async function updateUserHistograms(params){
 
-  const user = params.user;
+//   const user = params.user;
 
-  const dbUpdateParams = {};
+//   const dbUpdateParams = {};
 
-  dbUpdateParams.profileHistograms = {};
-  dbUpdateParams.tweetHistograms = {};
+//   dbUpdateParams.profileHistograms = {};
+//   dbUpdateParams.tweetHistograms = {};
 
-  const resultsProfileHistograms = await clampHistogram({
-    nodeId: params.user.nodeId, 
-    screenName: params.user.screenName, 
-    histogram: params.user.profileHistograms
-  });
+//   const resultsProfileHistograms = await clampHistogram({
+//     nodeId: params.user.nodeId, 
+//     screenName: params.user.screenName, 
+//     histogram: params.user.profileHistograms
+//   });
 
-  const resultsTweetHistograms = await clampHistogram({
-    nodeId: params.user.nodeId, 
-    screenName: params.user.screenName,
-    histogram: params.user.tweetHistograms
-  });
+//   const resultsTweetHistograms = await clampHistogram({
+//     nodeId: params.user.nodeId, 
+//     screenName: params.user.screenName,
+//     histogram: params.user.tweetHistograms
+//   });
 
-  if (params.updateUserInDb && (resultsProfileHistograms.modifiedFlag || resultsTweetHistograms.modifiedFlag)){
+//   if (params.updateUserInDb && (resultsProfileHistograms.modifiedFlag || resultsTweetHistograms.modifiedFlag)){
 
-    const update = {};
+//     const update = {};
 
-    if (resultsProfileHistograms.modifiedFlag){ 
-      update.profileHistograms = resultsProfileHistograms.histogram; 
-    }
+//     if (resultsProfileHistograms.modifiedFlag){ 
+//       update.profileHistograms = resultsProfileHistograms.histogram; 
+//     }
 
-    if (resultsTweetHistograms.modifiedFlag){ 
-      update.tweetHistograms = resultsTweetHistograms.histogram; 
-    }
+//     if (resultsTweetHistograms.modifiedFlag){ 
+//       update.tweetHistograms = resultsTweetHistograms.histogram; 
+//     }
 
-    const dbUpdatedUser = await global.wordAssoDb.User.findOneAndUpdate({ nodeId: params.user.nodeId }, update);
+//     const dbUpdatedUser = await global.wordAssoDb.User.findOneAndUpdate({ nodeId: params.user.nodeId }, update);
 
-    console.log(chalkInfo(MODULE_ID_PREFIX + " | +++ UPDATED "
-      + " | NID: " + dbUpdatedUser.nodeId
-      + " | @" + dbUpdatedUser.screenName
-      + " | PROFILE HISTOGRAM: " + resultsProfileHistograms.modifiedFlag
-      + " | TWEET HISTOGRAM: " + resultsTweetHistograms.modifiedFlag
-    ));
+//     console.log(chalkInfo(MODULE_ID_PREFIX + " | +++ UPDATED "
+//       + " | NID: " + dbUpdatedUser.nodeId
+//       + " | @" + dbUpdatedUser.screenName
+//       + " | PROFILE HISTOGRAM: " + resultsProfileHistograms.modifiedFlag
+//       + " | TWEET HISTOGRAM: " + resultsTweetHistograms.modifiedFlag
+//     ));
 
-  }
+//   }
 
-  // const mergedHistograms = merge(user.profileHistograms, user.tweetHistograms);
+//   // const mergedHistograms = merge(user.profileHistograms, user.tweetHistograms);
 
-  // await updateMaxInputHashMap({ histograms: mergedHistograms });
+//   // await updateMaxInputHashMap({ histograms: mergedHistograms });
 
-  return user;
-}
+//   return user;
+// }
 
 async function updateCategorizedUser(params){
 
@@ -1303,21 +1310,22 @@ async function updateCategorizedUser(params){
       return;
     }
 
-    if (!userIn.tweetHistograms || (userIn.tweetHistograms == undefined)){
+    if (!userIn.tweetHistograms || (userIn.tweetHistograms === undefined)){
       userIn.tweetHistograms = {};
     }
 
-    if (!userIn.profileHistograms || (userIn.profileHistograms == undefined)){
+    if (!userIn.profileHistograms || (userIn.profileHistograms === undefined)){
       userIn.profileHistograms = {};
     }
 
-    if (!userIn.friends || (userIn.friends == undefined)){
+    if (!userIn.friends || (userIn.friends === undefined)){
       userIn.friends = [];
     }
 
     const u = await tcUtils.encodeHistogramUrls({user: userIn});
 
-    const user = await updateUserHistograms({user: u, updateUserInDb: true});
+    // const user = await updateUserHistograms({user: u, updateUserInDb: true});
+    const user = await tcUtils.updateUserHistograms({ user: u });
 
     if (!empty(user.profileHistograms.sentiment)) {
 
@@ -1560,35 +1568,37 @@ async function cursorDataHandler(user){
     return;
   }
 
-  if (!user.friends || user.friends == undefined) {
-    user.friends = [];
-  }
-  else{
-    user.friends = _.slice(user.friends, 0,5000);
-  }
+  // if (!user.friends || user.friends == undefined) {
+  //   user.friends = [];
+  // }
+  // else{
+  //   user.friends = _.slice(user.friends, 0, configuration.maxUserFriends);
+  // }
 
-  const catUser = await categorizeUser({
-    user: user, 
-    verbose: configuration.verbose, 
-    testMode: configuration.testMode
-  });
+  // const catUser = await categorizeUser({
+  //   user: user, 
+  //   verbose: configuration.verbose, 
+  //   testMode: configuration.testMode
+  // });
+
+  await tcUtils.updateGlobalHistograms({user: user, verbose: true});
 
   const hash = await tcUtils.hashUserId({nodeId: user.nodeId}); // 1000 buckets/subfolders by default
   const subFolder = hash.toString().padStart(8,"0");
 
   const folder = path.join(configuration.userDataFolder, subFolder);
-  const file = catUser.nodeId + ".json";
+  const file = user.nodeId + ".json";
 
   if (configuration.enableCreateUserArchive){ subFolderSet.add(subFolder); }
 
   const saveFileQueue = tcUtils.saveFileQueue({
     folder: folder,
     file: file,
-    obj: catUser,
+    obj: user,
     verbose: configuration.verbose
   });
 
-  categorizedUsers[catUser.category] += 1;
+  categorizedUsers[user.category] += 1;
   statsObj.categorizedCount += 1;
 
   if (statsObj.categorizedCount > 0 && statsObj.categorizedCount % 100 === 0){
