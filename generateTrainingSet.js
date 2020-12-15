@@ -74,7 +74,6 @@ const PRIMARY_HOST = process.env.PRIMARY_HOST || "google";
 const DATABASE_HOST = process.env.DATABASE_HOST || "macpro2";
 const HOST = (hostname === PRIMARY_HOST || hostname === DATABASE_HOST) ? "default" : "local";
 
-// const DATA_ROOT_FOLDER = process.env.DATA_ROOT_FOLDER || "/Volumes/RAID1/data";
 const DATA_ROOT_FOLDER = "/Volumes/RAID1/data";
 
 let DROPBOX_ROOT_FOLDER;
@@ -287,10 +286,6 @@ let hostConfiguration = {}; // host-specific configuration for GTS
 
 configuration.cursorInterval = DEFAULT_INTERVAL;
 
-configuration.serverMode = DEFAULT_SERVER_MODE;
-
-console.log(chalkLog(MODULE_ID_PREFIX + " | SERVER MODE: " + configuration.serverMode));
-
 configuration.userPropertyPickArray = DEFAULT_USER_PROPERTY_PICK_ARRAY;
 configuration.processName = process.env.GTS_PROCESS_NAME || "node_gts";
 configuration.interruptFlag = false;
@@ -304,8 +299,6 @@ configuration.DROPBOX.DROPBOX_GTS_STATS_FILE = process.env.DROPBOX_GTS_STATS_FIL
 
 const configDefaultFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility/default");
 const configHostFolder = path.join(DROPBOX_ROOT_FOLDER, "config/utility", hostname);
-
-// const defaultDataFolder = "/Volumes/nas4/data";
 
 configuration.dataRootFolder = DATA_ROOT_FOLDER;
 configuration.tempUserDataFolder = path.join(configuration.dataRootFolder, "trainingSets/users");
@@ -339,6 +332,8 @@ configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
 configuration.userArchivePath = configuration[HOST].userArchivePath;
 
+console.log(chalkAlert(MODULE_ID_PREFIX + " | DEBUG 0"));
+
 fs.mkdirSync(configuration.tempUserDataFolder, { recursive: true });
 fs.mkdirSync(configuration[HOST].userArchiveFolder, { recursive: true });
 
@@ -353,8 +348,6 @@ const redisClient = tcUtils.redisClient;
 const jsonPrint = tcUtils.jsonPrint;
 const getTimeStamp = tcUtils.getTimeStamp;
 const msToTime = tcUtils.msToTime;
-// const formatBoolean = tcUtils.formatBoolean;
-// const formatCategory = tcUtils.formatCategory;
 
 const UserServerController = require("@threeceelabs/user-server-controller");
 const userServerController = new UserServerController(MODULE_ID_PREFIX + "_USC");
@@ -563,6 +556,7 @@ const testObj = {};
 testObj.testRunId = statsObj.runId;
 testObj.results = {};
 testObj.testSet = [];
+console.log(chalkAlert(MODULE_ID_PREFIX + " | DEBUG 1"));
 
 process.title = "node_gts";
 console.log("\n\nGTS | =================================");
@@ -854,7 +848,6 @@ async function loadConfigFile(params) {
       console.log(MODULE_ID_PREFIX + " | LOADED newConfiguration.testMode: " + newConfiguration.testMode);
     }
 
-
     if (loadedConfigObj.GTS_OFFLINE_MODE !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_OFFLINE_MODE: " + loadedConfigObj.GTS_OFFLINE_MODE);
 
@@ -1138,96 +1131,96 @@ async function initWatchAllConfigFolders(p){
   }
 }
 
-async function clampHistogram(params){
+// async function clampHistogram(params){
 
-  const histogramTypes = Object.keys(params.histogram);
-  const maxValue = params.maxValue || configuration.maxHistogramValue;
+//   const histogramTypes = Object.keys(params.histogram);
+//   const maxValue = params.maxValue || configuration.maxHistogramValue;
 
-  const histogram = {};
+//   const histogram = {};
 
-  let modifiedFlag = false;
+//   let modifiedFlag = false;
 
-  for (const type of histogramTypes){
+//   for (const type of histogramTypes){
 
-    // if (type === "friends"){
-    //   continue;
-    // }
+//     // if (type === "friends"){
+//     //   continue;
+//     // }
 
-    if (type !== "friends"){
-      histogram[type] = {};
+//     if (type !== "friends"){
+//       histogram[type] = {};
 
-      const entities = Object.keys(params.histogram[type]);
+//       const entities = Object.keys(params.histogram[type]);
 
-      for (const entity of entities){
+//       for (const entity of entities){
 
-        if (entity.startsWith("[") || typeof entity !== "string"){
+//         if (entity.startsWith("[") || typeof entity !== "string"){
 
-          modifiedFlag = true;
+//           modifiedFlag = true;
 
-          console.log(chalkAlert(MODULE_ID_PREFIX + " | *** ENTITY ERROR"
-            + " | TYPE: " + type
-            + " | NID: " + params.nodeId
-            + " | @" + params.screenName
-            + " | ENTITY: " + entity
-            + " | typeof ENTITY: " + typeof entity
-            + " | params.histogram[type][entity]: " + params.histogram[type][entity]
-          ));
+//           console.log(chalkAlert(MODULE_ID_PREFIX + " | *** ENTITY ERROR"
+//             + " | TYPE: " + type
+//             + " | NID: " + params.nodeId
+//             + " | @" + params.screenName
+//             + " | ENTITY: " + entity
+//             + " | typeof ENTITY: " + typeof entity
+//             + " | params.histogram[type][entity]: " + params.histogram[type][entity]
+//           ));
 
-          if (type === "media" && entity.startsWith("[object Object]")){
-            delete params.histogram[type][entity];
-          }
+//           if (type === "media" && entity.startsWith("[object Object]")){
+//             delete params.histogram[type][entity];
+//           }
 
-          if (type === "hashtag" && entity.startsWith("[#")){
-            const newEntity = entity.slice(1);
-            // if (histogram[type][newEntity] === undefined) { histogram[type][newEntity] = 1; }
-            histogram[type][newEntity] = Math.min(maxValue, params.histogram[type][entity]) || 1;
-            params.histogram[type][newEntity] = histogram[type][newEntity];
-            delete params.histogram[type][entity];
-          }
-        }
-        else{
+//           if (type === "hashtag" && entity.startsWith("[#")){
+//             const newEntity = entity.slice(1);
+//             // if (histogram[type][newEntity] === undefined) { histogram[type][newEntity] = 1; }
+//             histogram[type][newEntity] = Math.min(maxValue, params.histogram[type][entity]) || 1;
+//             params.histogram[type][newEntity] = histogram[type][newEntity];
+//             delete params.histogram[type][entity];
+//           }
+//         }
+//         else{
 
-          if (params.histogram[type][entity] > maxValue){
+//           if (params.histogram[type][entity] > maxValue){
 
-            modifiedFlag = true;
+//             modifiedFlag = true;
 
-            console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: " + maxValue
-              + " | NID: " + params.nodeId
-              + " | @" + params.screenName
-              + " | TYPE: " + type
-              + " | ENTITY: " + entity
-              + " | MAX VALUE: " + maxValue
-              + " | VALUE: " + params.histogram[type][entity]
-            ));
+//             console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: " + maxValue
+//               + " | NID: " + params.nodeId
+//               + " | @" + params.screenName
+//               + " | TYPE: " + type
+//               + " | ENTITY: " + entity
+//               + " | MAX VALUE: " + maxValue
+//               + " | VALUE: " + params.histogram[type][entity]
+//             ));
 
-            histogram[type][entity] = maxValue;
-          }
-          else if (params.histogram[type][entity] <= 0){
+//             histogram[type][entity] = maxValue;
+//           }
+//           else if (params.histogram[type][entity] <= 0){
 
-            modifiedFlag = true;
+//             modifiedFlag = true;
 
-            console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE <= 0 | SET TO 1"
-              + " | NID: " + params.nodeId
-              + " | @" + params.screenName
-              + " | TYPE: " + type
-              + " | ENTITY: " + entity
-              + " | VALUE: " + params.histogram[type][entity]
-            ));
+//             console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE <= 0 | SET TO 1"
+//               + " | NID: " + params.nodeId
+//               + " | @" + params.screenName
+//               + " | TYPE: " + type
+//               + " | ENTITY: " + entity
+//               + " | VALUE: " + params.histogram[type][entity]
+//             ));
 
-            histogram[type][entity] = 1;
-          }
-          else{
-            histogram[type][entity] = params.histogram[type][entity];
-          }
+//             histogram[type][entity] = 1;
+//           }
+//           else{
+//             histogram[type][entity] = params.histogram[type][entity];
+//           }
 
-        }
-      }
-    }
+//         }
+//       }
+//     }
 
-  }
+//   }
 
-  return { histogram: histogram, modifiedFlag: modifiedFlag };
-}
+//   return { histogram: histogram, modifiedFlag: modifiedFlag };
+// }
 
 configEvents.once("INIT_MONGODB", function(){
   console.log(chalkLog(MODULE_ID_PREFIX + " | INIT_MONGODB"));
@@ -1488,8 +1481,9 @@ const categorizedUsers = {};
 categorizedUsers.left = 0;
 categorizedUsers.neutral = 0;
 categorizedUsers.right = 0;
-
-// const defaultPeriod = 5;
+categorizedUsers.positive = 0;
+categorizedUsers.negative = 0;
+categorizedUsers.none = 0;
 
 async function cursorDataHandlerPromise(user){
 
@@ -1568,26 +1562,26 @@ async function cursorDataHandler(user){
     return;
   }
 
-  // if (!user.friends || user.friends == undefined) {
-  //   user.friends = [];
-  // }
-  // else{
-  //   user.friends = _.slice(user.friends, 0, configuration.maxUserFriends);
-  // }
+  if (!user.friends || user.friends === undefined) {
+    user.friends = [];
+  }
+  else{
+    user.friends = _.slice(user.friends, 0, configuration.maxUserFriends);
+  }
 
-  // const catUser = await categorizeUser({
-  //   user: user, 
-  //   verbose: configuration.verbose, 
-  //   testMode: configuration.testMode
-  // });
+  const catUser = await categorizeUser({
+    user: user, 
+    verbose: configuration.verbose, 
+    testMode: configuration.testMode
+  });
 
-  await tcUtils.updateGlobalHistograms({user: user, verbose: true});
+  await tcUtils.updateGlobalHistograms({user: catUser, verbose: true});
 
-  const hash = await tcUtils.hashUserId({nodeId: user.nodeId}); // 1000 buckets/subfolders by default
+  const hash = await tcUtils.hashUserId({nodeId: catUser.nodeId}); // 1000 buckets/subfolders by default
   const subFolder = hash.toString().padStart(8,"0");
 
   const folder = path.join(configuration.userDataFolder, subFolder);
-  const file = user.nodeId + ".json";
+  const file = catUser.nodeId + ".json";
 
   if (configuration.enableCreateUserArchive){ subFolderSet.add(subFolder); }
 
@@ -1598,7 +1592,7 @@ async function cursorDataHandler(user){
     verbose: configuration.verbose
   });
 
-  categorizedUsers[user.category] += 1;
+  categorizedUsers[catUser.category] += 1;
   statsObj.categorizedCount += 1;
 
   if (statsObj.categorizedCount > 0 && statsObj.categorizedCount % 100 === 0){
@@ -1608,6 +1602,9 @@ async function cursorDataHandler(user){
       + " | L: " + categorizedUsers.left
       + " | N: " + categorizedUsers.neutral
       + " | R: " + categorizedUsers.right
+      + " | +: " + categorizedUsers.positive
+      + " | -: " + categorizedUsers.negative
+      + " | 0: " + categorizedUsers.none
     ));
   }
 
@@ -2055,6 +2052,8 @@ let showStatsInterval;
 
 setTimeout(async function(){
 
+      console.log(chalkAlert(MODULE_ID_PREFIX + " | setTimeout"));
+
   try{
 
     showStatsInterval = setInterval(function(){
@@ -2186,12 +2185,12 @@ setTimeout(async function(){
     slackText = slackText + "\nUSERS ARCHIVED: " + statsObj.users.grandTotal;
     slackText = slackText + "\nEMPTY: " + statsObj.users.processed.empty;
     slackText = slackText + "\nERRORS: " + statsObj.users.processed.errors;
-    slackText = slackText + "\nLEFT: " + categorizedUserHistogram.left;
-    slackText = slackText + "\nRIGHT: " + categorizedUserHistogram.right;
-    slackText = slackText + "\nNEUTRAL: " + categorizedUserHistogram.neutral;
-    slackText = slackText + "\nPOSITIVE: " + categorizedUserHistogram.positive;
-    slackText = slackText + "\nNEGATIVE: " + categorizedUserHistogram.negative;
-    slackText = slackText + "\nNONE: " + categorizedUserHistogram.none;
+    slackText = slackText + "\nLEFT: " + categorizedUsers.left;
+    slackText = slackText + "\nRIGHT: " + categorizedUsers.right;
+    slackText = slackText + "\nNEUTRAL: " + categorizedUsers.neutral;
+    slackText = slackText + "\nPOSITIVE: " + categorizedUsers.positive;
+    slackText = slackText + "\nNEGATIVE: " + categorizedUsers.negative;
+    slackText = slackText + "\nNONE: " + categorizedUsers.none;
 
     await slackSendWebMessage({channel: slackChannel, text: slackText});
 
