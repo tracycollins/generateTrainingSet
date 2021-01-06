@@ -1559,6 +1559,7 @@ async function cursorDataHandler(user){
         + "/" + statsObj.users.processed.errors
         + "/" + statsObj.users.grandTotal
         + " | CAT: " + formatCategory(user.category) 
+        + " | FLWRs: " + user.followersCount
         + " | FRNDs: " + (user.friends ? user.friends.length : 0)
         + " | PF HIST: " + (user.profileHistograms ? Object.keys(user.profileHistograms).length : 0)
         + " | TW HIST: " + (user.tweetHistograms ? Object.keys(user.tweetHistograms).length : 0)
