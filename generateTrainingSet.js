@@ -1563,6 +1563,7 @@ async function cursorDataHandler(user){
         + " | FRNDs: " + (user.friends ? user.friends.length : 0)
         + " | PF HIST: " + (user.profileHistograms ? Object.keys(user.profileHistograms).length : 0)
         + " | TW HIST: " + (user.tweetHistograms ? Object.keys(user.tweetHistograms).length : 0)
+        + " | NID: " + user.nodeId 
         + " | @" + user.screenName 
       )); 
     }
