@@ -1544,7 +1544,11 @@ async function cursorDataHandler(user){
     return;
   }
   
-  if (empty(user.friends) && empty(user.profileHistograms) && empty(user.tweetHistograms)){
+  if (
+    (user.friends === undefined || !user.friends || user.friends.length === 0) 
+    && (user.profileHistograms === undefined || !user.profileHistograms || Object.keys(user.profileHistograms).length === 0)
+    && (user.tweetHistograms === undefined || !user.tweetHistograms || Object.keys(user.tweetHistograms).length === 0)
+  ){
 
     statsObj.users.processed.empty += 1;
 
