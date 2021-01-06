@@ -109,7 +109,7 @@ const ONE_GIGABYTE = 1024 * ONE_MEGABYTE;
 
 const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 
-const DEFAULT_SERVER_MODE = false;
+// const DEFAULT_SERVER_MODE = false;
 const DEFAULT_QUIT_ON_COMPLETE = false;
 const DEFAULT_TEST_RATIO = 0.20;
 
@@ -1534,6 +1534,8 @@ function isValidUser(user){
   return true;
 }
 
+const formatCategory = tcUtils.formatCategory;
+
 async function cursorDataHandler(user){
   
   if (!isValidUser(user)){
@@ -1546,7 +1548,7 @@ async function cursorDataHandler(user){
 
     statsObj.users.processed.empty += 1;
 
-    if (statsObj.users.processed.empty % 100 === 0){
+    if (configuration.testMode || statsObj.users.processed.empty % 100 === 0){
       console.log(chalkWarn(MODULE_ID_PREFIX 
         + " | --- EMPTY HISTOGRAMS"
         + " | SKIPPING"
@@ -1556,6 +1558,10 @@ async function cursorDataHandler(user){
         + "/" + statsObj.users.processed.empty 
         + "/" + statsObj.users.processed.errors
         + "/" + statsObj.users.grandTotal
+        + " | CAT: " + formatCategory(user.category) 
+        + " | FRNDs: " + (user.friends ? user.friends.length : 0)
+        + " | PF HIST: " + (user.profileHistograms ? Object.keys(user.profileHistograms).length : 0)
+        + " | TW HIST: " + (user.tweetHistograms ? Object.keys(user.tweetHistograms).length : 0)
         + " | @" + user.screenName 
       )); 
     }
@@ -1672,7 +1678,6 @@ async function categoryCursorStream(params){
   if (configuration.testMode) {
     cursor = global.wordAssoDb.User
     .find(query, {timeout: false})
-    // .sort({nodeId: 1})
     .lean()
     .batchSize(batchSize)
     .limit(maxArchivedCount)
@@ -1683,7 +1688,6 @@ async function categoryCursorStream(params){
   else{
     cursor = global.wordAssoDb.User
     .find(query, {timeout: false})
-    // .sort({nodeId: 1})
     .lean()
     .batchSize(batchSize)
     .session(session)
