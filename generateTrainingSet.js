@@ -1718,14 +1718,9 @@ async function categoryCursorStream(params){
 
   if (statsObj.users.processed.startMoment === 0) { statsObj.users.processed.startMoment = moment(); }
 
-
   await cursor.eachAsync(async function(user){
     await cursorDataHandlerPromise(user);
-  });
-
-  // await cursor.eachAsync(async function(user){
-  //   await cursorDataHandlerPromise(user);
-  // }, {parallel: cursorParallel});
+  }, {parallel: cursorParallel});
 
   console.log(chalkBlueBold(MODULE_ID_PREFIX 
     + " | categoryCursorStream CURSOR COMPLETE"
