@@ -149,7 +149,6 @@ const DEFAULT_USER_PROPERTY_PICK_ARRAY = [
   "following", 
   "friends",
   "friendsCount",
-  "histograms", 
   "ignored", 
   "lang",
   "languageAnalysis", 
@@ -1279,8 +1278,8 @@ async function categorizeUser(params){
     if (params.verbose) {
       console.log(chalkInfo(MODULE_ID_PREFIX + " | -<- UPDATE CATEGORIZED USR <DB"
         + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.users.processed.errors + "]"
-        + " | " + user.nodeId
-        + " | @" + user.screenName
+        + " | " + subUser.nodeId
+        + " | @" + subUser.screenName
       ));
     }
 
@@ -1333,7 +1332,9 @@ const handleMongooseEvent = (eventObj) => {
   return;
 }
 
-async function cursorDataHandler(user){
+async function cursorDataHandler(params){
+
+  const user = params.user;
   
   statsObj.users.processed.total += 1;
   statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
@@ -1351,7 +1352,34 @@ async function cursorDataHandler(user){
     statsObj.users.processed.errors += 1;
     return;
   }
-  
+
+  if (user.profileHistograms.friends || user.tweetHistograms.friends){
+    // console.log(chalkAlert(`${MODULE_ID_PREFIX} | !!! FRIENDS IN PROFILE OR TWEETS HISTOGRAM !!! MERGING WITH USER.FRIENDS`))
+
+    if (user.tweetHistograms.friends){
+      console.log(chalkAlert(`${MODULE_ID_PREFIX} | *** FRIENDS IN TWEETS HISTOGRAM | NID: ${user.nodeId} | ${Array.isArray(user.tweetHistograms.friends) ? user.tweetHistograms.friends.length : "NOT ARRAY"}`))
+
+      // const userDb = await global.wordAssoDb.User.findOne({nodeId: user.nodeId})
+
+      if (Array.isArray(user.tweetHistograms.friends) && user.tweetHistograms.friends.length > 0){
+        console.log(`${MODULE_ID_PREFIX} | *** FRIENDS: ${user.friends.length} | TW HIST FRIENDS: ${user.tweetHistograms.friends.length}`)
+        user.friends = user.friends === undefined || user.friends.length === 0 ? user.tweetHistograms.friends : _.union(user.friends, user.tweetHistograms.friends)
+        console.log(`${MODULE_ID_PREFIX} | *** FRIENDS MERGED: ${user.friends.length}`)
+      }
+
+      console.log(`${MODULE_ID_PREFIX} | *** UPDATE DB USER: ${user.nodeId}`)
+
+      user.tweetHistograms.friends = null;
+
+      user.markModified("friends")
+      user.markModified("tweetHistograms")
+
+      await user.updateOne({friends: 1, tweetHistograms: 1});
+
+      // user = savedUser.toObject();
+    }
+  }
+
   if (
     (user.friends === undefined || !user.friends || user.friends.length === 0) 
     && (user.profileHistograms === undefined || !user.profileHistograms || Object.keys(user.profileHistograms).length === 0)
@@ -1408,7 +1436,8 @@ async function cursorDataHandler(user){
   const saveFileQueue = tcUtils.saveFileQueue({
     folder: folder,
     file: file,
-    obj: user,
+    // obj: user,
+    obj: catUser,
     verbose: configuration.verbose
   });
 
@@ -1459,14 +1488,14 @@ async function categoryCursorStream(params){
 
   const batchSize = params.batchSize || configuration.batchSize;
 
-  let maxArchivedCount;
+  let maxArchivedCount = null;
 
   if (configuration.testMode) {
     maxArchivedCount = configuration.maxTestCount[params.category];
   }
-  else{
-    maxArchivedCount = statsObj.userCategoryTotal[params.category];
-  }
+  // else{
+  //   maxArchivedCount = statsObj.userCategoryTotal[params.category];
+  // }
 
   console.log(chalkGreen("\n" + MODULE_ID_PREFIX
     + " | =============================================================================================================="
@@ -1497,6 +1526,7 @@ async function categoryCursorStream(params){
 
   const cursor = await mgUtils.initCursor({
     query: query,
+    // cursorSkip: 2000, // testing
     cursorLimit: maxArchivedCount,
     cursorLean: null,
   })
@@ -1526,7 +1556,7 @@ async function categoryCursorStream(params){
           return;
         }
 
-        await cursorDataHandler(user)
+        await cursorDataHandler({user: user})
         await fetchReady()
         fetchUserReady = true;
       }
