@@ -13,7 +13,6 @@ const MODULE_ID_PREFIX = "GTS";
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
 const DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY = false;
-const DEFAULT_CURSOR_PARALLEL = 8;
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
 const DEFAULT_SAVE_FILE_BACKPRESSURE_PERIOD = 10; // ms
@@ -26,7 +25,6 @@ const DEFAULT_INTERVAL = 5;
 const DEFAULT_REDIS_SCAN_COUNT = 1000;
 const DEFAULT_USERS_PER_ARCHIVE = 10000;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
-const DEFAULT_RESAVE_USER_DOCS_FLAG = false;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_MAX_USER_FRIENDS = 10000;
 
@@ -109,8 +107,7 @@ const ONE_GIGABYTE = 1024 * ONE_MEGABYTE;
 
 const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 
-// const DEFAULT_SERVER_MODE = false;
-const DEFAULT_QUIT_ON_COMPLETE = false;
+const DEFAULT_QUIT_ON_COMPLETE = true;
 const DEFAULT_TEST_RATIO = 0.20;
 
 const path = require("path");
@@ -123,7 +120,6 @@ const util = require("util");
 const _ = require("lodash");
 const HashMap = require("hashmap").HashMap;
 const pick = require("object.pick");
-const EventEmitter3 = require("eventemitter3");
 const debug = require("debug")("gts");
 const commandLineArgs = require("command-line-args");
 const empty = require("is-empty");
@@ -244,17 +240,11 @@ let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 configuration.maxUserFriends = DEFAULT_MAX_USER_FRIENDS;
 configuration.saveFileBackPressurePeriod = DEFAULT_SAVE_FILE_BACKPRESSURE_PERIOD;
 configuration.saveGlobalHistogramsOnly = DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY;
-// configuration.splitSizeMB = DEFAULT_SPLIT_SIZE_MB;
-// configuration.splitSizeKeys = DEFAULT_SPLIT_SIZE_KEYS;
 configuration.enableCreateUserArchive = DEFAULT_ENABLE_CREATE_USER_ARCHIVE;
 configuration.maxCursorDataHandlerQueue = DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE;
 configuration.redisScanCount = DEFAULT_REDIS_SCAN_COUNT;
-// configuration.updateMaxInputHashMapLimit = DEFAULT_MAX_INPUT_HASHMAP_LIMIT;
-// configuration.waitValueInterval = DEFAULT_WAIT_VALUE_INTERVAL;
 configuration.saveFileMaxParallel = DEFAULT_SAVE_FILE_MAX_PARALLEL;
 configuration.usersPerArchive = DEFAULT_USERS_PER_ARCHIVE;
-configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
-configuration.reSaveUserDocsFlag = DEFAULT_RESAVE_USER_DOCS_FLAG;
 configuration.batchSize = DEFAULT_BATCH_SIZE;
 configuration.saveFileQueueInterval = DEFAULT_SAVE_FILE_QUEUE_INTERVAL;
 configuration.maxSaveFileQueue = DEFAULT_MAX_SAVE_FILE_QUEUE;
@@ -332,22 +322,31 @@ configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
 configuration.userArchivePath = configuration[HOST].userArchivePath;
 
-console.log(chalkAlert(MODULE_ID_PREFIX + " | DEBUG 0"));
-
 fs.mkdirSync(configuration.tempUserDataFolder, { recursive: true });
 fs.mkdirSync(configuration[HOST].userArchiveFolder, { recursive: true });
 
-let mongooseDb;
-
 global.wordAssoDb = require("@threeceelabs/mongoose-twitter");
 
-const tcuChildName = MODULE_ID_PREFIX + "_TCU";
+const mguAppName = MODULE_ID_PREFIX + "_MGU";
+const MongooseUtilities = require("@threeceelabs/mongoose-utilities");
+const mgUtils = new MongooseUtilities(mguAppName);
+
+mgUtils.on("ready", async () => {
+  console.log(`${MODULE_ID_PREFIX} | +++ MONGOOSE UTILS READY: ${mguAppName}`);
+})
+
+const tcuAppName = MODULE_ID_PREFIX + "_TCU";
 const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
-const tcUtils = new ThreeceeUtilities(tcuChildName);
+const tcUtils = new ThreeceeUtilities(tcuAppName);
+
 const redisClient = tcUtils.redisClient;
 const jsonPrint = tcUtils.jsonPrint;
 const getTimeStamp = tcUtils.getTimeStamp;
 const msToTime = tcUtils.msToTime;
+
+tcUtils.on("ready", async () => {
+  console.log(`${MODULE_ID_PREFIX} | +++ THREECEE UTILS READY: ${tcuAppName}`);
+})
 
 const UserServerController = require("@threeceelabs/user-server-controller");
 const userServerController = new UserServerController(MODULE_ID_PREFIX + "_USC");
@@ -364,7 +363,6 @@ process.on("unhandledRejection", async function(err, promise) {
   console.trace("Unhandled rejection (promise: ", promise, ", reason: ", err, ").");
   process.exit();
 });
-
 
 function toMegabytes(sizeInBytes) {
   return sizeInBytes/ONE_MEGABYTE;
@@ -401,15 +399,7 @@ const categorizedUserHistogramTotal = function(){
   categorizedUserHistogram.total += categorizedUserHistogram.none;
 
   return;
-  // return categorizedUserHistogram.total;
 }
-
-const configEvents = new EventEmitter3({
-  wildcard: true,
-  newListener: true,
-  maxListeners: 20,
-  verboseMemoryLeak: true
-});
 
 let stdin;
 
@@ -428,7 +418,6 @@ const channelsHashMap = new HashMap();
 
 async function slackSendWebMessage(msgObj){
   try{
-
     const channel = msgObj.channel || configuration.slackChannel.id;
     const text = msgObj.text || msgObj;
 
@@ -436,7 +425,6 @@ async function slackSendWebMessage(msgObj){
       text: text,
       channel: channel,
     });
-
   }
   catch(err){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** slackSendWebMessage ERROR: " + err));
@@ -556,7 +544,6 @@ const testObj = {};
 testObj.testRunId = statsObj.runId;
 testObj.results = {};
 testObj.testSet = [];
-console.log(chalkAlert(MODULE_ID_PREFIX + " | DEBUG 1"));
 
 process.title = "node_gts";
 console.log("\n\nGTS | =================================");
@@ -876,19 +863,6 @@ async function loadConfigFile(params) {
       }
     }
 
-    if (loadedConfigObj.GTS_RESAVE_USER_DOCS_FLAG !== undefined) {
-      console.log(MODULE_ID_PREFIX + " | LOADED GTS_RESAVE_USER_DOCS_FLAG: " + loadedConfigObj.GTS_RESAVE_USER_DOCS_FLAG);
-      if ((loadedConfigObj.GTS_RESAVE_USER_DOCS_FLAG === false) || (loadedConfigObj.GTS_RESAVE_USER_DOCS_FLAG === "false")) {
-        newConfiguration.reSaveUserDocsFlag = false;
-      }
-      else if ((loadedConfigObj.GTS_RESAVE_USER_DOCS_FLAG === true) || (loadedConfigObj.GTS_RESAVE_USER_DOCS_FLAG === "true")) {
-        newConfiguration.reSaveUserDocsFlag = true;
-      }
-      else {
-        newConfiguration.reSaveUserDocsFlag = false;
-      }
-    }
-
     if (loadedConfigObj.GTS_QUIT_ON_COMPLETE !== undefined) {
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_QUIT_ON_COMPLETE: " + loadedConfigObj.GTS_QUIT_ON_COMPLETE);
       if (!loadedConfigObj.GTS_QUIT_ON_COMPLETE || (loadedConfigObj.GTS_QUIT_ON_COMPLETE === "false")) {
@@ -952,11 +926,6 @@ async function loadConfigFile(params) {
     if (loadedConfigObj.GTS_MAX_USER_FRIENDS !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_MAX_USER_FRIENDS: " + loadedConfigObj.GTS_MAX_USER_FRIENDS);
       newConfiguration.maxUserFriends = loadedConfigObj.GTS_MAX_USER_FRIENDS;
-    }
-
-    if (loadedConfigObj.GTS_CURSOR_PARALLEL !== undefined){
-      console.log(MODULE_ID_PREFIX + " | LOADED GTS_CURSOR_PARALLEL: " + loadedConfigObj.GTS_CURSOR_PARALLEL);
-      newConfiguration.cursorParallel = loadedConfigObj.GTS_CURSOR_PARALLEL;
     }
 
     if (loadedConfigObj.GTS_USERS_PER_ARCHIVE !== undefined){
@@ -1131,152 +1100,6 @@ async function initWatchAllConfigFolders(p){
   }
 }
 
-// async function clampHistogram(params){
-
-//   const histogramTypes = Object.keys(params.histogram);
-//   const maxValue = params.maxValue || configuration.maxHistogramValue;
-
-//   const histogram = {};
-
-//   let modifiedFlag = false;
-
-//   for (const type of histogramTypes){
-
-//     // if (type === "friends"){
-//     //   continue;
-//     // }
-
-//     if (type !== "friends"){
-//       histogram[type] = {};
-
-//       const entities = Object.keys(params.histogram[type]);
-
-//       for (const entity of entities){
-
-//         if (entity.startsWith("[") || typeof entity !== "string"){
-
-//           modifiedFlag = true;
-
-//           console.log(chalkAlert(MODULE_ID_PREFIX + " | *** ENTITY ERROR"
-//             + " | TYPE: " + type
-//             + " | NID: " + params.nodeId
-//             + " | @" + params.screenName
-//             + " | ENTITY: " + entity
-//             + " | typeof ENTITY: " + typeof entity
-//             + " | params.histogram[type][entity]: " + params.histogram[type][entity]
-//           ));
-
-//           if (type === "media" && entity.startsWith("[object Object]")){
-//             delete params.histogram[type][entity];
-//           }
-
-//           if (type === "hashtag" && entity.startsWith("[#")){
-//             const newEntity = entity.slice(1);
-//             // if (histogram[type][newEntity] === undefined) { histogram[type][newEntity] = 1; }
-//             histogram[type][newEntity] = Math.min(maxValue, params.histogram[type][entity]) || 1;
-//             params.histogram[type][newEntity] = histogram[type][newEntity];
-//             delete params.histogram[type][entity];
-//           }
-//         }
-//         else{
-
-//           if (params.histogram[type][entity] > maxValue){
-
-//             modifiedFlag = true;
-
-//             console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE CLAMPED: " + maxValue
-//               + " | NID: " + params.nodeId
-//               + " | @" + params.screenName
-//               + " | TYPE: " + type
-//               + " | ENTITY: " + entity
-//               + " | MAX VALUE: " + maxValue
-//               + " | VALUE: " + params.histogram[type][entity]
-//             ));
-
-//             histogram[type][entity] = maxValue;
-//           }
-//           else if (params.histogram[type][entity] <= 0){
-
-//             modifiedFlag = true;
-
-//             console.log(chalkAlert(MODULE_ID_PREFIX + " | -*- HISTOGRAM VALUE <= 0 | SET TO 1"
-//               + " | NID: " + params.nodeId
-//               + " | @" + params.screenName
-//               + " | TYPE: " + type
-//               + " | ENTITY: " + entity
-//               + " | VALUE: " + params.histogram[type][entity]
-//             ));
-
-//             histogram[type][entity] = 1;
-//           }
-//           else{
-//             histogram[type][entity] = params.histogram[type][entity];
-//           }
-
-//         }
-//       }
-//     }
-
-//   }
-
-//   return { histogram: histogram, modifiedFlag: modifiedFlag };
-// }
-
-configEvents.once("INIT_MONGODB", function(){
-  console.log(chalkLog(MODULE_ID_PREFIX + " | INIT_MONGODB"));
-});
-
-// async function updateUserHistograms(params){
-
-//   const user = params.user;
-
-//   const dbUpdateParams = {};
-
-//   dbUpdateParams.profileHistograms = {};
-//   dbUpdateParams.tweetHistograms = {};
-
-//   const resultsProfileHistograms = await clampHistogram({
-//     nodeId: params.user.nodeId, 
-//     screenName: params.user.screenName, 
-//     histogram: params.user.profileHistograms
-//   });
-
-//   const resultsTweetHistograms = await clampHistogram({
-//     nodeId: params.user.nodeId, 
-//     screenName: params.user.screenName,
-//     histogram: params.user.tweetHistograms
-//   });
-
-//   if (params.updateUserInDb && (resultsProfileHistograms.modifiedFlag || resultsTweetHistograms.modifiedFlag)){
-
-//     const update = {};
-
-//     if (resultsProfileHistograms.modifiedFlag){ 
-//       update.profileHistograms = resultsProfileHistograms.histogram; 
-//     }
-
-//     if (resultsTweetHistograms.modifiedFlag){ 
-//       update.tweetHistograms = resultsTweetHistograms.histogram; 
-//     }
-
-//     const dbUpdatedUser = await global.wordAssoDb.User.findOneAndUpdate({ nodeId: params.user.nodeId }, update);
-
-//     console.log(chalkInfo(MODULE_ID_PREFIX + " | +++ UPDATED "
-//       + " | NID: " + dbUpdatedUser.nodeId
-//       + " | @" + dbUpdatedUser.screenName
-//       + " | PROFILE HISTOGRAM: " + resultsProfileHistograms.modifiedFlag
-//       + " | TWEET HISTOGRAM: " + resultsTweetHistograms.modifiedFlag
-//     ));
-
-//   }
-
-//   // const mergedHistograms = merge(user.profileHistograms, user.tweetHistograms);
-
-//   // await updateMaxInputHashMap({ histograms: mergedHistograms });
-
-//   return user;
-// }
-
 async function updateCategorizedUser(params){
 
   if (!params.user || params.user === undefined) {
@@ -1422,8 +1245,6 @@ async function updateCategorizedUser(params){
   }
 }
 
-// const categorizedNodeQueue = [];
-
 let userIndex = 0;
 
 async function categorizeUser(params){
@@ -1437,7 +1258,6 @@ async function categorizeUser(params){
       statsObj.users.processed.errors += 1;
 
       console.log(chalkAlert(MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USR NOT FOUND: "
-        // + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
         + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.users.processed.errors + " ]"
         + " | USER ID: " + params.nodeId
       ));
@@ -1458,7 +1278,6 @@ async function categorizeUser(params){
 
     if (params.verbose) {
       console.log(chalkInfo(MODULE_ID_PREFIX + " | -<- UPDATE CATEGORIZED USR <DB"
-        // + " [ CNIDQ: " + categorizedNodeQueue.length + "]"
         + " [ USERS: " + userIndex + " / ERRORS: " + statsObj.users.processed.errors + "]"
         + " | " + user.nodeId
         + " | @" + user.screenName
@@ -1485,48 +1304,6 @@ categorizedUsers.positive = 0;
 categorizedUsers.negative = 0;
 categorizedUsers.none = 0;
 
-async function cursorDataHandlerPromise(user){
-
-  try {
-
-    await cursorDataHandler(user);
-
-    statsObj.users.processed.total += 1;
-    statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
-    statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
-    statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
-    statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
-    statsObj.users.processed.endMoment = moment();
-    statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
-    statsObj.users.processed.percent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
-
-    statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;    
-
-    const saveFileQueue = tcUtils.getSaveFileQueue();
-    const queueOverShoot = saveFileQueue - configuration.maxSaveFileQueue;
-
-    if (queueOverShoot > 0){
-
-      const period = queueOverShoot * configuration.saveFileBackPressurePeriod;
-
-      await wait({
-        message: "BK PRSSR | SFQ: " + saveFileQueue, 
-        period: period,
-        verbose: configuration.verbose
-      });
-    }
-
-    return;
-
-  }
-  catch(err){
-    console.log(chalkError(MODULE_ID_PREFIX
-      + " | *** cursorDataHandlerPromise ERROR: " + err
-    ));
-  }
-
-}
-
 function isValidUser(user){
   if (!user || user === undefined || user === {} || typeof user !== "object") { return false; }
   if (!user.screenName || user.screenName === undefined) { return false; }
@@ -1536,8 +1313,39 @@ function isValidUser(user){
 
 const formatCategory = tcUtils.formatCategory;
 
+const handleMongooseEvent = (eventObj) => {
+
+  console.log({eventObj})
+
+  switch (eventObj.event){
+    case "end":
+    case "close":
+      console.log(`${MODULE_ID_PREFIX} | CURSOR EVENT: ${eventObj.event.toUpperCase()}`)
+    break;
+
+    case "error":
+      console.error(`${MODULE_ID_PREFIX} | CURSOR ERROR: ${eventObj.err}`)
+    break;
+
+    default:
+      console.error(`*** UNKNOWN EVENT: ${eventObj.event}`)
+  }
+  return;
+}
+
 async function cursorDataHandler(user){
   
+  statsObj.users.processed.total += 1;
+  statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
+  statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
+  statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
+  statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
+  statsObj.users.processed.endMoment = moment();
+  statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
+  statsObj.users.processed.percent = 100 * (statsObj.users.notCategorized + statsObj.users.processed.total)/statsObj.users.grandTotal;
+
+  statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;    
+
   if (!isValidUser(user)){
     console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! INVALID USER ... SKIPPING\n" + jsonPrint(user)));
     statsObj.users.processed.errors += 1;
@@ -1623,21 +1431,35 @@ async function cursorDataHandler(user){
   return;
 }
 
+const fetchReady = async () => {
+
+  const saveFileQueue = tcUtils.getSaveFileQueue();
+  const queueOverShoot = saveFileQueue - configuration.maxSaveFileQueue;
+
+  if (queueOverShoot <= 0) {
+    return;
+  }
+
+  const period = queueOverShoot * configuration.saveFileBackPressurePeriod;
+
+  await wait({
+    message: "BK PRSSR | SFQ: " + saveFileQueue, 
+    period: period,
+    verbose: configuration.verbose
+  });
+
+  return;
+
+}
+
 async function categoryCursorStream(params){
 
   statsObj.status = "categoryCursorStream";
-
   statsObj.categorizedCount = 0;
 
   const batchSize = params.batchSize || configuration.batchSize;
-  const cursorParallel = params.cursorParallel || configuration.cursorParallel;
-  const reSaveUserDocsFlag = params.reSaveUserDocsFlag || configuration.reSaveUserDocsFlag;
 
   let maxArchivedCount;
-
-  if (reSaveUserDocsFlag) {
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! RESAVE_USER_DOCS_FLAG: " + reSaveUserDocsFlag));
-  }
 
   if (configuration.testMode) {
     maxArchivedCount = configuration.maxTestCount[params.category];
@@ -1667,65 +1489,55 @@ async function categoryCursorStream(params){
   const query = {};
   query.category = params.category;
 
-  let cursor;
-
-  const session = await mongooseDb.startSession();
-
-  debug("MONGO DB SESSION\n" + session.id);
-
   console.log(chalkBlue(MODULE_ID_PREFIX
     + " | categoryCursorStream"
     + " | batchSize: " + batchSize
-    + " | cursorParallel: " + cursorParallel
     + " | maxArchivedCount: " + maxArchivedCount
-    + " | reSaveUserDocsFlag: " + reSaveUserDocsFlag
   ));
 
-  if (configuration.testMode) {
-    cursor = global.wordAssoDb.User
-    .find(query, {timeout: false})
-    .lean()
-    .batchSize(batchSize)
-    .limit(maxArchivedCount)
-    .session(session)
-    .cursor()
-    .addCursorFlag("noCursorTimeout", true);
-  }
-  else{
-    cursor = global.wordAssoDb.User
-    .find(query, {timeout: false})
-    .lean()
-    .batchSize(batchSize)
-    .session(session)
-    .cursor()
-    .addCursorFlag("noCursorTimeout", true);
-  }
+  const cursor = await mgUtils.initCursor({
+    query: query,
+    cursorLimit: maxArchivedCount,
+    cursorLean: null,
+  })
+  
+  cursor.on("error", async (err) => handleMongooseEvent({event: "error", err: err}));
+  cursor.on("end", async () => handleMongooseEvent({event: "end"}));
+  cursor.on("close", async () => handleMongooseEvent({event: "close"}));
 
-  cursor.on("end", function() {
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | --- categoryCursorStream CURSOR END"));
-  });
+  let fetchUserReady = true;
 
-  cursor.on("error", function(err) {
-    console.log(chalkError(MODULE_ID_PREFIX + " | *** ERROR categoryCursorStream: CURSOR ERROR: " + err));
-    throw err;
-  });
-
-  cursor.on("close", function() {
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | XXX categoryCursorStream CURSOR CLOSE"));
-  });
+  statsObj.users.fetched = 0;
+  statsObj.users.skipped = 0;
 
   if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
-
   if (statsObj.users.processed.startMoment === 0) { statsObj.users.processed.startMoment = moment(); }
 
-  await cursor.eachAsync(async function(user){
-    await cursorDataHandlerPromise(user);
-  }, {parallel: cursorParallel});
+  const fetchUserInterval = setInterval(async () => {
 
-  console.log(chalkBlueBold(MODULE_ID_PREFIX 
-    + " | categoryCursorStream CURSOR COMPLETE"
-    + " | CATEGORY: " + params.category
-  ));
+    if (fetchUserReady) {
+      try {
+
+        fetchUserReady = false;
+        const user = await cursor.next();
+
+        if (!user){
+          clearInterval(fetchUserInterval)
+          return;
+        }
+
+        await cursorDataHandler(user)
+        await fetchReady()
+        fetchUserReady = true;
+      }
+      catch (err) {
+        console.error(`${MODULE_ID_PREFIX} | *** ERROR: ${err}`)
+        fetchUserReady = true;
+      }
+
+    } 
+
+  }, configuration.cursorInterval);
 
   return;
 }
@@ -1785,12 +1597,8 @@ function wait(params){
     }
 
     if (params.message && params.verbose) {
-      console.log(chalkLog(MODULE_ID_PREFIX 
-        + " | " + params.message 
-        + " | PERIOD: " + params.period + " MS"
-      ));
+      console.log(chalkLog(`${MODULE_ID_PREFIX} | ${params.message} | PERIOD: ${params.period} MS`));
     }
-
 
     const start = moment().valueOf();
 
@@ -1805,12 +1613,7 @@ function wait(params){
         clearInterval(w);
 
         if (params.verbose) {
-          console.log(chalkLog(MODULE_ID_PREFIX 
-            + " | XXX WAIT END BACK PRESSURE"
-            + " | SFQ: " + saveFileQueue
-            + " | PERIOD: " + params.period + " MS"
-            + " | TOTAL WAIT: " + deltaMS + " MS"
-          ));
+          console.log(chalkLog(`${MODULE_ID_PREFIX} | XXX WAIT END BACK PRESSURE | SFQ: ${saveFileQueue} | PERIOD: ${params.period} MS | TOTAL WAIT: ${deltaMS} MS`));
         }
 
         return resolve(true);
@@ -2004,7 +1807,7 @@ async function initialize(cnf){
   
   statsObj.commandLineArgsLoaded = true;
 
-  mongooseDb = await connectDb();
+  await connectDb();
 
   return configuration;
 }
@@ -2042,16 +1845,8 @@ async function generateGlobalTrainingTestSet(){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | MAX SAVE FILE QUEUE: " + configuration.maxSaveFileQueue));
   }
 
-  let maxCategoryArchivedCount;
-
   for(const category of ["left", "neutral", "right"]){
-    await categoryCursorStream({
-      category: category, 
-      // query: query, 
-      reSaveUserDocsFlag: configuration.reSaveUserDocsFlag, 
-      maxArchivedCount: maxCategoryArchivedCount
-    });
-
+    await categoryCursorStream({ category: category });
   }
 
   return;
@@ -2060,8 +1855,6 @@ async function generateGlobalTrainingTestSet(){
 let showStatsInterval;
 
 setTimeout(async function(){
-
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | setTimeout"));
 
   try{
 
@@ -2108,10 +1901,8 @@ setTimeout(async function(){
       await initWatchAllConfigFolders();
       await generateGlobalTrainingTestSet();
       await endSaveFileQueue();
-      categorizedUserHistogramTotal();
 
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | ... WAIT 30 SEC FOR TMP USER DATA FILES TO STABILIZE ..."));
-      await delay({period: 30*ONE_SECOND});
+      categorizedUserHistogramTotal();
 
       const saveFileQueue = tcUtils.getSaveFileQueue();
 
@@ -2204,13 +1995,10 @@ setTimeout(async function(){
     await slackSendWebMessage({channel: slackChannel, text: slackText});
 
     await endSaveFileQueue();
-    console.log(chalkAlert(MODULE_ID_PREFIX + " | ... WAIT 30 SEC FOR FILES TO STABILIZE ..."));
-    await delay({period: 30*ONE_SECOND});
 
     clearInterval(showStatsInterval);
 
     await tcUtils.stopSaveFileQueue();
-
     await redisClient.quit();
 
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
