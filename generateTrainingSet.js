@@ -1353,6 +1353,27 @@ async function cursorDataHandler(params){
     return;
   }
 
+  if (user.friends === 1){
+    console.log(chalkAlert(`${MODULE_ID_PREFIX} | *** FRIENDS INVALID | NID: ${user.nodeId} ... FIXING ...`))
+    user.friends = [];
+    user.markModified("friends")
+    await user.save();
+  }
+
+  if (user.tweetHistograms === 1){
+    console.log(chalkAlert(`${MODULE_ID_PREFIX} | *** TWEETS HISTOGRAM INVALID | NID: ${user.nodeId} ... FIXING ...`))
+    user.tweetHistograms = {};
+    user.markModified("tweetHistograms")
+    await user.save();
+  }
+
+  if (user.tweetHistograms.friends === null){
+    console.log(chalkAlert(`${MODULE_ID_PREFIX} | *** TWEETS HISTOGRAM FRIENDS NULL | NID: ${user.nodeId} ... FIXING ...`))
+    delete user.tweetHistograms.friends;
+    user.markModified("tweetHistograms")
+    await user.save();  
+  }
+
   if (user.profileHistograms.friends || user.tweetHistograms.friends){
     // console.log(chalkAlert(`${MODULE_ID_PREFIX} | !!! FRIENDS IN PROFILE OR TWEETS HISTOGRAM !!! MERGING WITH USER.FRIENDS`))
 
@@ -1369,12 +1390,12 @@ async function cursorDataHandler(params){
 
       console.log(`${MODULE_ID_PREFIX} | *** UPDATE DB USER: ${user.nodeId}`)
 
-      user.tweetHistograms.friends = null;
+      delete user.tweetHistograms.friends;
 
       user.markModified("friends")
       user.markModified("tweetHistograms")
 
-      await user.updateOne({friends: 1, tweetHistograms: 1});
+      await user.save();
 
       // user = savedUser.toObject();
     }
