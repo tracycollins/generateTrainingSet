@@ -1876,7 +1876,7 @@ async function generateGlobalTrainingTestSet(){
 
   for(const category of ["left", "neutral", "right"]){
     const query = { "category": category };
-    statsObj.userCategoryTotal[category] = await global.wordAssoDb.User.find(query).countDocuments();
+    statsObj.userCategoryTotal[category] = await global.wordAssoDb.User.countDocuments(query);
     statsObj.users.grandTotal += statsObj.userCategoryTotal[category];
   }
 
