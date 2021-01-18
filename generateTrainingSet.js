@@ -1590,7 +1590,7 @@ async function categoryCursorStream(params){
 
   }, configuration.cursorInterval);
 
-  return;
+  // return;
 }
 
 let endSaveFileQueueInterval;
