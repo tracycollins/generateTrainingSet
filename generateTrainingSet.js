@@ -1573,6 +1573,7 @@ async function categoryCursorStream(params){
         const user = await cursor.next();
 
         if (!user){
+          console.log(chalkBlueBold(`${MODULE_ID_PREFIX} | categoryCursorStream | +++ ENDING FETCH USER INTERVAL | NO USER FROM DB CURSOR | CATEGORY: ${params.category}`))
           clearInterval(fetchUserInterval)
           return;
         }
@@ -1875,7 +1876,7 @@ async function generateGlobalTrainingTestSet(){
   statsObj.userCategoryTotal = {};
 
   for(const category of ["left", "neutral", "right"]){
-    const query = { "category": category };
+    const query = { "category": category, ignored: false };
     statsObj.userCategoryTotal[category] = await global.wordAssoDb.User.countDocuments(query);
     statsObj.users.grandTotal += statsObj.userCategoryTotal[category];
   }
@@ -1897,7 +1898,7 @@ async function generateGlobalTrainingTestSet(){
   }
 
   for(const category of ["left", "neutral", "right"]){
-    await categoryCursorStream({ category: category });
+    await categoryCursorStream({ category: category, ignored: false });
   }
 
   return;
