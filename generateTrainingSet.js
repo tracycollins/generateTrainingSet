@@ -55,7 +55,7 @@ DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.urls = 1;
 DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.userMentions = 5;
 DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.words = 100;
 
-const TOTAL_MAX_TEST_COUNT = 347;
+const TOTAL_MAX_TEST_COUNT = 100;
 
 const os = require("os");
 let hostname = os.hostname();
@@ -1314,21 +1314,26 @@ const formatCategory = tcUtils.formatCategory;
 
 const handleMongooseEvent = (eventObj) => {
 
-  console.log({eventObj})
+  // console.log({eventObj})
 
   switch (eventObj.event){
     case "end":
     case "close":
-      console.log(`${MODULE_ID_PREFIX} | CURSOR EVENT: ${eventObj.event.toUpperCase()}`)
+      console.log(chalkBlueBold(`${MODULE_ID_PREFIX} | CATEGORY: ${eventObj.category} | CURSOR EVENT: ${eventObj.event.toUpperCase()}`))
+      categoryCursorHash[eventObj.category].complete = true;
     break;
 
     case "error":
-      console.error(`${MODULE_ID_PREFIX} | CURSOR ERROR: ${eventObj.err}`)
+      console.error(chalkError(`${MODULE_ID_PREFIX} | CATEGORY: ${eventObj.category} | CURSOR ERROR: ${eventObj.err}`))
+      categoryCursorHash[eventObj.category].complete = true;
+      categoryCursorHash[eventObj.category].error = eventObj.err;
     break;
 
     default:
-      console.error(`*** UNKNOWN EVENT: ${eventObj.event}`)
+      console.error(chalkError(`*** CATEGORY: ${eventObj.category} | UNKNOWN EVENT: ${eventObj.event}`))
+      throw new Error(`${MODULE_ID_PREFIX} | UNKNOWN CURSOR EVENT: ${eventObj.event}`)
   }
+
   return;
 }
 
@@ -1512,7 +1517,8 @@ async function categoryCursorStream(params){
   let maxArchivedCount = null;
 
   if (configuration.testMode) {
-    maxArchivedCount = configuration.maxTestCount[params.category];
+    // maxArchivedCount = configuration.maxTestCount[params.category];
+    maxArchivedCount = 47;
   }
   // else{
   //   maxArchivedCount = statsObj.userCategoryTotal[params.category];
@@ -1551,10 +1557,6 @@ async function categoryCursorStream(params){
     cursorLimit: maxArchivedCount,
     cursorLean: null,
   })
-  
-  cursor.on("error", async (err) => handleMongooseEvent({event: "error", err: err}));
-  cursor.on("end", async () => handleMongooseEvent({event: "end"}));
-  cursor.on("close", async () => handleMongooseEvent({event: "close"}));
 
   let fetchUserReady = true;
 
@@ -1574,6 +1576,7 @@ async function categoryCursorStream(params){
 
         if (!user){
           console.log(chalkBlueBold(`${MODULE_ID_PREFIX} | categoryCursorStream | +++ ENDING FETCH USER INTERVAL | NO USER FROM DB CURSOR | CATEGORY: ${params.category}`))
+          await cursor.close();
           clearInterval(fetchUserInterval)
           return;
         }
@@ -1591,10 +1594,12 @@ async function categoryCursorStream(params){
 
   }, configuration.cursorInterval);
 
-  // return;
+  return cursor;
 }
 
 let endSaveFileQueueInterval;
+
+const allCursorsComplete = () => Object.values(categoryCursorHash).every((categoryCursor) => categoryCursor.complete)
 
 function endSaveFileQueue(){
 
@@ -1613,7 +1618,9 @@ function endSaveFileQueue(){
 
       saveFileQueue = tcUtils.getSaveFileQueue();
 
-      if (saveFileQueue === 0){
+      console.log(chalkInfo(`${MODULE_ID_PREFIX} | allCursorsComplete: ${allCursorsComplete()} | saveFileQueue: ${saveFileQueue}`))
+
+      if (saveFileQueue === 0 && allCursorsComplete()){
         clearInterval(endSaveFileQueueInterval);
         console.log(chalkBlueBold(MODULE_ID_PREFIX + " | +++ END SAVE FILE QUEUE"));
         resolve();
@@ -1864,6 +1871,8 @@ async function initialize(cnf){
   return configuration;
 }
 
+const categoryCursorHash = {}
+
 async function generateGlobalTrainingTestSet(){
 
   statsObj.status = "generateGlobalTrainingTestSet";
@@ -1898,7 +1907,16 @@ async function generateGlobalTrainingTestSet(){
   }
 
   for(const category of ["left", "neutral", "right"]){
-    await categoryCursorStream({ category: category, ignored: false });
+
+    categoryCursorHash[category] = {};
+    categoryCursorHash[category].complete = false;
+
+    categoryCursorHash[category].cursor = await categoryCursorStream({ category: category, ignored: false });
+    
+    categoryCursorHash[category].cursor.on("error", async (err) => handleMongooseEvent({category: category, event: "error", err: err}));
+    categoryCursorHash[category].cursor.on("end", async () => handleMongooseEvent({category: category, event: "end"}));
+    categoryCursorHash[category].cursor.on("close", async () => handleMongooseEvent({category: category, event: "close"}));
+
   }
 
   return;
@@ -1952,6 +1970,7 @@ setTimeout(async function(){
 
       await initWatchAllConfigFolders();
       await generateGlobalTrainingTestSet();
+      // await cursorsEnd();
       await endSaveFileQueue();
 
       categorizedUserHistogramTotal();
@@ -2006,7 +2025,7 @@ setTimeout(async function(){
       : localHistogramsFolder + "/types/";
     }
 
-    console.log(chalkInfo(MODULE_ID_PREFIX + " | ... SAVING HISTOGRAMS | " + rootFolder));
+    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ... SAVING HISTOGRAMS | " + rootFolder));
 
     // will use default input min hashmaps
 
