@@ -18,9 +18,9 @@
   "homepage": "https://github.com/tracycollins/generateTrainingSet#readme",
   "dependencies": {
     "@slack/web-api": "^6.0.0",
-    "@threeceelabs/mongoose-twitter": "^1.0.367",
-    "@threeceelabs/mongoose-utilities": "^1.0.7",
-    "@threeceelabs/threecee-utilities": "^1.0.427",
+    "@threeceelabs/mongoose-twitter": "^1.0.369",
+    "@threeceelabs/mongoose-utilities": "^1.0.8",
+    "@threeceelabs/threecee-utilities": "^1.0.430",
     "archiver": "^5.2.0",
     "chalk": "^4.1.0",
     "command-line-args": "^5.1.1",
