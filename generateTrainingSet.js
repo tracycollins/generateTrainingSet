@@ -639,6 +639,11 @@ function quit(options){
 
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
 
+  for(const categoryCursor of Object.values(categoryCursorHash)){
+    console.log(chalkLog(`${MODULE_ID_PREFIX} | CLOSING CURSOR | ${categoryCursor.category}`))
+    categoryCursor.cursor.close();
+  }
+
   if (options !== undefined) {
 
     if (options === "help") {
@@ -1870,6 +1875,7 @@ async function generateGlobalTrainingTestSet(){
   for(const category of ["left", "neutral", "right"]){
 
     categoryCursorHash[category] = {};
+    categoryCursorHash[category].category = category;
     categoryCursorHash[category].complete = false;
 
     categoryCursorHash[category].cursor = await categoryCursorStream({ category: category, ignored: false });
