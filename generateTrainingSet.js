@@ -1483,8 +1483,8 @@ async function categoryCursorStream(params){
   let maxArchivedCount = null;
 
   if (configuration.testMode) {
-    // maxArchivedCount = configuration.maxTestCount[params.category];
-    maxArchivedCount = 47;
+    maxArchivedCount = configuration.maxTestCount[params.category];
+    // maxArchivedCount = 47;
   }
   // else{
   //   maxArchivedCount = statsObj.userCategoryTotal[params.category];
