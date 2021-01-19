@@ -23,7 +23,7 @@ const DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE = 100;
 
 const DEFAULT_INTERVAL = 5;
 const DEFAULT_REDIS_SCAN_COUNT = 1000;
-const DEFAULT_USERS_PER_ARCHIVE = 10000;
+// const DEFAULT_USERS_PER_ARCHIVE = 10000;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_MAX_USER_FRIENDS = 10000;
@@ -243,7 +243,7 @@ configuration.enableCreateUserArchive = DEFAULT_ENABLE_CREATE_USER_ARCHIVE;
 configuration.maxCursorDataHandlerQueue = DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE;
 configuration.redisScanCount = DEFAULT_REDIS_SCAN_COUNT;
 configuration.saveFileMaxParallel = DEFAULT_SAVE_FILE_MAX_PARALLEL;
-configuration.usersPerArchive = DEFAULT_USERS_PER_ARCHIVE;
+// configuration.usersPerArchive = DEFAULT_USERS_PER_ARCHIVE;
 configuration.batchSize = DEFAULT_BATCH_SIZE;
 configuration.saveFileQueueInterval = DEFAULT_SAVE_FILE_QUEUE_INTERVAL;
 configuration.maxSaveFileQueue = DEFAULT_MAX_SAVE_FILE_QUEUE;
@@ -893,10 +893,10 @@ async function loadConfigFile(params) {
       newConfiguration.maxUserFriends = loadedConfigObj.GTS_MAX_USER_FRIENDS;
     }
 
-    if (loadedConfigObj.GTS_USERS_PER_ARCHIVE !== undefined){
-      console.log(MODULE_ID_PREFIX + " | LOADED GTS_USERS_PER_ARCHIVE: " + loadedConfigObj.GTS_USERS_PER_ARCHIVE);
-      newConfiguration.usersPerArchive = loadedConfigObj.GTS_USERS_PER_ARCHIVE;
-    }
+    // if (loadedConfigObj.GTS_USERS_PER_ARCHIVE !== undefined){
+    //   console.log(MODULE_ID_PREFIX + " | LOADED GTS_USERS_PER_ARCHIVE: " + loadedConfigObj.GTS_USERS_PER_ARCHIVE);
+    //   newConfiguration.usersPerArchive = loadedConfigObj.GTS_USERS_PER_ARCHIVE;
+    // }
 
     if (loadedConfigObj.GTS_WAIT_VALUE_INTERVAL !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_WAIT_VALUE_INTERVAL: " + loadedConfigObj.GTS_WAIT_VALUE_INTERVAL);
@@ -1901,10 +1901,10 @@ setTimeout(async function(){
 
     configuration = await initialize(configuration);
 
-    if (configuration.testMode) {
-      configuration.usersPerArchive = 100;
-      console.log(chalkAlert(MODULE_ID_PREFIX + " | TEST MODE | USERS PER ARCHIVE: " + configuration.usersPerArchive));
-    }
+    // if (configuration.testMode) {
+    //   configuration.usersPerArchive = 100;
+    //   console.log(chalkAlert(MODULE_ID_PREFIX + " | TEST MODE | USERS PER ARCHIVE: " + configuration.usersPerArchive));
+    // }
 
     if (configuration.saveGlobalHistogramsOnly){
       console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! SAVE GLOBAL HISTOGRAMS ONLY | NO REDIS FLUSH"));
@@ -1937,7 +1937,6 @@ setTimeout(async function(){
 
       await initWatchAllConfigFolders();
       await generateGlobalTrainingTestSet();
-      // await cursorsEnd();
       await endSaveFileQueue();
 
       categorizedUserHistogramTotal();
