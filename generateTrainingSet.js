@@ -1327,50 +1327,46 @@ async function cursorDataHandler(params){
   if (user.friends === 1){
     console.log(chalkAlert(`${MODULE_ID_PREFIX} | *** FRIENDS INVALID | NID: ${user.nodeId} ... FIXING ...`))
     user.friends = [];
-    user.markModified("friends")
-    await user.save();
+    await global.wordAssoDb.User.updateOne({nodeId: user.nodeId}, { $set: {friends: [] }} ) 
   }
 
   if (user.tweetHistograms === 1){
     console.log(chalkAlert(`${MODULE_ID_PREFIX} | *** TWEETS HISTOGRAM INVALID | NID: ${user.nodeId} ... FIXING ...`))
     user.tweetHistograms = {};
-    user.markModified("tweetHistograms")
-    await user.save();
+    await global.wordAssoDb.User.updateOne({nodeId: user.nodeId}, { $set: {"tweetHistograms": {}} }) 
   }
 
   if (user.tweetHistograms.friends === null){
+
     console.log(chalkAlert(`${MODULE_ID_PREFIX} | *** TWEETS HISTOGRAM FRIENDS NULL | NID: ${user.nodeId} ... FIXING ...`))
     delete user.tweetHistograms.friends;
-    user.markModified("tweetHistograms")
-    await user.save();  
+
+    await global.wordAssoDb.User.updateOne({nodeId: user.nodeId}, { $unset: {"tweetHistograms.friends": ""} }) 
   }
 
   if (user.profileHistograms.friends || user.tweetHistograms.friends){
     // console.log(chalkAlert(`${MODULE_ID_PREFIX} | !!! FRIENDS IN PROFILE OR TWEETS HISTOGRAM !!! MERGING WITH USER.FRIENDS`))
 
-    if (user.tweetHistograms.friends){
+    if (user.tweetHistograms.friends !== undefined && user.tweetHistograms.friends){
       console.log(chalkAlert(`${MODULE_ID_PREFIX} | *** FRIENDS IN TWEETS HISTOGRAM | NID: ${user.nodeId} | ${Array.isArray(user.tweetHistograms.friends) ? user.tweetHistograms.friends.length : "NOT ARRAY"}`))
-
-      // const userDb = await global.wordAssoDb.User.findOne({nodeId: user.nodeId})
 
       if (Array.isArray(user.tweetHistograms.friends) && user.tweetHistograms.friends.length > 0){
         console.log(`${MODULE_ID_PREFIX} | *** FRIENDS: ${user.friends.length} | TW HIST FRIENDS: ${user.tweetHistograms.friends.length}`)
-        user.friends = user.friends === undefined || user.friends.length === 0 ? user.tweetHistograms.friends : _.union(user.friends, user.tweetHistograms.friends)
+        user.friends = user.friends === undefined || user.friends.length === 0 ? _.union([], user.tweetHistograms.friends) : _.union(user.friends, user.tweetHistograms.friends)
         console.log(`${MODULE_ID_PREFIX} | *** FRIENDS MERGED: ${user.friends.length}`)
       }
 
-      console.log(`${MODULE_ID_PREFIX} | *** UPDATE DB USER: ${user.nodeId}`)
-
       delete user.tweetHistograms.friends;
 
-      user.markModified("friends")
-      user.markModified("tweetHistograms")
+      await global.wordAssoDb.User.updateOne({nodeId: user.nodeId}, { $set: {friends: user.friends }, $unset: {"tweetHistograms.friends": ""} }) 
 
-      await user.save();
-
-      // user = savedUser.toObject();
     }
   }
+
+  // if (userDb){
+  //   console.log(`${MODULE_ID_PREFIX} | *** UPDATE DB USER: ${userDb.nodeId}`)
+  //   await userDb.save();  
+  // }
 
   if (
     (user.friends === undefined || !user.friends || user.friends.length === 0) 
@@ -1521,7 +1517,7 @@ async function categoryCursorStream(params){
     query: query,
     // cursorSkip: 2000, // testing
     cursorLimit: maxArchivedCount,
-    cursorLean: null,
+    cursorLean: true,
   })
 
   let fetchUserReady = true;
