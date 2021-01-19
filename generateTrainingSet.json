@@ -1,14 +1,15 @@
 {
   "apps": [
-  {
-    "name": "gts",
-    "script": "generateTrainingSet.js",
-    "cwd": "/home/tc/generateTrainingSet",
-    "node_args": "--max-old-space-size=8192",
-    "autorestart": false,
-    "env": {
-      "FORCE_COLOR": 1,
-      "NODE_ENV": "production"
+    {
+      "name": "gts",
+      "script": "generateTrainingSet.js",
+      "cwd": "/home/tc/generateTrainingSet",
+      "node_args": "--max-old-space-size=4096",
+      "autorestart": false,
+      "env": {
+        "FORCE_COLOR": 1,
+        "NODE_ENV": "production"
+      }
     }
-  }]
+  ]
 }

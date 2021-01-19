@@ -1,15 +1,16 @@
 {
   "apps": [
-  {
-    "name": "gts",
-    "script": "generateTrainingSet.js",
-    "cwd": "/Volumes/RAID1/projects/generateTrainingSet",
-    "node_args": "--max-old-space-size=8192",
-    "autorestart": false,
-    "env": {
-      "PRIMARY_HOST": "mms1",
-      "FORCE_COLOR": 1,
-      "NODE_ENV": "production"
+    {
+      "name": "gts",
+      "script": "generateTrainingSet.js",
+      "cwd": "/Volumes/RAID1/projects/generateTrainingSet",
+      "node_args": "--max-old-space-size=4096",
+      "autorestart": false,
+      "env": {
+        "PRIMARY_HOST": "mms1",
+        "FORCE_COLOR": 1,
+        "NODE_ENV": "production"
+      }
     }
-  }]
+  ]
 }
