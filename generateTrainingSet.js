@@ -1319,7 +1319,7 @@ async function cursorDataHandler(params){
   statsObj.cursor[user.category].lastFetchedNodeId = user.nodeId;    
 
   if (!isValidUser(user)){
-    console.log(chalkWarn(MODULE_ID_PREFIX + " | !!! INVALID USER ... SKIPPING\n" + jsonPrint(user)));
+    console.log(chalkWarn(`${MODULE_ID_PREFIX} | !!! INVALID USER ... SKIPPING | NID: ${user.nodeId} | @${user.screenName}`));
     statsObj.users.processed.errors += 1;
     return;
   }
