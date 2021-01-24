@@ -13,7 +13,7 @@ const MODULE_ID_PREFIX = "GTS";
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
 const DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY = false;
-const DEFAULT_BATCH_SIZE = 64;
+const DEFAULT_CURSOR_BATCH_SIZE = 64;
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
 const DEFAULT_SAVE_FILE_BACKPRESSURE_PERIOD = 10; // ms
 const DEFAULT_ENABLE_CREATE_USER_ARCHIVE = false;
@@ -24,7 +24,7 @@ const DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE = 100;
 const DEFAULT_INTERVAL = 2;
 const DEFAULT_REDIS_SCAN_COUNT = 1000;
 // const DEFAULT_USERS_PER_ARCHIVE = 10000;
-const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 5;
+const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 2;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_MAX_USER_FRIENDS = 10000;
 
@@ -244,7 +244,7 @@ configuration.maxCursorDataHandlerQueue = DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE;
 configuration.redisScanCount = DEFAULT_REDIS_SCAN_COUNT;
 configuration.saveFileMaxParallel = DEFAULT_SAVE_FILE_MAX_PARALLEL;
 // configuration.usersPerArchive = DEFAULT_USERS_PER_ARCHIVE;
-configuration.batchSize = DEFAULT_BATCH_SIZE;
+configuration.cursorBatchSize = DEFAULT_CURSOR_BATCH_SIZE;
 configuration.saveFileQueueInterval = DEFAULT_SAVE_FILE_QUEUE_INTERVAL;
 configuration.maxSaveFileQueue = DEFAULT_MAX_SAVE_FILE_QUEUE;
 configuration.verbose = false;
@@ -642,7 +642,7 @@ function quit(options){
   for(const categoryCursor of Object.values(categoryCursorHash)){
     console.log(chalkLog(`${MODULE_ID_PREFIX} | CLOSING CURSOR | ${categoryCursor.category}`))
     categoryCursor.cursor.close();
-  }
+   }
 
   if (options !== undefined) {
 
@@ -857,9 +857,9 @@ async function loadConfigFile(params) {
 
     }
 
-    if (loadedConfigObj.GTS_BATCH_SIZE !== undefined){
-      console.log(MODULE_ID_PREFIX + " | LOADED GTS_BATCH_SIZE: " + loadedConfigObj.GTS_BATCH_SIZE);
-      newConfiguration.batchSize = loadedConfigObj.GTS_BATCH_SIZE;
+    if (loadedConfigObj.GTS_CURSOR_BATCH_SIZE !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_CURSOR_BATCH_SIZE: " + loadedConfigObj.GTS_CURSOR_BATCH_SIZE);
+      newConfiguration.cursorBatchSize = loadedConfigObj.GTS_CURSOR_BATCH_SIZE;
     }
 
     if (loadedConfigObj.GTS_TOTAL_MAX_TEST_COUNT !== undefined){
@@ -1345,7 +1345,6 @@ async function cursorDataHandler(params){
   }
 
   if (user.profileHistograms.friends || user.tweetHistograms.friends){
-    // console.log(chalkAlert(`${MODULE_ID_PREFIX} | !!! FRIENDS IN PROFILE OR TWEETS HISTOGRAM !!! MERGING WITH USER.FRIENDS`))
 
     if (user.tweetHistograms.friends !== undefined && user.tweetHistograms.friends){
       console.log(chalkAlert(`${MODULE_ID_PREFIX} | *** FRIENDS IN TWEETS HISTOGRAM | NID: ${user.nodeId} | ${Array.isArray(user.tweetHistograms.friends) ? user.tweetHistograms.friends.length : "NOT ARRAY"}`))
@@ -1362,11 +1361,6 @@ async function cursorDataHandler(params){
 
     }
   }
-
-  // if (userDb){
-  //   console.log(`${MODULE_ID_PREFIX} | *** UPDATE DB USER: ${userDb.nodeId}`)
-  //   await userDb.save();  
-  // }
 
   if (
     (user.friends === undefined || !user.friends || user.friends.length === 0) 
@@ -1474,17 +1468,14 @@ async function categoryCursorStream(params){
   statsObj.status = "categoryCursorStream";
   statsObj.categorizedCount = 0;
 
-  const batchSize = params.batchSize || configuration.batchSize;
+  const cursorBatchSize = params.cursorBatchSize || configuration.cursorBatchSize;
 
   let maxArchivedCount = null;
 
   if (configuration.testMode) {
     maxArchivedCount = configuration.maxTestCount[params.category];
-    // maxArchivedCount = 47;
   }
-  // else{
-  //   maxArchivedCount = statsObj.userCategoryTotal[params.category];
-  // }
+
 
   console.log(chalkGreen("\n" + MODULE_ID_PREFIX
     + " | =============================================================================================================="
@@ -1494,7 +1485,7 @@ async function categoryCursorStream(params){
     + "\n" + MODULE_ID_PREFIX
     + " | TEST MODE: " + configuration.testMode
     + " | MAX COUNT: " + maxArchivedCount
-    + " | BATCH SIZE: " + batchSize
+    + " | CURSOR BATCH SIZE: " + cursorBatchSize
     + " | MAX SFQ: " + configuration.maxSaveFileQueue
     + " | SAVE BACK PRESSURE PERIOD: " + configuration.saveFileBackPressurePeriod
     + " | SFQ PARALLEL: " + configuration.saveFileMaxParallel
@@ -1509,13 +1500,14 @@ async function categoryCursorStream(params){
 
   console.log(chalkBlue(MODULE_ID_PREFIX
     + " | categoryCursorStream"
-    + " | batchSize: " + batchSize
+    + " | cursorBatchSize: " + cursorBatchSize
     + " | maxArchivedCount: " + maxArchivedCount
   ));
 
   const cursor = await mgUtils.initCursor({
     query: query,
     // cursorSkip: 2000, // testing
+    cursorBatchSize: cursorBatchSize,
     cursorLimit: maxArchivedCount,
     cursorLean: true,
   })
@@ -1580,7 +1572,7 @@ function endSaveFileQueue(){
 
       saveFileQueue = tcUtils.getSaveFileQueue();
 
-      console.log(chalkInfo(`${MODULE_ID_PREFIX} | allCursorsComplete: ${allCursorsComplete()} | saveFileQueue: ${saveFileQueue}`))
+      debug(chalkInfo(`${MODULE_ID_PREFIX} | allCursorsComplete: ${allCursorsComplete()} | saveFileQueue: ${saveFileQueue}`))
 
       if (saveFileQueue === 0 && allCursorsComplete()){
         clearInterval(endSaveFileQueueInterval);
@@ -1896,11 +1888,6 @@ setTimeout(async function(){
     }, ONE_MINUTE);
 
     configuration = await initialize(configuration);
-
-    // if (configuration.testMode) {
-    //   configuration.usersPerArchive = 100;
-    //   console.log(chalkAlert(MODULE_ID_PREFIX + " | TEST MODE | USERS PER ARCHIVE: " + configuration.usersPerArchive));
-    // }
 
     if (configuration.saveGlobalHistogramsOnly){
       console.log(chalkAlert(MODULE_ID_PREFIX + " | !!! SAVE GLOBAL HISTOGRAMS ONLY | NO REDIS FLUSH"));
