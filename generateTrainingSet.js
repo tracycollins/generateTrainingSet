@@ -243,7 +243,6 @@ configuration.enableCreateUserArchive = DEFAULT_ENABLE_CREATE_USER_ARCHIVE;
 configuration.maxCursorDataHandlerQueue = DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE;
 configuration.redisScanCount = DEFAULT_REDIS_SCAN_COUNT;
 configuration.saveFileMaxParallel = DEFAULT_SAVE_FILE_MAX_PARALLEL;
-// configuration.usersPerArchive = DEFAULT_USERS_PER_ARCHIVE;
 configuration.cursorBatchSize = DEFAULT_CURSOR_BATCH_SIZE;
 configuration.saveFileQueueInterval = DEFAULT_SAVE_FILE_QUEUE_INTERVAL;
 configuration.maxSaveFileQueue = DEFAULT_MAX_SAVE_FILE_QUEUE;
