@@ -11,6 +11,7 @@ const MODULE_NAME = "generateTrainingSet  ";
 const MODULE_ID_PREFIX = "GTS";
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
+const DEFAULT_PRUNE_FLAG = true;
 const DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY = false;
 const DEFAULT_CURSOR_BATCH_SIZE = 64;
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
@@ -235,6 +236,7 @@ statsObjSmall = pick(statsObj, statsPickArray);
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 
+configuration.pruneFlag = DEFAULT_PRUNE_FLAG;
 configuration.maxUserFriends = DEFAULT_MAX_USER_FRIENDS;
 configuration.saveFileBackPressurePeriod = DEFAULT_SAVE_FILE_BACKPRESSURE_PERIOD;
 configuration.saveGlobalHistogramsOnly = DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY;
@@ -1979,10 +1981,10 @@ setTimeout(async function(){
 
     await tcUtils.saveGlobalHistograms({
       rootFolder: rootFolder, 
-      pruneFlag: true, 
+      pruneFlag: configuration.pruneFlag, 
       inputTypeMinProfileHashMap: configuration.inputTypeMinProfileHashMap, // DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP
       inputTypeMinTweetsHashMap: configuration.inputTypeMinTweetsHashMap, // DEFAULT_MIN_TOTAL_MIN_ _TYPE_HASHMAP
-      verbose: true
+      verbose: configuration.verbose
     });
 
     if (configuration.testMode) {
