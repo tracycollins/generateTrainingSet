@@ -1,6 +1,6 @@
 {
   "name": "@threeceelabs/generate-training-set",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "generate twitter nn training set",
   "main": "index.js",
   "scripts": {
@@ -20,7 +20,7 @@
     "@slack/web-api": "^6.0.0",
     "@threeceelabs/mongoose-twitter": "^1.0.371",
     "@threeceelabs/mongoose-utilities": "^1.0.12",
-    "@threeceelabs/threecee-utilities": "^1.0.452",
+    "@threeceelabs/threecee-utilities": "^1.0.455",
     "archiver": "^5.2.0",
     "chalk": "^4.1.0",
     "command-line-args": "^5.1.1",
