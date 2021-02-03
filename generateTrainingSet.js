@@ -11,6 +11,8 @@ const MODULE_NAME = "generateTrainingSet  ";
 const MODULE_ID_PREFIX = "GTS";
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
+const DEFAULT_MAX_GLOBAL_HISTOGRAM_USERS = 10000;
+
 const DEFAULT_PRUNE_FLAG = true;
 const DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY = false;
 const DEFAULT_CURSOR_BATCH_SIZE = 64;
@@ -23,7 +25,6 @@ const DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE = 100;
 
 const DEFAULT_INTERVAL = 2;
 const DEFAULT_REDIS_SCAN_COUNT = 1000;
-// const DEFAULT_USERS_PER_ARCHIVE = 10000;
 const DEFAULT_SAVE_FILE_QUEUE_INTERVAL = 2;
 const DEFAULT_MAX_HISTOGRAM_VALUE = 1000;
 const DEFAULT_MAX_USER_FRIENDS = 10000;
@@ -206,6 +207,7 @@ statsObj.users.notFound = 0;
 statsObj.users.screenNameUndefined = 0;
 statsObj.users.processed = {};
 statsObj.users.processed.total = 0;
+statsObj.users.processed.updatedGlobalHistograms = 0;
 statsObj.users.processed.percent = 0;
 statsObj.users.processed.empty = 0;
 statsObj.users.processed.errors = 0;
@@ -248,12 +250,13 @@ statsObjSmall = pick(statsObj, statsPickArray);
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
 
+configuration.maxGlobalHistogramUsers = DEFAULT_MAX_GLOBAL_HISTOGRAM_USERS; // max users used to update global histogtrams due to mem contraints
 configuration.pruneFlag = DEFAULT_PRUNE_FLAG;
 configuration.maxUserFriends = DEFAULT_MAX_USER_FRIENDS;
 configuration.saveFileBackPressurePeriod = DEFAULT_SAVE_FILE_BACKPRESSURE_PERIOD;
 configuration.saveGlobalHistogramsOnly = DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY;
 configuration.enableCreateUserArchive = DEFAULT_ENABLE_CREATE_USER_ARCHIVE;
-configuration.maxCursorDataHandlerQueue = DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE;
+// configuration.maxCursorDataHandlerQueue = DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE;
 configuration.redisScanCount = DEFAULT_REDIS_SCAN_COUNT;
 configuration.saveFileMaxParallel = DEFAULT_SAVE_FILE_MAX_PARALLEL;
 configuration.cursorBatchSize = DEFAULT_CURSOR_BATCH_SIZE;
@@ -866,10 +869,13 @@ async function loadConfigFile(params) {
     if (loadedConfigObj.GTS_DATA_ROOT_FOLDER !== undefined){
       console.log(MODULE_ID_PREFIX + " | LOADED GTS_DATA_ROOT_FOLDER: " + loadedConfigObj.GTS_DATA_ROOT_FOLDER);
       newConfiguration.dataRootFolder = loadedConfigObj.GTS_DATA_ROOT_FOLDER;
-
       newConfiguration.tempUserDataFolder = path.join(newConfiguration.dataRootFolder, "trainingSets/users");
       newConfiguration.userDataFolder = path.join(newConfiguration.dataRootFolder, "users");
+    }
 
+    if (loadedConfigObj.GTS_MAX_GLOBAL_HISTOGRAM_USERS !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_MAX_GLOBAL_HISTOGRAM_USERS: " + loadedConfigObj.GTS_MAX_GLOBAL_HISTOGRAM_USERS);
+      newConfiguration.maxGlobalHistogramUsers = loadedConfigObj.GTS_MAX_GLOBAL_HISTOGRAM_USERS;
     }
 
     if (loadedConfigObj.GTS_CURSOR_BATCH_SIZE !== undefined){
@@ -1362,7 +1368,7 @@ async function cursorDataHandler(params){
   if (user.profileHistograms.friends || user.tweetHistograms.friends){
 
     if (user.tweetHistograms.friends !== undefined && user.tweetHistograms.friends){
-      console.log(chalkAlert(`${MODULE_ID_PREFIX} | *** FRIENDS IN TWEETS HISTOGRAM | NID: ${user.nodeId} | ${Array.isArray(user.tweetHistograms.friends) ? user.tweetHistograms.friends.length : "NOT ARRAY"}`))
+      debug(chalkAlert(`${MODULE_ID_PREFIX} | *** FRIENDS IN TWEETS HISTOGRAM | NID: ${user.nodeId} | ${Array.isArray(user.tweetHistograms.friends) ? user.tweetHistograms.friends.length : "NOT ARRAY"}`))
 
       if (Array.isArray(user.tweetHistograms.friends) && user.tweetHistograms.friends.length > 0){
         console.log(`${MODULE_ID_PREFIX} | *** FRIENDS: ${user.friends.length} | TW HIST FRIENDS: ${user.tweetHistograms.friends.length}`)
@@ -1420,7 +1426,11 @@ async function cursorDataHandler(params){
     testMode: configuration.testMode
   });
 
-  await tcUtils.updateGlobalHistograms({user: catUser, verbose: true});
+  if (Math.random() < configuration.userGlobalHistogramProbability){
+    await tcUtils.updateGlobalHistograms({user: catUser, verbose: true});
+    statsObj.users.processed.updatedGlobalHistograms += 1;
+    debug(chalkLog(`${MODULE_ID_PREFIX} | ->- UPDATE GLOBAL HIST [${statsObj.users.processed.updatedGlobalHistograms}/${statsObj.users.grandTotal}] @${catUser.screenName}`))
+  }
 
   const hash = await tcUtils.hashUserId({nodeId: catUser.nodeId}); // 1000 buckets/subfolders by default
   const subFolder = hash.toString().padStart(8,"0");
@@ -1433,7 +1443,6 @@ async function cursorDataHandler(params){
   const saveFileQueue = tcUtils.saveFileQueue({
     folder: folder,
     file: file,
-    // obj: user,
     obj: catUser,
     verbose: configuration.verbose
   });
@@ -1444,6 +1453,7 @@ async function cursorDataHandler(params){
   if (statsObj.categorizedCount > 0 && statsObj.categorizedCount % 100 === 0){
     console.log(chalkInfo(MODULE_ID_PREFIX
       + " [ SFQ: " + saveFileQueue + " ]"
+      + " | GLOBAL HIST: " + statsObj.users.processed.updatedGlobalHistograms
       + " | CATEGORIZED: " + statsObj.categorizedCount
       + " | L: " + categorizedUsers.left
       + " | N: " + categorizedUsers.neutral
@@ -1521,7 +1531,6 @@ async function categoryCursorStream(params){
 
   const cursor = await mgUtils.initCursor({
     query: query,
-    // cursorSkip: 2000, // testing
     cursorBatchSize: cursorBatchSize,
     cursorLimit: maxArchivedCount,
     cursorLean: true,
@@ -1538,6 +1547,7 @@ async function categoryCursorStream(params){
   const fetchUserInterval = setInterval(async () => {
 
     if (fetchUserReady) {
+
       try {
 
         fetchUserReady = false;
@@ -1859,8 +1869,15 @@ async function generateGlobalTrainingTestSet(){
     statsObj.users.grandTotal += statsObj.userCategoryTotal[category];
   }
 
+  configuration.userGlobalHistogramProbability = statsObj.users.grandTotal > 0 ? configuration.maxGlobalHistogramUsers/statsObj.users.grandTotal : 0;
+
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | CATEGORIZED USERS IN DB: " + statsObj.users.grandTotal));
+  // console.log(chalkBlueBold(MODULE_ID_PREFIX + " | GLOBAL HISTOGRAM PROBABILITY: " + configuration.userGlobalHistogramProbability.toFixed(3)));
+  console.log(chalkBlueBold(MODULE_ID_PREFIX 
+    + " | GLOBAL HISTOGRAM TOTAL: " + configuration.maxGlobalHistogramUsers 
+    + " | " + 100*configuration.userGlobalHistogramProbability.toFixed(3) + "%"
+  ));
   console.log(chalkBlueBold(MODULE_ID_PREFIX 
     + " | L: " + statsObj.userCategoryTotal.left 
     + " | N: " + statsObj.userCategoryTotal.neutral
