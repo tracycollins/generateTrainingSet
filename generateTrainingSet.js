@@ -15,7 +15,7 @@ const DEFAULT_MAX_GLOBAL_HISTOGRAM_USERS = 10000;
 
 const DEFAULT_PRUNE_FLAG = true;
 const DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY = false;
-const DEFAULT_CURSOR_BATCH_SIZE = 64;
+const DEFAULT_CURSOR_BATCH_SIZE = 128;
 const DEFAULT_SAVE_FILE_MAX_PARALLEL = 16;
 const DEFAULT_SAVE_FILE_BACKPRESSURE_PERIOD = 10; // ms
 const DEFAULT_ENABLE_CREATE_USER_ARCHIVE = false;
@@ -194,6 +194,20 @@ statsObj.cursor.right.lastFetchedNodeId = false;
 statsObj.cursor.neutral = {};
 statsObj.cursor.neutral.lastFetchedNodeId = false;
 
+statsObj.fetchReady = {};
+statsObj.fetchReady.maxPeriod = 0;
+statsObj.fetchReady.period = 0;
+
+statsObj.fetchReady.saveFileBackPressurePeriod = 0;
+statsObj.fetchReady.maxSaveFileBackPressurePeriod = 0;
+
+statsObj.fetchReady.saveFileQueue = 0;
+statsObj.fetchReady.maxSaveFileQueue = 0;
+
+statsObj.fetchReady.queueOverShoot = 0;
+statsObj.fetchReady.maxQueueOverShoot = 0;
+
+
 let statsObjSmall = {};
 
 statsObj.status = "LOAD";
@@ -246,7 +260,8 @@ const statsPickArray = [
   "userReadyAck", 
   "userReadyAckWait", 
   "userReadyTransmitted",
-  "redis"
+  "redis",
+  "fetchReady"
 ];
 
 statsObjSmall = pick(statsObj, statsPickArray);
@@ -682,7 +697,9 @@ function quit(options){
   for(const categoryCursor of Object.values(categoryCursorHash)){
     console.log(chalkLog(`${MODULE_ID_PREFIX} | CLOSING CURSOR | ${categoryCursor.category}`))
     categoryCursor.cursor.close();
-   }
+  }
+
+  tcUtils.redisClient.disconnect();
 
   if (options !== undefined) {
 
@@ -1491,18 +1508,22 @@ async function cursorDataHandler(params){
 
 const fetchReady = async () => {
 
-  const saveFileQueue = tcUtils.getSaveFileQueue();
-  const queueOverShoot = saveFileQueue - configuration.maxSaveFileQueue;
+  statsObj.fetchReady.saveFileQueue = tcUtils.getSaveFileQueue();
+  statsObj.fetchReady.maxSaveFileQueue = Math.max(statsObj.fetchReady.maxSaveFileQueue, statsObj.fetchReady.saveFileQueue)
 
-  if (queueOverShoot <= 0) {
+  statsObj.fetchReady.queueOverShoot = statsObj.fetchReady.saveFileQueue - configuration.maxSaveFileQueue;
+  statsObj.fetchReady.maxQueueOverShoot = Math.max(statsObj.fetchReady.maxQueueOverShoot, statsObj.fetchReady.queueOverShoot)
+
+  if (statsObj.fetchReady.queueOverShoot <= 0) {
     return;
   }
 
-  const period = queueOverShoot * configuration.saveFileBackPressurePeriod;
+  statsObj.fetchReady.period = statsObj.fetchReady.queueOverShoot * configuration.saveFileBackPressurePeriod;
+  statsObj.fetchReady.maxPeriod = Math.max(statsObj.fetchReady.maxPeriod, statsObj.fetchReady.period)
 
   await wait({
-    message: "BK PRSSR | SFQ: " + saveFileQueue, 
-    period: period,
+    message: "BK PRSSR | SFQ: " + statsObj.fetchReady.saveFileQueue, 
+    period: statsObj.fetchReady.period,
     verbose: configuration.verbose
   });
 
