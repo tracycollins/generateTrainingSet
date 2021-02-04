@@ -183,6 +183,8 @@ const statsObj = {};
 
 statsObj.heap = process.memoryUsage().heapUsed/ONE_GIGABYTE;
 statsObj.maxHeap = process.memoryUsage().heapUsed/ONE_GIGABYTE;
+statsObj.redis = {};
+statsObj.redis.keys = 0;
 
 statsObj.cursor = {};
 statsObj.cursor.left = {};
@@ -243,7 +245,8 @@ const statsPickArray = [
   "numChildren", 
   "userReadyAck", 
   "userReadyAckWait", 
-  "userReadyTransmitted"
+  "userReadyTransmitted",
+  "redis"
 ];
 
 statsObjSmall = pick(statsObj, statsPickArray);
@@ -325,19 +328,19 @@ configuration.local = {};
 configuration.local.trainingSetsFolder = path.join(configHostFolder, "trainingSets");
 configuration.local.histogramsFolder = path.join(configHostFolder, "histograms");
 configuration.local.userArchiveFolder = path.join(configHostFolder, "trainingSets/users");
-configuration.local.userArchivePath = path.join(configuration.local.userArchiveFolder, configuration.userArchiveFile);
+// configuration.local.userArchivePath = path.join(configuration.local.userArchiveFolder, configuration.userArchiveFile);
 
 configuration.default = {};
 configuration.default.trainingSetsFolder = path.join(configDefaultFolder, "trainingSets");
 configuration.default.histogramsFolder = path.join(configDefaultFolder, "histograms");
 configuration.default.userArchiveFolder = path.join(configDefaultFolder, "trainingSets/users");
-configuration.default.userArchivePath = path.join(configuration.default.userArchiveFolder, configuration.userArchiveFile);
+// configuration.default.userArchivePath = path.join(configuration.default.userArchiveFolder, configuration.userArchiveFile);
 
 configuration.trainingSetsFolder = configuration[HOST].trainingSetsFolder;
 configuration.archiveFileUploadCompleteFlagFolder = path.join(configuration[HOST].trainingSetsFolder, "users");
 configuration.histogramsFolder = configuration[HOST].histogramsFolder;
 configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
-configuration.userArchivePath = configuration[HOST].userArchivePath;
+// configuration.userArchivePath = configuration[HOST].userArchivePath;
 
 fs.mkdirSync(configuration.tempUserDataFolder, { recursive: true });
 fs.mkdirSync(configuration[HOST].userArchiveFolder, { recursive: true });
@@ -363,6 +366,11 @@ const msToTime = tcUtils.msToTime;
 
 tcUtils.on("ready", async () => {
   console.log(`${MODULE_ID_PREFIX} | +++ THREECEE UTILS READY: ${tcuAppName}`);
+})
+
+tcUtils.on("error", async (err) => {
+  console.log(`${MODULE_ID_PREFIX} | *** THREECEE UTILS ERROR ${tcuAppName} | ERR: ${err}`);
+  console.trace(err)
 })
 
 const UserServerController = require("@threeceelabs/user-server-controller");
@@ -575,11 +583,23 @@ console.log(MODULE_ID_PREFIX + " | =================================");
 // DROPBOX
 // ==================================================================
 
+const redisKeysRegex = /keys=(\d+)/;
+
 async function showStats(options){
 
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
   statsObj.heap = process.memoryUsage().heapUsed/ONE_GIGABYTE;
   statsObj.maxHeap = Math.max(statsObj.maxHeap, statsObj.heap);
+
+  statsObj.redis.server = await redisClient.info("server")
+  statsObj.redis.clients = await redisClient.info("clients")
+  statsObj.redis.cpu = await redisClient.info("cpu")
+  statsObj.redis.stats = await redisClient.info("stats")
+  statsObj.redis.memory = await redisClient.info("memory")
+
+  const redisKeyspaceResults = await redisClient.info("keyspace")
+  const matchArray = await redisKeyspaceResults.match(redisKeysRegex)
+  statsObj.redis.keys = matchArray && matchArray !== undefined && matchArray[1] !== undefined ? parseInt(matchArray[1]) : 0;
 
   statsObjSmall = pick(statsObj, statsPickArray);
 
@@ -590,19 +610,21 @@ async function showStats(options){
   }
   else {
     console.log(chalkLog(MODULE_ID_PREFIX
-      + " | ============================================================"
+      + " | ==========================================================================================================="
       + "\n" + MODULE_ID_PREFIX
       + " | RUN " + msToTime(statsObj.elapsed)
       + " | NOW " + moment().format(compactDateTimeFormat)
       + " | STRT " + moment(parseInt(statsObj.startTime)).format(compactDateTimeFormat)
       + " | STATUS: " + statsObj.status
       + "\n" + MODULE_ID_PREFIX
+      + " | REDIS KEYS: " + statsObj.redis.keys
+      + "\n" + MODULE_ID_PREFIX
       + " | SFQ: " + saveFileQueue
       + " | CPUs: " + statsObj.cpus
       + " | HEAP: " + statsObj.heap.toFixed(3) + " GB"
       + " | MAX HEAP: " + statsObj.maxHeap.toFixed(3) + " GB"
       + "\n" + MODULE_ID_PREFIX
-      + " | ============================================================"
+      + " | ==========================================================================================================="
     ));
 
     categorizedUserHistogramTotal();
@@ -2037,7 +2059,7 @@ setTimeout(async function(){
     });
 
     let slackText = "\n*" + MODULE_ID_PREFIX + " | TRAINING SET*";
-    slackText = slackText + "\n" + configuration.userArchivePath;
+    // slackText = slackText + "\n" + configuration.userArchivePath;
     slackText = slackText + "\nUSERS ARCHIVED: " + statsObj.users.grandTotal;
     slackText = slackText + "\nEMPTY: " + statsObj.users.processed.empty;
     slackText = slackText + "\nERRORS: " + statsObj.users.processed.errors;
