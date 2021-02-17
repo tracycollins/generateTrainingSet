@@ -11,7 +11,7 @@ const MODULE_NAME = "generateTrainingSet  ";
 const MODULE_ID_PREFIX = "GTS";
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
-const DEFAULT_CURSOR_PARALLEL = 4;
+const DEFAULT_CURSOR_PARALLEL = 8;
 const DEFAULT_MAX_GLOBAL_HISTOGRAM_USERS = 10000;
 
 const DEFAULT_PRUNE_FLAG = true;
