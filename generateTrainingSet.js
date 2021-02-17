@@ -48,6 +48,13 @@ DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.words = 100;
 for(const inputType of Object.keys(DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP)){
   DEFAULT_TEST_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP[inputType] = 1 + Math.floor(0.1 * DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP[inputType])
 }
+DEFAULT_TEST_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.friends = 5;
+DEFAULT_TEST_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.hashtags = 2;
+DEFAULT_TEST_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.locations = 2;
+DEFAULT_TEST_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.media = 2;
+DEFAULT_TEST_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.ngrams = 20;
+DEFAULT_TEST_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.urls = 2;
+DEFAULT_TEST_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP.words = 20;
 
 const DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP = {};
 const DEFAULT_TEST_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP = {};
@@ -67,6 +74,9 @@ DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.words = 100;
 for(const inputType of Object.keys(DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP)){
   DEFAULT_TEST_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP[inputType] = 1 + Math.floor(0.1 * DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP[inputType])
 }
+DEFAULT_TEST_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.images = 1;
+DEFAULT_TEST_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.ngrams = 2;
+DEFAULT_TEST_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.words = 2;
 
 const TOTAL_MAX_TEST_COUNT = 1000;
 
@@ -686,7 +696,7 @@ async function showStats(options){
   }
 }
 
-function quit(options){
+async function quit(options){
 
   console.log(chalkAlert(MODULE_ID_PREFIX + " | QUITTING ..." ));
 
@@ -699,7 +709,15 @@ function quit(options){
     categoryCursor.cursor.close();
   }
 
-  tcUtils.redisClient.disconnect();
+    await redisClient.flushdb();
+
+    clearInterval(showStatsInterval);
+
+    await tcUtils.stopSaveFileQueue();
+    
+    await redisClient.disconnect();
+    await redisClient.quit();
+
 
   if (options !== undefined) {
 
@@ -731,12 +749,12 @@ function quit(options){
   }, 1000);
 }
 
-process.on( "SIGINT", function() {
-  quit("SIGINT");
+process.on( "SIGINT", async function() {
+  await quit("SIGINT");
 });
 
-process.on("exit", function() {
-  quit("SIGINT");
+process.on("exit", async function() {
+  await quit("SIGINT");
 });
 
 
@@ -752,7 +770,7 @@ function initStdIn(){
     }
     stdin.resume();
     stdin.setEncoding( "utf8" );
-    stdin.on( "data", function( key ){
+    stdin.on( "data", async function( key ){
 
       switch (key) {
         case "\u0003":
@@ -763,10 +781,10 @@ function initStdIn(){
           console.log(chalkRedBold(MODULE_ID_PREFIX + " | VERBOSE: " + configuration.verbose));
         break;
         case "q":
-          quit();
+          await quit();
         break;
         case "Q":
-          quit();
+          await quit();
         break;
         case "s":
           showStats();
@@ -1368,9 +1386,11 @@ async function cursorDataHandler(params){
   const user = params.user;
   
   statsObj.users.processed.total += 1;
+  statsObj.users.processed.remain -= 1;
+
   statsObj.users.processed.elapsed = (moment().valueOf() - statsObj.users.processed.startMoment.valueOf()); // mseconds
   statsObj.users.processed.rate = (statsObj.users.processed.total >0) ? statsObj.users.processed.elapsed/statsObj.users.processed.total : 0; // msecs/usersArchived
-  statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
+  // statsObj.users.processed.remain = statsObj.users.grandTotal - (statsObj.users.processed.total + statsObj.users.processed.errors);
   statsObj.users.processed.remainMS = statsObj.users.processed.remain * statsObj.users.processed.rate; // mseconds
   statsObj.users.processed.endMoment = moment();
   statsObj.users.processed.endMoment.add(statsObj.users.processed.remainMS, "ms");
@@ -1912,6 +1932,8 @@ async function generateGlobalTrainingTestSet(){
     statsObj.users.grandTotal += statsObj.userCategoryTotal[category];
   }
 
+  statsObj.users.processed.remain = statsObj.users.grandTotal;
+
   configuration.userGlobalHistogramProbability = statsObj.users.grandTotal > 0 ? configuration.maxGlobalHistogramUsers/statsObj.users.grandTotal : 0;
 
   console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ==================================================================="));
@@ -1931,6 +1953,7 @@ async function generateGlobalTrainingTestSet(){
   if (configuration.testMode) {
     configuration.maxSaveFileQueue = 100;
     statsObj.users.grandTotal = Math.min(statsObj.users.grandTotal, configuration.totalMaxTestCount);
+    statsObj.users.processed.remain = statsObj.users.grandTotal;
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.users.grandTotal + " USERS"));
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | MAX SAVE FILE QUEUE: " + configuration.maxSaveFileQueue));
   }
@@ -2029,6 +2052,8 @@ setTimeout(async function(){
     if (configuration.enableCreateUserArchive){
       console.log(chalkLog(MODULE_ID_PREFIX + " | SAVE USER DATA ARCHIVES ..."));
 
+      statsObj.status = "SAVE USER DATA ARCHIVES"
+
       for(const subFolderIndexString of [...subFolderSet] ){
         const folder = path.join(configuration.tempUserDataFolder, "data", subFolderIndexString);
         const archivePath = path.join(statsObj.runSubFolder, "userArchive" + subFolderIndexString + ".zip");
@@ -2051,6 +2076,8 @@ setTimeout(async function(){
     }
 
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | ... SAVING HISTOGRAMS | " + rootFolder));
+
+    statsObj.status = "SAVE HISTOGRAMS"
 
     // will use default input min hashmaps
 
@@ -2095,18 +2122,11 @@ setTimeout(async function(){
 
     await endSaveFileQueue();
 
-    await redisClient.flushdb();
-
-    clearInterval(showStatsInterval);
-
-    await tcUtils.stopSaveFileQueue();
-    await redisClient.quit();
-
     console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
-    quit("OK");
+    await quit("OK");
   }
   catch(err){
     console.log(chalkError(MODULE_ID_PREFIX + " | *** MAIN ERROR: " + err));
-    quit("MAIN ERROR: " + err);
+    await quit("MAIN ERROR: " + err);
   }
 }, 1000);
