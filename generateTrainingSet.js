@@ -11,6 +11,7 @@ const MODULE_NAME = "generateTrainingSet  ";
 const MODULE_ID_PREFIX = "GTS";
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
+const DEFAULT_CURSOR_PARALLEL = 2;
 const DEFAULT_MAX_GLOBAL_HISTOGRAM_USERS = 10000;
 
 const DEFAULT_PRUNE_FLAG = true;
@@ -161,7 +162,7 @@ const chalkInfo = chalk.black;
 let fetchUserInterval;
 let showStatsInterval;
 let endSaveFileQueueInterval;
-let waitInterval;
+// let waitInterval;
 
 let archive;
 
@@ -282,7 +283,7 @@ const statsPickArray = [
 statsObjSmall = pick(statsObj, statsPickArray);
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
-
+configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
 configuration.maxGlobalHistogramUsers = DEFAULT_MAX_GLOBAL_HISTOGRAM_USERS; // max users used to update global histogtrams due to mem contraints
 configuration.pruneFlag = DEFAULT_PRUNE_FLAG;
 configuration.maxUserFriends = DEFAULT_MAX_USER_FRIENDS;
@@ -708,7 +709,7 @@ async function quit(options){
   clearInterval(fetchUserInterval);
   clearInterval(endSaveFileQueueInterval);
   clearInterval(showStatsInterval);
-  clearInterval(waitInterval);
+  // clearInterval(waitInterval);
 
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
 
@@ -932,6 +933,11 @@ async function loadConfigFile(params) {
       newConfiguration.dataRootFolder = loadedConfigObj.GTS_DATA_ROOT_FOLDER;
       newConfiguration.tempUserDataFolder = path.join(newConfiguration.dataRootFolder, "trainingSets/users");
       newConfiguration.userDataFolder = path.join(newConfiguration.dataRootFolder, "users");
+    }
+
+    if (loadedConfigObj.GTS_CURSOR_PARALLEL !== undefined){
+      console.log(MODULE_ID_PREFIX + " | LOADED GTS_CURSOR_PARALLEL: " + loadedConfigObj.GTS_CURSOR_PARALLEL);
+      newConfiguration.cursorParallel = loadedConfigObj.GTS_CURSOR_PARALLEL;
     }
 
     if (loadedConfigObj.GTS_MAX_GLOBAL_HISTOGRAM_USERS !== undefined){
@@ -1360,30 +1366,30 @@ function isValidUser(user){
 
 const formatCategory = tcUtils.formatCategory;
 
-const handleMongooseEvent = (eventObj) => {
+// const handleMongooseEvent = (eventObj) => {
 
-  // console.log({eventObj})
+//   // console.log({eventObj})
 
-  switch (eventObj.event){
-    case "end":
-    case "close":
-      console.log(chalkBlueBold(`${MODULE_ID_PREFIX} | CATEGORY: ${eventObj.category} | CURSOR EVENT: ${eventObj.event.toUpperCase()}`))
-      categoryCursorHash[eventObj.category].complete = true;
-    break;
+//   switch (eventObj.event){
+//     case "end":
+//     case "close":
+//       console.log(chalkBlueBold(`${MODULE_ID_PREFIX} | CATEGORY: ${eventObj.category} | CURSOR EVENT: ${eventObj.event.toUpperCase()}`))
+//       categoryCursorHash[eventObj.category].complete = true;
+//     break;
 
-    case "error":
-      console.error(chalkError(`${MODULE_ID_PREFIX} | CATEGORY: ${eventObj.category} | CURSOR ERROR: ${eventObj.err}`))
-      categoryCursorHash[eventObj.category].complete = true;
-      categoryCursorHash[eventObj.category].error = eventObj.err;
-    break;
+//     case "error":
+//       console.error(chalkError(`${MODULE_ID_PREFIX} | CATEGORY: ${eventObj.category} | CURSOR ERROR: ${eventObj.err}`))
+//       categoryCursorHash[eventObj.category].complete = true;
+//       categoryCursorHash[eventObj.category].error = eventObj.err;
+//     break;
 
-    default:
-      console.error(chalkError(`*** CATEGORY: ${eventObj.category} | UNKNOWN EVENT: ${eventObj.event}`))
-      throw new Error(`${MODULE_ID_PREFIX} | UNKNOWN CURSOR EVENT: ${eventObj.event}`)
-  }
+//     default:
+//       console.error(chalkError(`*** CATEGORY: ${eventObj.category} | UNKNOWN EVENT: ${eventObj.event}`))
+//       throw new Error(`${MODULE_ID_PREFIX} | UNKNOWN CURSOR EVENT: ${eventObj.event}`)
+//   }
 
-  return;
-}
+//   return;
+// }
 
 async function cursorDataHandler(params){
 
@@ -1557,6 +1563,9 @@ const fetchReady = async () => {
 
 async function categoryCursorStream(params){
 
+  const category = params.category;
+  const cursorParallel = params.cursorParallel || 1;
+
   statsObj.status = "categoryCursorStream";
   statsObj.categorizedCount = 0;
 
@@ -1565,7 +1574,7 @@ async function categoryCursorStream(params){
   let maxArchivedCount = null;
 
   if (configuration.testMode) {
-    maxArchivedCount = configuration.maxTestCount[params.category];
+    maxArchivedCount = configuration.maxTestCount[category];
   }
 
 
@@ -1573,11 +1582,12 @@ async function categoryCursorStream(params){
     + " | =============================================================================================================="
   ));
   console.log(chalkGreen(MODULE_ID_PREFIX 
-    + " | CATEGORIZE | CATEGORY: " + params.category + ": " + statsObj.userCategoryTotal[params.category] 
+    + " | CATEGORIZE | CATEGORY: " + category + ": " + statsObj.userCategoryTotal[category] 
     + "\n" + MODULE_ID_PREFIX
     + " | TEST MODE: " + configuration.testMode
     + " | MAX COUNT: " + maxArchivedCount
     + " | CURSOR BATCH SIZE: " + cursorBatchSize
+    + " | CURSOR PARALLEL: " + cursorParallel
     + " | MAX SFQ: " + configuration.maxSaveFileQueue
     + " | SAVE BACK PRESSURE PERIOD: " + configuration.saveFileBackPressurePeriod
     + " | SFQ PARALLEL: " + configuration.saveFileMaxParallel
@@ -1588,7 +1598,8 @@ async function categoryCursorStream(params){
   ));
 
   const query = {};
-  query.category = params.category;
+  query.ignored = false;
+  query.category = category;
 
   console.log(chalkBlue(MODULE_ID_PREFIX
     + " | categoryCursorStream"
@@ -1603,44 +1614,72 @@ async function categoryCursorStream(params){
     cursorLean: true,
   })
 
-  let fetchUserReady = true;
+  await cursor.eachAsync(
 
-  statsObj.users.fetched = 0;
-  statsObj.users.skipped = 0;
+    async function (user) {
 
-  if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
-  if (statsObj.users.processed.startMoment === 0) { statsObj.users.processed.startMoment = moment(); }
-
-  fetchUserInterval = setInterval(async () => {
-
-    if (fetchUserReady) {
-
-      try {
-
-        fetchUserReady = false;
-        const user = await cursor.next();
-
-        if (!user){
-          console.log(chalkBlueBold(`${MODULE_ID_PREFIX} | categoryCursorStream | +++ ENDING FETCH USER INTERVAL | NO USER FROM DB CURSOR | CATEGORY: ${params.category}`))
-          await cursor.close();
-          clearInterval(fetchUserInterval)
-          return;
-        }
-
-        await cursorDataHandler({user: user})
-        await fetchReady()
-        fetchUserReady = true;
-      }
-      catch (err) {
-        console.error(`${MODULE_ID_PREFIX} | *** ERROR: ${err}`)
-        fetchUserReady = true;
+      if (!user) {
+        statsObj.status = `END CURSOR ${category}`
+        console.log(chalkBlueBold(`${MODULE_ID_PREFIX} | categoryCursorStream | +++ ENDING FETCH USER INTERVAL | NO USER FROM DB CURSOR | CATEGORY: ${category}`))
+        cursor.close();
       }
 
-    } 
+      await cursorDataHandler({user: user})
 
-  }, configuration.cursorInterval);
+      const saveFileQueue = tcUtils.getSaveFileQueue();
+      const queueOverShoot = saveFileQueue - configuration.maxSaveFileQueue;
 
-  return cursor;
+      if (queueOverShoot > 0) {
+        await wait({
+          message: "BK PRSSR | SFQ: " + saveFileQueue, 
+          period: queueOverShoot * configuration.saveFileBackPressurePeriod,
+          verbose: configuration.verbose
+        });
+      }
+
+    },
+    { parallel: cursorParallel }
+  );
+
+  return;
+
+  // let fetchUserReady = true;
+
+  // if (statsObj.cursor[category] === undefined) { statsObj.cursor[category] = {}; }
+  // if (statsObj.users.processed.startMoment === 0) { statsObj.users.processed.startMoment = moment(); }
+
+  // fetchUserInterval = setInterval(async () => {
+
+  //   if (fetchUserReady) {
+
+  //     try {
+
+  //       fetchUserReady = false;
+  //       const user = await cursor.next();
+
+  //       if (!user){
+  //         statsObj.status = `END CURSOR ${category}`
+  //         console.log(chalkBlueBold(`${MODULE_ID_PREFIX} | categoryCursorStream | +++ ENDING FETCH USER INTERVAL | NO USER FROM DB CURSOR | CATEGORY: ${category}`))
+  //         await cursor.close();
+  //         clearInterval(fetchUserInterval)
+  //       }
+  //       else{
+  //         await cursorDataHandler({user: user})
+  //         await fetchReady()
+  //         fetchUserReady = true;
+  //       }
+
+  //     }
+  //     catch (err) {
+  //       console.error(`${MODULE_ID_PREFIX} | *** ERROR: ${err}`)
+  //       fetchUserReady = true;
+  //     }
+
+  //   } 
+
+  // }, configuration.cursorInterval);
+
+  // return cursor;
 }
 
 
@@ -1655,6 +1694,7 @@ function endSaveFileQueue(){
     let saveFileQueue = tcUtils.getSaveFileQueue();
 
     console.log(chalkLog(MODULE_ID_PREFIX
+      + " | " + getTimeStamp()
       + " | ... WAIT END SAVE FILE QUEUE"
       + " | SFQ: " + saveFileQueue
     ));
@@ -1706,11 +1746,11 @@ function wait(params){
 
     const start = moment().valueOf();
 
-    waitInterval = setInterval(function(){
+    const waitInterval = setInterval(function(){
 
       saveFileQueue = tcUtils.getSaveFileQueue();
 
-      if (saveFileQueue < configuration.maxSaveFileQueue){
+      if (saveFileQueue <= configuration.maxSaveFileQueue){
 
         const deltaMS = (moment().valueOf() - start);
 
@@ -1960,18 +2000,22 @@ async function generateGlobalTrainingTestSet(){
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | CATEGORIZE MAX " + statsObj.users.grandTotal + " USERS"));
     console.log(chalkAlert(MODULE_ID_PREFIX + " | *** TEST MODE *** | MAX SAVE FILE QUEUE: " + configuration.maxSaveFileQueue));
   }
+  statsObj.users.fetched = 0;
+  statsObj.users.skipped = 0;
 
   for(const category of ["left", "neutral", "right"]){
 
     categoryCursorHash[category] = {};
     categoryCursorHash[category].category = category;
     categoryCursorHash[category].complete = false;
+    await categoryCursorStream({ category: category, ignored: false, cursorParallel: configuration.cursorParallel });
+    categoryCursorHash[category].complete = true;
 
-    categoryCursorHash[category].cursor = await categoryCursorStream({ category: category, ignored: false });
+    // categoryCursorHash[category].cursor = await categoryCursorStream({ category: category, ignored: false });
     
-    categoryCursorHash[category].cursor.on("error", async (err) => handleMongooseEvent({category: category, event: "error", err: err}));
-    categoryCursorHash[category].cursor.on("end", async () => handleMongooseEvent({category: category, event: "end"}));
-    categoryCursorHash[category].cursor.on("close", async () => handleMongooseEvent({category: category, event: "close"}));
+    // categoryCursorHash[category].cursor.on("error", async (err) => handleMongooseEvent({category: category, event: "error", err: err}));
+    // categoryCursorHash[category].cursor.on("end", async () => handleMongooseEvent({category: category, event: "end"}));
+    // categoryCursorHash[category].cursor.on("close", async () => handleMongooseEvent({category: category, event: "close"}));
 
   }
 
