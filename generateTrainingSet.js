@@ -158,6 +158,11 @@ const chalkWarn = chalk.red;
 const chalkLog = chalk.gray;
 const chalkInfo = chalk.black;
 
+let fetchUserInterval;
+let showStatsInterval;
+let endSaveFileQueueInterval;
+let waitInterval;
+
 let archive;
 
 const subFolderSet = new Set();
@@ -700,7 +705,10 @@ async function quit(options){
 
   console.log(chalkAlert(MODULE_ID_PREFIX + " | QUITTING ..." ));
 
+  clearInterval(fetchUserInterval);
   clearInterval(endSaveFileQueueInterval);
+  clearInterval(showStatsInterval);
+  clearInterval(waitInterval);
 
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
 
@@ -709,15 +717,11 @@ async function quit(options){
     categoryCursor.cursor.close();
   }
 
-    await redisClient.flushdb();
+  await tcUtils.stopSaveFileQueue();
 
-    clearInterval(showStatsInterval);
-
-    await tcUtils.stopSaveFileQueue();
-    
-    await redisClient.disconnect();
-    await redisClient.quit();
-
+  await redisClient.flushdb();
+  await redisClient.disconnect();
+  await redisClient.quit();
 
   if (options !== undefined) {
 
@@ -1607,7 +1611,7 @@ async function categoryCursorStream(params){
   if (statsObj.cursor[params.category] === undefined) { statsObj.cursor[params.category] = {}; }
   if (statsObj.users.processed.startMoment === 0) { statsObj.users.processed.startMoment = moment(); }
 
-  const fetchUserInterval = setInterval(async () => {
+  fetchUserInterval = setInterval(async () => {
 
     if (fetchUserReady) {
 
@@ -1639,7 +1643,6 @@ async function categoryCursorStream(params){
   return cursor;
 }
 
-let endSaveFileQueueInterval;
 
 const allCursorsComplete = () => Object.values(categoryCursorHash).every((categoryCursor) => categoryCursor.complete)
 
@@ -1703,7 +1706,7 @@ function wait(params){
 
     const start = moment().valueOf();
 
-    const w = setInterval(function(){
+    waitInterval = setInterval(function(){
 
       saveFileQueue = tcUtils.getSaveFileQueue();
 
@@ -1711,7 +1714,7 @@ function wait(params){
 
         const deltaMS = (moment().valueOf() - start);
 
-        clearInterval(w);
+        clearInterval(waitInterval);
 
         if (params.verbose) {
           console.log(chalkLog(`${MODULE_ID_PREFIX} | XXX WAIT END BACK PRESSURE | SFQ: ${saveFileQueue} | PERIOD: ${params.period} MS | TOTAL WAIT: ${deltaMS} MS`));
@@ -1974,8 +1977,6 @@ async function generateGlobalTrainingTestSet(){
 
   return;
 }
-
-let showStatsInterval;
 
 setTimeout(async function(){
 
