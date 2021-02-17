@@ -2095,6 +2095,8 @@ setTimeout(async function(){
 
     await endSaveFileQueue();
 
+    await redisClient.flushdb();
+
     clearInterval(showStatsInterval);
 
     await tcUtils.stopSaveFileQueue();
