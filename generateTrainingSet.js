@@ -2003,6 +2003,8 @@ async function generateGlobalTrainingTestSet(){
   statsObj.users.fetched = 0;
   statsObj.users.skipped = 0;
 
+  statsObj.users.processed.startMoment = moment();
+
   for(const category of ["left", "neutral", "right"]){
 
     categoryCursorHash[category] = {};
