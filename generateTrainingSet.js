@@ -2135,6 +2135,9 @@ async function cursorDataHandler(params) {
           " ]" +
           " | GLOBAL HIST: " +
           statsObj.users.processed.updatedGlobalHistograms +
+          "/" +
+          configuration.maxGlobalHistogramUsers +
+          " MAX" +
           " | CATEGORIZED: " +
           statsObj.categorizedCount +
           " | L: " +
