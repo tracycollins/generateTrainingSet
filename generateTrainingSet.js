@@ -11,8 +11,22 @@ const MODULE_NAME = "generateTrainingSet  ";
 const MODULE_ID_PREFIX = "GTS";
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
+const DEFAULT_ENTITIES = [
+  "emoji",
+  "friends",
+  "hashtags",
+  "images",
+  "locations",
+  "media",
+  "ngrams",
+  "places",
+  "sentiment",
+  "urls",
+  "userMentions",
+  "words",
+];
 const DEFAULT_CURSOR_PARALLEL = 8;
-const DEFAULT_MAX_GLOBAL_HISTOGRAM_USERS = 10000;
+const DEFAULT_MAX_GLOBAL_HISTOGRAM_USERS = 1000;
 
 const DEFAULT_PRUNE_FLAG = true;
 const DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY = false;
@@ -302,6 +316,7 @@ const statsPickArray = [
 statsObjSmall = pick(statsObj, statsPickArray);
 
 let configuration = {}; // merge of defaultConfiguration & hostConfiguration
+configuration.entities = DEFAULT_ENTITIES;
 configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
 configuration.maxGlobalHistogramUsers = DEFAULT_MAX_GLOBAL_HISTOGRAM_USERS; // max users used to update global histogtrams due to mem contraints
 configuration.pruneFlag = DEFAULT_PRUNE_FLAG;
@@ -1912,6 +1927,7 @@ const formatCategory = tcUtils.formatCategory;
 
 async function cursorDataHandler(params) {
   const user = params.user;
+  const entities = params.entities || configuration.entities;
 
   statsObj.users.processed.total += 1;
   statsObj.users.processed.remain -= 1;
@@ -2097,11 +2113,17 @@ async function cursorDataHandler(params) {
   });
 
   if (Math.random() < configuration.userGlobalHistogramProbability) {
-    await tcUtils.updateGlobalHistograms({ user: catUser, verbose: true });
+    await tcUtils.updateGlobalHistograms({
+      user: catUser,
+      entities: entities,
+      verbose: true,
+    });
     statsObj.users.processed.updatedGlobalHistograms += 1;
     debug(
       chalkLog(
-        `${MODULE_ID_PREFIX} | ->- UPDATE GLOBAL HIST [${statsObj.users.processed.updatedGlobalHistograms}/${statsObj.users.grandTotal}] @${catUser.screenName}`
+        `${MODULE_ID_PREFIX} | ->- UPDATE GLOBAL HIST` +
+          ` [${statsObj.users.processed.updatedGlobalHistograms}/${statsObj.users.grandTotal}] ` +
+          `@${catUser.screenName}`
       )
     );
   }
@@ -2127,31 +2149,20 @@ async function cursorDataHandler(params) {
   statsObj.categorizedCount += 1;
 
   if (statsObj.categorizedCount > 0 && statsObj.categorizedCount % 100 === 0) {
+    statsObj.setSizes = tcUtils.getOneSets();
     console.log(
-      chalkInfo(
-        MODULE_ID_PREFIX +
-          " [ SFQ: " +
-          saveFileQueue +
-          " ]" +
-          " | GLOBAL HIST: " +
-          statsObj.users.processed.updatedGlobalHistograms +
-          "/" +
-          configuration.maxGlobalHistogramUsers +
-          " MAX" +
-          " | CATEGORIZED: " +
-          statsObj.categorizedCount +
-          " | L: " +
-          categorizedUsers.left +
-          " | N: " +
-          categorizedUsers.neutral +
-          " | R: " +
-          categorizedUsers.right +
-          " | +: " +
-          categorizedUsers.positive +
-          " | -: " +
-          categorizedUsers.negative +
-          " | 0: " +
-          categorizedUsers.none
+      chalkLog(
+        `${MODULE_ID_PREFIX} | SFQ: ${saveFileQueue} | GLOBAL HIST` +
+          ` | ${statsObj.users.processed.updatedGlobalHistograms}/${configuration.maxGlobalHistogramUsers} MAX` +
+          ` | ONE: ${statsObj.setSizes.one}` +
+          ` | GTO: ${statsObj.setSizes.greaterThanOne}` +
+          ` | CATEGORIZED: ${statsObj.categorizedCount}` +
+          ` | L: ${categorizedUsers.left} ` +
+          ` | N: ${categorizedUsers.neutral} ` +
+          ` | R: ${categorizedUsers.right} ` +
+          ` | +: ${categorizedUsers.positive} ` +
+          ` | -: ${categorizedUsers.negative} ` +
+          ` | 0: ${categorizedUsers.none} `
       )
     );
   }
@@ -2159,40 +2170,40 @@ async function cursorDataHandler(params) {
   return;
 }
 
-const fetchReady = async () => {
-  statsObj.fetchReady.saveFileQueue = tcUtils.getSaveFileQueue();
-  statsObj.fetchReady.maxSaveFileQueue = Math.max(
-    statsObj.fetchReady.maxSaveFileQueue,
-    statsObj.fetchReady.saveFileQueue
-  );
+// const fetchReady = async () => {
+//   statsObj.fetchReady.saveFileQueue = tcUtils.getSaveFileQueue();
+//   statsObj.fetchReady.maxSaveFileQueue = Math.max(
+//     statsObj.fetchReady.maxSaveFileQueue,
+//     statsObj.fetchReady.saveFileQueue
+//   );
 
-  statsObj.fetchReady.queueOverShoot =
-    statsObj.fetchReady.saveFileQueue - configuration.maxSaveFileQueue;
-  statsObj.fetchReady.maxQueueOverShoot = Math.max(
-    statsObj.fetchReady.maxQueueOverShoot,
-    statsObj.fetchReady.queueOverShoot
-  );
+//   statsObj.fetchReady.queueOverShoot =
+//     statsObj.fetchReady.saveFileQueue - configuration.maxSaveFileQueue;
+//   statsObj.fetchReady.maxQueueOverShoot = Math.max(
+//     statsObj.fetchReady.maxQueueOverShoot,
+//     statsObj.fetchReady.queueOverShoot
+//   );
 
-  if (statsObj.fetchReady.queueOverShoot <= 0) {
-    return;
-  }
+//   if (statsObj.fetchReady.queueOverShoot <= 0) {
+//     return;
+//   }
 
-  statsObj.fetchReady.period =
-    statsObj.fetchReady.queueOverShoot *
-    configuration.saveFileBackPressurePeriod;
-  statsObj.fetchReady.maxPeriod = Math.max(
-    statsObj.fetchReady.maxPeriod,
-    statsObj.fetchReady.period
-  );
+//   statsObj.fetchReady.period =
+//     statsObj.fetchReady.queueOverShoot *
+//     configuration.saveFileBackPressurePeriod;
+//   statsObj.fetchReady.maxPeriod = Math.max(
+//     statsObj.fetchReady.maxPeriod,
+//     statsObj.fetchReady.period
+//   );
 
-  await wait({
-    message: "BK PRSSR | SFQ: " + statsObj.fetchReady.saveFileQueue,
-    period: statsObj.fetchReady.period,
-    verbose: configuration.verbose,
-  });
+//   await wait({
+//     message: "BK PRSSR | SFQ: " + statsObj.fetchReady.saveFileQueue,
+//     period: statsObj.fetchReady.period,
+//     verbose: configuration.verbose,
+//   });
 
-  return;
-};
+//   return;
+// };
 
 async function categoryCursorStream(params) {
   const category = params.category;
