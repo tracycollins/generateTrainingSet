@@ -20,7 +20,7 @@
     "@slack/web-api": "^6.0.0",
     "@threeceelabs/mongoose-twitter": "^1.1.0",
     "@threeceelabs/mongoose-utilities": "^1.0.13",
-    "@threeceelabs/threeceeutilities": "^3.0.3",
+    "@threeceelabs/threeceeutilities": "^3.0.9",
     "@threeceelabs/user-server-controller": "^2.0.1",
     "archiver": "^5.2.0",
     "chalk": "^4.1.0",
