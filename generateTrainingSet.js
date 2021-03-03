@@ -466,7 +466,7 @@ mgUtils.on("ready", async () => {
 });
 
 const tcuAppName = MODULE_ID_PREFIX + "_TCU";
-const ThreeceeUtilities = require("@threeceelabs/threecee-utilities");
+const ThreeceeUtilities = require("@threeceelabs/threeceeutilities");
 const tcUtils = new ThreeceeUtilities(tcuAppName);
 
 const redisClient = tcUtils.redisClient;
