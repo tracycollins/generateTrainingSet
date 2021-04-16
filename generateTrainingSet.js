@@ -920,8 +920,8 @@ async function quit(options) {
   await tcUtils.stopSaveFileQueue();
 
   await redisClient.flushdb();
-  await redisClient.disconnect();
-  await redisClient.quit();
+  // await redisClient.disconnect();
+  // await redisClient.quit();
 
   if (options !== undefined) {
     if (options === "help") {
