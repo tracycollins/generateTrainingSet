@@ -1,6 +1,6 @@
 {
   "name": "@threeceelabs/generate-training-set",
-  "version": "1.0.16",
+  "version": "2.0.0",
   "description": "generate twitter nn training set",
   "main": "index.js",
   "scripts": {
