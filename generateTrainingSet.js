@@ -1,4 +1,4 @@
-const dotenv = require("dotenv");
+import dotenv from "dotenv";
 const envConfig = dotenv.config({ path: process.env.WORD_ENV_VARS_FILE });
 
 if (envConfig.error) {
@@ -8,7 +8,7 @@ if (envConfig.error) {
 console.log("WAS | +++ ENV CONFIG LOADED");
 
 const MODULE_NAME = "generateTrainingSet  ";
-const MODULE_ID_PREFIX = "GTS";
+const PF = "GTS";
 const GLOBAL_TRAINING_SET_ID = "globalTrainingSet";
 
 const DEFAULT_ENTITIES = [
@@ -101,7 +101,7 @@ DEFAULT_TEST_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP.words = 2;
 
 const TOTAL_MAX_TEST_COUNT = 1000;
 
-const os = require("os");
+import os from "os";
 let hostname = os.hostname();
 hostname = hostname.replace(/.tld/g, ""); // amtrak wifi
 hostname = hostname.replace(/.local/g, "");
@@ -129,32 +129,30 @@ if (hostname === "google") {
 
 console.log("\n\n");
 console.log(
-  MODULE_ID_PREFIX +
+  PF +
     " | =================================================================================="
 );
 console.log(
-  MODULE_ID_PREFIX +
+  PF +
     " | =================================================================================="
 );
-console.log(MODULE_ID_PREFIX + " | HOST:                " + HOST);
-console.log(MODULE_ID_PREFIX + " | PRIMARY_HOST:        " + PRIMARY_HOST);
-console.log(MODULE_ID_PREFIX + " | DATABASE_HOST:       " + DATABASE_HOST);
-console.log(MODULE_ID_PREFIX + " | hostname:            " + hostname);
+console.log(PF + " | HOST:                " + HOST);
+console.log(PF + " | PRIMARY_HOST:        " + PRIMARY_HOST);
+console.log(PF + " | DATABASE_HOST:       " + DATABASE_HOST);
+console.log(PF + " | hostname:            " + hostname);
+console.log(PF + " | DROPBOX_ROOT_FOLDER: " + DROPBOX_ROOT_FOLDER);
+console.log(PF + " | DATA_ROOT_FOLDER:    " + DATA_ROOT_FOLDER);
 console.log(
-  MODULE_ID_PREFIX + " | DROPBOX_ROOT_FOLDER: " + DROPBOX_ROOT_FOLDER
-);
-console.log(MODULE_ID_PREFIX + " | DATA_ROOT_FOLDER:    " + DATA_ROOT_FOLDER);
-console.log(
-  MODULE_ID_PREFIX +
+  PF +
     " | =================================================================================="
 );
 console.log(
-  MODULE_ID_PREFIX +
+  PF +
     " | =================================================================================="
 );
 console.log("\n\n");
 
-const MODULE_ID = MODULE_ID_PREFIX + "_node_" + hostname;
+const MODULE_ID = PF + "_node_" + hostname;
 
 const ONE_SECOND = 1000;
 const ONE_MINUTE = 60 * ONE_SECOND;
@@ -168,21 +166,21 @@ const compactDateTimeFormat = "YYYYMMDD_HHmmss";
 const DEFAULT_QUIT_ON_COMPLETE = true;
 const DEFAULT_TEST_RATIO = 0.2;
 
-const path = require("path");
-const moment = require("moment");
-const merge = require("deepmerge");
-const archiver = require("archiver");
-const watch = require("watch");
-const fs = require("fs");
-const util = require("util");
-const _ = require("lodash");
-const HashMap = require("hashmap").HashMap;
-const pick = require("object.pick");
-const debug = require("debug")("gts");
-const commandLineArgs = require("command-line-args");
-const empty = require("is-empty");
+import path from "path";
+import moment from "moment";
+import merge from "deepmerge";
+import archiver from "archiver";
+import watch from "watch";
+import fs from "fs";
+import util from "util";
+import _ from "lodash";
+import HashMap from "hashmap";
+import pick from "object.pick";
+import debug from "debug";
+import commandLineArgs from "command-line-args";
+import empty from "is-empty";
 
-const chalk = require("chalk");
+import chalk from "chalk";
 const chalkAlert = chalk.red;
 const chalkBlue = chalk.blue;
 const chalkBlueBold = chalk.bold.blue;
@@ -321,7 +319,8 @@ configuration.cursorParallel = DEFAULT_CURSOR_PARALLEL;
 configuration.maxGlobalHistogramUsers = DEFAULT_MAX_GLOBAL_HISTOGRAM_USERS; // max users used to update global histogtrams due to mem contraints
 configuration.pruneFlag = DEFAULT_PRUNE_FLAG;
 configuration.maxUserFriends = DEFAULT_MAX_USER_FRIENDS;
-configuration.saveFileBackPressurePeriod = DEFAULT_SAVE_FILE_BACKPRESSURE_PERIOD;
+configuration.saveFileBackPressurePeriod =
+  DEFAULT_SAVE_FILE_BACKPRESSURE_PERIOD;
 configuration.saveGlobalHistogramsOnly = DEFAULT_SAVE_GLOBAL_HISTOGRAMS_ONLY;
 configuration.enableCreateUserArchive = DEFAULT_ENABLE_CREATE_USER_ARCHIVE;
 // configuration.maxCursorDataHandlerQueue = DEFAULT_MAX_CURSOR_DATA_HANDLER_QUEUE;
@@ -335,11 +334,15 @@ configuration.testMode = false; // per tweet test mode
 configuration.testSetRatio = DEFAULT_TEST_RATIO;
 configuration.totalMaxTestCount = TOTAL_MAX_TEST_COUNT;
 
-configuration.inputTypeMinTweetsHashMap = DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP;
-configuration.testInputTypeMinTweetsHashMap = DEFAULT_TEST_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP;
+configuration.inputTypeMinTweetsHashMap =
+  DEFAULT_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP;
+configuration.testInputTypeMinTweetsHashMap =
+  DEFAULT_TEST_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP;
 
-configuration.inputTypeMinProfileHashMap = DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP;
-configuration.testInputTypeMinProfileHashMap = DEFAULT_TEST_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP;
+configuration.inputTypeMinProfileHashMap =
+  DEFAULT_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP;
+configuration.testInputTypeMinProfileHashMap =
+  DEFAULT_TEST_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP;
 
 configuration.maxTestCount = {};
 configuration.maxTestCount.left = parseInt(0.333333 * TOTAL_MAX_TEST_COUNT);
@@ -455,19 +458,26 @@ configuration.userArchiveFolder = configuration[HOST].userArchiveFolder;
 fs.mkdirSync(configuration.tempUserDataFolder, { recursive: true });
 fs.mkdirSync(configuration[HOST].userArchiveFolder, { recursive: true });
 
-global.wordAssoDb = require("@threeceelabs/mongoose-twitter");
+let mongooseDb;
+import mgt from "@threeceelabs/mongoose-twitter";
+global.wordAssoDb = mgt;
+global.dbConnection = false;
 
-const mguAppName = MODULE_ID_PREFIX + "_MGU";
-const MongooseUtilities = require("@threeceelabs/mongoose-utilities");
+const mguAppName = "MGU_" + MODULE_ID;
+import { MongooseUtilities } from "@threeceelabs/mongoose-utilities";
 const mgUtils = new MongooseUtilities(mguAppName);
 
 mgUtils.on("ready", async () => {
-  console.log(`${MODULE_ID_PREFIX} | +++ MONGOOSE UTILS READY: ${mguAppName}`);
+  console.log(`${PF} | +++ MONGOOSE UTILS READY: ${mguAppName}`);
 });
 
-const tcuAppName = MODULE_ID_PREFIX + "_TCU";
-const ThreeceeUtilities = require("@threeceelabs/threeceeutilities");
+const tcuAppName = PF + "_TCU";
+import { ThreeceeUtilities } from "@threeceelabs/threeceeutilities";
 const tcUtils = new ThreeceeUtilities(tcuAppName);
+
+tcUtils.on("ready", async () => {
+  console.log(`${PF} | +++ THREECEE UTILS READY: ${tcuAppName}`);
+});
 
 const redisClient = tcUtils.redisClient;
 const jsonPrint = tcUtils.jsonPrint;
@@ -475,27 +485,30 @@ const getTimeStamp = tcUtils.getTimeStamp;
 const msToTime = tcUtils.msToTime;
 
 tcUtils.on("ready", async () => {
-  console.log(`${MODULE_ID_PREFIX} | +++ THREECEE UTILS READY: ${tcuAppName}`);
+  console.log(`${PF} | +++ THREECEE UTILS READY: ${tcuAppName}`);
 });
 
 tcUtils.on("error", async (err) => {
-  console.log(
-    `${MODULE_ID_PREFIX} | *** THREECEE UTILS ERROR ${tcuAppName} | ERR: ${err}`
-  );
+  console.log(`${PF} | *** THREECEE UTILS ERROR ${tcuAppName} | ERR: ${err}`);
   console.trace(err);
 });
 
-const UserServerController = require("@threeceelabs/user-server-controller");
-const userServerController = new UserServerController(
-  MODULE_ID_PREFIX + "_USC"
-);
+import { UserServerController } from "@threeceelabs/user-server-controller";
+const userServerController = new UserServerController(PF + "_USC");
+let userServerControllerReady = false;
 
 userServerController.on("error", function (err) {
-  console.log(chalkError(MODULE_ID_PREFIX + " | *** USC ERROR | " + err));
+  userServerControllerReady = false;
+  console.log(chalkError(PF + " | *** USC ERROR | " + err));
 });
 
 userServerController.on("ready", function (appname) {
-  console.log(chalk.green(MODULE_ID_PREFIX + " | USC READY | " + appname));
+  userServerControllerReady = true;
+  console.log(chalk.green(PF + " | USC READY | " + appname));
+});
+
+userServerController.on("ready", function (appname) {
+  console.log(chalk.green(PF + " | USC READY | " + appname));
 });
 
 process.on("unhandledRejection", async function (err, promise) {
@@ -522,12 +535,10 @@ const DEFAULT_RUN_ID =
 
 if (process.env.GTS_RUN_ID !== undefined) {
   statsObj.runId = process.env.GTS_RUN_ID;
-  console.log(chalkLog(MODULE_ID_PREFIX + " | ENV RUN ID: " + statsObj.runId));
+  console.log(chalkLog(PF + " | ENV RUN ID: " + statsObj.runId));
 } else {
   statsObj.runId = DEFAULT_RUN_ID;
-  console.log(
-    chalkLog(MODULE_ID_PREFIX + " | DEFAULT RUN ID: " + statsObj.runId)
-  );
+  console.log(chalkLog(PF + " | DEFAULT RUN ID: " + statsObj.runId));
 }
 
 const categorizedUserHistogram = {};
@@ -556,7 +567,7 @@ let stdin;
 //=========================================================================
 // SLACK
 //=========================================================================
-const { WebClient } = require("@slack/web-api");
+import { WebClient } from "@slack/web-api";
 
 console.log("process.env.SLACK_BOT_TOKEN: ", process.env.SLACK_BOT_TOKEN);
 const slackBotToken = process.env.SLACK_BOT_TOKEN;
@@ -576,9 +587,7 @@ async function slackSendWebMessage(msgObj) {
       channel: channel,
     });
   } catch (err) {
-    console.log(
-      chalkAlert(MODULE_ID_PREFIX + " | *** slackSendWebMessage ERROR: " + err)
-    );
+    console.log(chalkAlert(PF + " | *** slackSendWebMessage ERROR: " + err));
     throw err;
   }
 }
@@ -674,21 +683,15 @@ const optionDefinitions = [
 const commandLineConfig = commandLineArgs(optionDefinitions);
 console.log(
   chalkInfo(
-    MODULE_ID_PREFIX +
-      " | COMMAND LINE CONFIG\nGTS | " +
-      jsonPrint(commandLineConfig)
+    PF + " | COMMAND LINE CONFIG\nGTS | " + jsonPrint(commandLineConfig)
   )
 );
 console.log(
-  MODULE_ID_PREFIX +
-    " | COMMAND LINE OPTIONS\nGTS | " +
-    jsonPrint(commandLineConfig)
+  PF + " | COMMAND LINE OPTIONS\nGTS | " + jsonPrint(commandLineConfig)
 );
 
 if (Object.keys(commandLineConfig).includes("help")) {
-  console.log(
-    MODULE_ID_PREFIX + " |optionDefinitions\n" + jsonPrint(optionDefinitions)
-  );
+  console.log(PF + " |optionDefinitions\n" + jsonPrint(optionDefinitions));
   quit("help");
 }
 
@@ -699,16 +702,16 @@ process.on("message", function (msg) {
     );
     setTimeout(function () {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | **** Finished closing connections ****" +
           "\n\n" +
-          MODULE_ID_PREFIX +
+          PF +
           " | ***** RELOADING generateTrainingSet.js NOW *****\n\n"
       );
       process.exit(0);
     }, 1500);
   } else {
-    console.log(MODULE_ID_PREFIX + " | R<\n" + jsonPrint(msg));
+    console.log(PF + " | R<\n" + jsonPrint(msg));
   }
 });
 
@@ -736,16 +739,16 @@ testObj.testSet = [];
 
 process.title = "node_gts";
 console.log("\n\nGTS | =================================");
-console.log(MODULE_ID_PREFIX + " | HOST:          " + hostname);
-console.log(MODULE_ID_PREFIX + " | PROCESS TITLE: " + process.title);
-console.log(MODULE_ID_PREFIX + " | PROCESS ID:    " + process.pid);
-console.log(MODULE_ID_PREFIX + " | RUN ID:        " + statsObj.runId);
+console.log(PF + " | HOST:          " + hostname);
+console.log(PF + " | PROCESS TITLE: " + process.title);
+console.log(PF + " | PROCESS ID:    " + process.pid);
+console.log(PF + " | RUN ID:        " + statsObj.runId);
 console.log(
-  MODULE_ID_PREFIX +
+  PF +
     " | PROCESS ARGS:  " +
     util.inspect(process.argv, { showHidden: false, depth: 1 })
 );
-console.log(MODULE_ID_PREFIX + " | =================================");
+console.log(PF + " | =================================");
 
 // ==================================================================
 // DROPBOX
@@ -776,16 +779,14 @@ async function showStats(options) {
   const saveFileQueue = tcUtils.getSaveFileQueue();
 
   if (options) {
-    console.log(
-      MODULE_ID_PREFIX + " | STATS\nGTS | " + jsonPrint(statsObjSmall)
-    );
+    console.log(PF + " | STATS\nGTS | " + jsonPrint(statsObjSmall));
   } else {
     console.log(
       chalkLog(
-        MODULE_ID_PREFIX +
+        PF +
           " | ===========================================================================================================" +
           "\n" +
-          MODULE_ID_PREFIX +
+          PF +
           " | RUN " +
           msToTime(statsObj.elapsed) +
           " | NOW " +
@@ -795,11 +796,11 @@ async function showStats(options) {
           " | STATUS: " +
           statsObj.status +
           "\n" +
-          MODULE_ID_PREFIX +
+          PF +
           " | REDIS KEYS: " +
           statsObj.redis.keys +
           "\n" +
-          MODULE_ID_PREFIX +
+          PF +
           " | SFQ: " +
           saveFileQueue +
           " | CPUs: " +
@@ -811,7 +812,7 @@ async function showStats(options) {
           statsObj.maxHeap.toFixed(3) +
           " GB" +
           "\n" +
-          MODULE_ID_PREFIX +
+          PF +
           " | ==========================================================================================================="
       )
     );
@@ -820,7 +821,7 @@ async function showStats(options) {
 
     console.log(
       chalkLog(
-        MODULE_ID_PREFIX +
+        PF +
           " | CL U HIST" +
           " | TOTAL: " +
           categorizedUserHistogram.total +
@@ -841,10 +842,10 @@ async function showStats(options) {
 
     console.log(
       chalkInfo(
-        MODULE_ID_PREFIX +
+        PF +
           " | ===========================================================================================================" +
           "\n" +
-          MODULE_ID_PREFIX +
+          PF +
           " | PROCESSED" +
           " | " +
           getTimeStamp() +
@@ -868,7 +869,7 @@ async function showStats(options) {
           (statsObj.users.processed.rate / 1000).toFixed(3) +
           " SPU ]" +
           "\n" +
-          MODULE_ID_PREFIX +
+          PF +
           " | NOW: " +
           getTimeStamp() +
           " | START: " +
@@ -886,7 +887,7 @@ async function showStats(options) {
     if (statsObj.status === "archiveFolder") {
       console.log(
         chalkGreen(
-          MODULE_ID_PREFIX +
+          PF +
             " | ->- ARCHIVE" +
             " | PROGRESS: " +
             statsObj.progressMbytes.toFixed(3) +
@@ -903,7 +904,7 @@ async function showStats(options) {
 }
 
 async function quit(options) {
-  console.log(chalkAlert(MODULE_ID_PREFIX + " | QUITTING ..."));
+  console.log(chalkAlert(PF + " | QUITTING ..."));
 
   clearInterval(fetchUserInterval);
   clearInterval(endSaveFileQueueInterval);
@@ -913,7 +914,7 @@ async function quit(options) {
   statsObj.elapsed = moment().valueOf() - statsObj.startTime;
 
   // for(const categoryCursor of Object.values(categoryCursorHash)){
-  //   console.log(chalkLog(`${MODULE_ID_PREFIX} | CLOSING CURSOR | ${categoryCursor.category}`))
+  //   console.log(chalkLog(`${PF} | CLOSING CURSOR | ${categoryCursor.category}`))
   //   categoryCursor.cursor.close();
   // }
 
@@ -942,17 +943,17 @@ async function quit(options) {
 
     console.log(
       chalkBlueBold(
-        MODULE_ID_PREFIX +
+        PF +
           " | ===================================================================" +
           "\n" +
-          MODULE_ID_PREFIX +
+          PF +
           " | *** QUIT GENERATE TRAINING SET ***" +
           "\n" +
-          MODULE_ID_PREFIX +
+          PF +
           " | DATA_ROOT_FOLDER: " +
           configuration.dataRootFolder +
           "\n" +
-          MODULE_ID_PREFIX +
+          PF +
           " | ==================================================================="
       )
     );
@@ -970,7 +971,7 @@ process.on("exit", async function () {
 
 function initStdIn() {
   return new Promise(function (resolve) {
-    console.log(MODULE_ID_PREFIX + " | STDIN ENABLED");
+    console.log(PF + " | STDIN ENABLED");
 
     stdin = process.stdin;
     if (stdin.setRawMode !== undefined) {
@@ -986,9 +987,7 @@ function initStdIn() {
         case "v":
           configuration.verbose = !configuration.verbose;
           console.log(
-            chalkRedBold(
-              MODULE_ID_PREFIX + " | VERBOSE: " + configuration.verbose
-            )
+            chalkRedBold(PF + " | VERBOSE: " + configuration.verbose)
           );
           break;
         case "q":
@@ -1032,11 +1031,7 @@ function loadCommandLineArgs() {
     commandLineConfigKeys.forEach(function (arg) {
       configuration[arg] = commandLineConfig[arg];
       console.log(
-        MODULE_ID_PREFIX +
-          " | --> COMMAND LINE CONFIG | " +
-          arg +
-          ": " +
-          configuration[arg]
+        PF + " | --> COMMAND LINE CONFIG | " + arg + ": " + configuration[arg]
       );
     });
 
@@ -1067,7 +1062,7 @@ async function loadConfigFile(params) {
       if (params.noErrorNotFound) {
         console.log(
           chalkAlert(
-            MODULE_ID_PREFIX +
+            PF +
               " | ... SKIP LOAD CONFIG FILE: " +
               params.folder +
               "/" +
@@ -1077,10 +1072,7 @@ async function loadConfigFile(params) {
         return newConfiguration;
       } else {
         console.log(
-          chalkError(
-            MODULE_ID_PREFIX +
-              " | *** CONFIG LOAD FILE ERROR | JSON UNDEFINED ??? "
-          )
+          chalkError(PF + " | *** CONFIG LOAD FILE ERROR | JSON UNDEFINED ??? ")
         );
         throw new Error("JSON UNDEFINED");
       }
@@ -1088,15 +1080,13 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj instanceof Error) {
       console.log(
-        chalkError(
-          MODULE_ID_PREFIX + " | *** CONFIG LOAD FILE ERROR: " + loadedConfigObj
-        )
+        chalkError(PF + " | *** CONFIG LOAD FILE ERROR: " + loadedConfigObj)
       );
     }
 
     console.log(
       chalkInfo(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED CONFIG FILE: " +
           params.file +
           "\n" +
@@ -1106,9 +1096,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_TEST_MODE !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
-          " | LOADED GTS_TEST_MODE: " +
-          loadedConfigObj.GTS_TEST_MODE
+        PF + " | LOADED GTS_TEST_MODE: " + loadedConfigObj.GTS_TEST_MODE
       );
 
       if (
@@ -1126,17 +1114,13 @@ async function loadConfigFile(params) {
       }
 
       console.log(
-        MODULE_ID_PREFIX +
-          " | LOADED newConfiguration.testMode: " +
-          newConfiguration.testMode
+        PF + " | LOADED newConfiguration.testMode: " + newConfiguration.testMode
       );
     }
 
     if (loadedConfigObj.GTS_OFFLINE_MODE !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
-          " | LOADED GTS_OFFLINE_MODE: " +
-          loadedConfigObj.GTS_OFFLINE_MODE
+        PF + " | LOADED GTS_OFFLINE_MODE: " + loadedConfigObj.GTS_OFFLINE_MODE
       );
 
       if (
@@ -1156,7 +1140,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_SAVE_GLOBAL_HISTOGRAMS_ONLY !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_SAVE_GLOBAL_HISTOGRAMS_ONLY: " +
           loadedConfigObj.GTS_SAVE_GLOBAL_HISTOGRAMS_ONLY
       );
@@ -1178,7 +1162,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_QUIT_ON_COMPLETE !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_QUIT_ON_COMPLETE: " +
           loadedConfigObj.GTS_QUIT_ON_COMPLETE
       );
@@ -1194,25 +1178,21 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_VERBOSE_MODE !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
-          " | LOADED GTS_VERBOSE_MODE: " +
-          loadedConfigObj.GTS_VERBOSE_MODE
+        PF + " | LOADED GTS_VERBOSE_MODE: " + loadedConfigObj.GTS_VERBOSE_MODE
       );
       newConfiguration.verbose = loadedConfigObj.GTS_VERBOSE_MODE;
     }
 
     if (loadedConfigObj.GTS_ENABLE_STDIN !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
-          " | LOADED GTS_ENABLE_STDIN: " +
-          loadedConfigObj.GTS_ENABLE_STDIN
+        PF + " | LOADED GTS_ENABLE_STDIN: " + loadedConfigObj.GTS_ENABLE_STDIN
       );
       newConfiguration.enableStdin = loadedConfigObj.GTS_ENABLE_STDIN;
     }
 
     if (loadedConfigObj.GTS_DATA_ROOT_FOLDER !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_DATA_ROOT_FOLDER: " +
           loadedConfigObj.GTS_DATA_ROOT_FOLDER
       );
@@ -1229,7 +1209,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_CURSOR_PARALLEL !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_CURSOR_PARALLEL: " +
           loadedConfigObj.GTS_CURSOR_PARALLEL
       );
@@ -1238,7 +1218,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_MAX_GLOBAL_HISTOGRAM_USERS !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_MAX_GLOBAL_HISTOGRAM_USERS: " +
           loadedConfigObj.GTS_MAX_GLOBAL_HISTOGRAM_USERS
       );
@@ -1248,7 +1228,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_CURSOR_BATCH_SIZE !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_CURSOR_BATCH_SIZE: " +
           loadedConfigObj.GTS_CURSOR_BATCH_SIZE
       );
@@ -1257,7 +1237,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_TOTAL_MAX_TEST_COUNT !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_TOTAL_MAX_TEST_COUNT: " +
           loadedConfigObj.GTS_TOTAL_MAX_TEST_COUNT
       );
@@ -1290,7 +1270,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP: " +
           loadedConfigObj.GTS_MIN_TOTAL_MIN_TWEETS_TYPE_HASHMAP
       );
@@ -1300,7 +1280,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP: " +
           loadedConfigObj.GTS_MIN_TOTAL_MIN_PROFILE_TYPE_HASHMAP
       );
@@ -1310,7 +1290,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_MAX_USER_FRIENDS !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_MAX_USER_FRIENDS: " +
           loadedConfigObj.GTS_MAX_USER_FRIENDS
       );
@@ -1318,13 +1298,13 @@ async function loadConfigFile(params) {
     }
 
     // if (loadedConfigObj.GTS_USERS_PER_ARCHIVE !== undefined){
-    //   console.log(MODULE_ID_PREFIX + " | LOADED GTS_USERS_PER_ARCHIVE: " + loadedConfigObj.GTS_USERS_PER_ARCHIVE);
+    //   console.log(PF + " | LOADED GTS_USERS_PER_ARCHIVE: " + loadedConfigObj.GTS_USERS_PER_ARCHIVE);
     //   newConfiguration.usersPerArchive = loadedConfigObj.GTS_USERS_PER_ARCHIVE;
     // }
 
     if (loadedConfigObj.GTS_WAIT_VALUE_INTERVAL !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_WAIT_VALUE_INTERVAL: " +
           loadedConfigObj.GTS_WAIT_VALUE_INTERVAL
       );
@@ -1334,7 +1314,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_REDIS_SCAN_COUNT !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_REDIS_SCAN_COUNT: " +
           loadedConfigObj.GTS_REDIS_SCAN_COUNT
       );
@@ -1343,7 +1323,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_SAVE_FILE_MAX_PARALLEL !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_SAVE_FILE_MAX_PARALLEL: " +
           loadedConfigObj.GTS_SAVE_FILE_MAX_PARALLEL
       );
@@ -1353,7 +1333,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_SAVE_FILE_QUEUE_INTERVAL !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_SAVE_FILE_QUEUE_INTERVAL: " +
           loadedConfigObj.GTS_SAVE_FILE_QUEUE_INTERVAL
       );
@@ -1363,7 +1343,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_MAX_SAVE_FILE_QUEUE !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_MAX_SAVE_FILE_QUEUE: " +
           loadedConfigObj.GTS_MAX_SAVE_FILE_QUEUE
       );
@@ -1373,7 +1353,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_SAVE_FILE_BACKPRESSURE_PERIOD !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_SAVE_FILE_BACKPRESSURE_PERIOD: " +
           loadedConfigObj.GTS_SAVE_FILE_BACKPRESSURE_PERIOD
       );
@@ -1383,7 +1363,7 @@ async function loadConfigFile(params) {
 
     if (loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE !== undefined) {
       console.log(
-        MODULE_ID_PREFIX +
+        PF +
           " | LOADED GTS_MAX_HISTOGRAM_VALUE: " +
           loadedConfigObj.GTS_MAX_HISTOGRAM_VALUE
       );
@@ -1395,11 +1375,7 @@ async function loadConfigFile(params) {
   } catch (err) {
     console.error(
       chalkError(
-        MODULE_ID_PREFIX +
-          " | ERROR LOAD CONFIG: " +
-          fullPath +
-          "\n" +
-          jsonPrint(err)
+        PF + " | ERROR LOAD CONFIG: " + fullPath + "\n" + jsonPrint(err)
       )
     );
     throw err;
@@ -1418,7 +1394,7 @@ async function loadAllConfigFiles(cnf) {
     defaultConfiguration = defaultConfig;
     console.log(
       chalkInfo(
-        MODULE_ID_PREFIX +
+        PF +
           " | <<< LOADED DEFAULT CONFIG " +
           configDefaultFolder +
           "/" +
@@ -1437,7 +1413,7 @@ async function loadAllConfigFiles(cnf) {
     hostConfiguration = hostConfig;
     console.log(
       chalkInfo(
-        MODULE_ID_PREFIX +
+        PF +
           " | <<< LOADED HOST CONFIG " +
           configHostFolder +
           "/" +
@@ -1468,11 +1444,7 @@ async function initWatchAllConfigFolders(p) {
     const params = p || {};
 
     console.log(
-      chalkBlue(
-        MODULE_ID_PREFIX +
-          " | INIT WATCH ALL CONFIG FILES\n" +
-          jsonPrint(params)
-      )
+      chalkBlue(PF + " | INIT WATCH ALL CONFIG FILES\n" + jsonPrint(params))
     );
 
     await loadAllConfigFiles();
@@ -1494,9 +1466,7 @@ async function initWatchAllConfigFolders(p) {
       function (monitorDefaultConfig) {
         console.log(
           chalkBlue(
-            MODULE_ID_PREFIX +
-              " | INIT WATCH DEFAULT CONFIG FOLDER: " +
-              configDefaultFolder
+            PF + " | INIT WATCH DEFAULT CONFIG FOLDER: " + configDefaultFolder
           )
         );
 
@@ -1519,11 +1489,7 @@ async function initWatchAllConfigFolders(p) {
         monitorDefaultConfig.on("removed", function (f) {
           debug(
             chalkInfo(
-              MODULE_ID_PREFIX +
-                " | XXX FILE DELETED | " +
-                getTimeStamp() +
-                " | " +
-                f
+              PF + " | XXX FILE DELETED | " + getTimeStamp() + " | " + f
             )
           );
         });
@@ -1540,9 +1506,7 @@ async function initWatchAllConfigFolders(p) {
       function (monitorHostConfig) {
         console.log(
           chalkBlue(
-            MODULE_ID_PREFIX +
-              " | INIT WATCH HOST CONFIG FOLDER: " +
-              configHostFolder
+            PF + " | INIT WATCH HOST CONFIG FOLDER: " + configHostFolder
           )
         );
 
@@ -1563,11 +1527,7 @@ async function initWatchAllConfigFolders(p) {
         monitorHostConfig.on("removed", function (f) {
           debug(
             chalkInfo(
-              MODULE_ID_PREFIX +
-                " | XXX FILE DELETED | " +
-                getTimeStamp() +
-                " | " +
-                f
+              PF + " | XXX FILE DELETED | " + getTimeStamp() + " | " + f
             )
           );
         });
@@ -1577,9 +1537,7 @@ async function initWatchAllConfigFolders(p) {
     return;
   } catch (err) {
     console.log(
-      chalkError(
-        MODULE_ID_PREFIX + " | *** INIT LOAD ALL CONFIG INTERVAL ERROR: " + err
-      )
+      chalkError(PF + " | *** INIT LOAD ALL CONFIG INTERVAL ERROR: " + err)
     );
     throw err;
   }
@@ -1588,9 +1546,7 @@ async function initWatchAllConfigFolders(p) {
 async function updateCategorizedUser(params) {
   if (!params.user || params.user === undefined) {
     console.error(
-      chalkError(
-        MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USERS: USER UNDEFINED"
-      )
+      chalkError(PF + " | *** UPDATE CATEGORIZED USERS: USER UNDEFINED")
     );
     statsObj.errors.users.findOne += 1;
     statsObj.users.processed.errors += 1;
@@ -1603,7 +1559,7 @@ async function updateCategorizedUser(params) {
     if (!userIn.category || userIn.category === undefined) {
       console.log(
         chalkError(
-          MODULE_ID_PREFIX +
+          PF +
             " | *** UPDATE CATEGORIZED USERS: USER CATEGORY UNDEFINED | UID: " +
             userIn.nodeId
         )
@@ -1615,7 +1571,7 @@ async function updateCategorizedUser(params) {
     if (userIn.screenName === undefined) {
       console.log(
         chalkError(
-          MODULE_ID_PREFIX +
+          PF +
             " | *** UPDATE CATEGORIZED USERS: USER SCREENNAME UNDEFINED | UID: " +
             userIn.nodeId
         )
@@ -1647,7 +1603,7 @@ async function updateCategorizedUser(params) {
         if (user.profileHistograms.sentiment.magnitude < 0) {
           console.log(
             chalkAlert(
-              MODULE_ID_PREFIX +
+              PF +
                 " | !!! NORMALIZATION MAG LESS THAN 0 | CLAMPED: " +
                 user.profileHistograms.sentiment.magnitude
             )
@@ -1664,7 +1620,7 @@ async function updateCategorizedUser(params) {
         if (user.profileHistograms.sentiment.score < -1.0) {
           console.log(
             chalkAlert(
-              MODULE_ID_PREFIX +
+              PF +
                 " | !!! NORMALIZATION SCORE LESS THAN -1.0 | CLAMPED: " +
                 user.profileHistograms.sentiment.score
             )
@@ -1675,7 +1631,7 @@ async function updateCategorizedUser(params) {
         if (user.profileHistograms.sentiment.score > 1.0) {
           console.log(
             chalkAlert(
-              MODULE_ID_PREFIX +
+              PF +
                 " | !!! NORMALIZATION SCORE GREATER THAN 1.0 | CLAMPED: " +
                 user.profileHistograms.sentiment.score
             )
@@ -1704,10 +1660,10 @@ async function updateCategorizedUser(params) {
         );
       }
 
-      // console.log(chalkAlert(MODULE_ID_PREFIX + " | SENTIMENT: " + user.profileHistograms.sentiment));
+      // console.log(chalkAlert(PF + " | SENTIMENT: " + user.profileHistograms.sentiment));
       console.log(
         chalkLog(
-          MODULE_ID_PREFIX +
+          PF +
             " | NID: " +
             user.nodeId +
             " | @" +
@@ -1722,7 +1678,7 @@ async function updateCategorizedUser(params) {
       );
       console.log(
         chalkLog(
-          MODULE_ID_PREFIX +
+          PF +
             " | NORMALIZATION" +
             " | SCORE min: " +
             statsObj.normalization.score.min +
@@ -1799,9 +1755,7 @@ async function updateCategorizedUser(params) {
     return user;
   } catch (err) {
     console.error(
-      chalkError(
-        MODULE_ID_PREFIX + " | *** UPDATE CATEGORIZED USER ERROR: " + err
-      )
+      chalkError(PF + " | *** UPDATE CATEGORIZED USER ERROR: " + err)
     );
     statsObj.errors.users.findOne += 1;
     statsObj.users.processed.errors += 1;
@@ -1820,7 +1774,7 @@ async function categorizeUser(params) {
 
       console.log(
         chalkAlert(
-          MODULE_ID_PREFIX +
+          PF +
             " | *** UPDATE CATEGORIZED USR NOT FOUND: " +
             " [ USERS: " +
             userIndex +
@@ -1847,7 +1801,7 @@ async function categorizeUser(params) {
     if (params.verbose) {
       console.log(
         chalkInfo(
-          MODULE_ID_PREFIX +
+          PF +
             " | -<- UPDATE CATEGORIZED USR <DB" +
             " [ USERS: " +
             userIndex +
@@ -1866,7 +1820,7 @@ async function categorizeUser(params) {
   } catch (err) {
     console.log(
       chalkError(
-        MODULE_ID_PREFIX +
+        PF +
           " | *** UPDATE CATEGORIZED USER ERROR | USER ID: " +
           params.user.nodeId +
           " | ERROR: " +
@@ -1907,19 +1861,19 @@ const formatCategory = tcUtils.formatCategory;
 //   switch (eventObj.event){
 //     case "end":
 //     case "close":
-//       console.log(chalkBlueBold(`${MODULE_ID_PREFIX} | CATEGORY: ${eventObj.category} | CURSOR EVENT: ${eventObj.event.toUpperCase()}`))
+//       console.log(chalkBlueBold(`${PF} | CATEGORY: ${eventObj.category} | CURSOR EVENT: ${eventObj.event.toUpperCase()}`))
 //       categoryCursorHash[eventObj.category].complete = true;
 //     break;
 
 //     case "error":
-//       console.error(chalkError(`${MODULE_ID_PREFIX} | CATEGORY: ${eventObj.category} | CURSOR ERROR: ${eventObj.err}`))
+//       console.error(chalkError(`${PF} | CATEGORY: ${eventObj.category} | CURSOR ERROR: ${eventObj.err}`))
 //       categoryCursorHash[eventObj.category].complete = true;
 //       categoryCursorHash[eventObj.category].error = eventObj.err;
 //     break;
 
 //     default:
 //       console.error(chalkError(`*** CATEGORY: ${eventObj.category} | UNKNOWN EVENT: ${eventObj.event}`))
-//       throw new Error(`${MODULE_ID_PREFIX} | UNKNOWN CURSOR EVENT: ${eventObj.event}`)
+//       throw new Error(`${PF} | UNKNOWN CURSOR EVENT: ${eventObj.event}`)
 //   }
 
 //   return;
@@ -1955,7 +1909,7 @@ async function cursorDataHandler(params) {
   if (!isValidUser(user)) {
     console.log(
       chalkWarn(
-        `${MODULE_ID_PREFIX} | !!! INVALID USER ... SKIPPING | NID: ${user.nodeId} | @${user.screenName}`
+        `${PF} | !!! INVALID USER ... SKIPPING | NID: ${user.nodeId} | @${user.screenName}`
       )
     );
     statsObj.users.processed.errors += 1;
@@ -1965,7 +1919,7 @@ async function cursorDataHandler(params) {
   if (user.friends === 1) {
     console.log(
       chalkAlert(
-        `${MODULE_ID_PREFIX} | *** FRIENDS INVALID | NID: ${user.nodeId} ... FIXING ...`
+        `${PF} | *** FRIENDS INVALID | NID: ${user.nodeId} ... FIXING ...`
       )
     );
     user.friends = [];
@@ -1978,7 +1932,7 @@ async function cursorDataHandler(params) {
   if (user.tweetHistograms === 1) {
     console.log(
       chalkAlert(
-        `${MODULE_ID_PREFIX} | *** TWEETS HISTOGRAM INVALID | NID: ${user.nodeId} ... FIXING ...`
+        `${PF} | *** TWEETS HISTOGRAM INVALID | NID: ${user.nodeId} ... FIXING ...`
       )
     );
     user.tweetHistograms = {};
@@ -1991,7 +1945,7 @@ async function cursorDataHandler(params) {
   if (user.tweetHistograms.friends === null) {
     console.log(
       chalkAlert(
-        `${MODULE_ID_PREFIX} | *** TWEETS HISTOGRAM FRIENDS NULL | NID: ${user.nodeId} ... FIXING ...`
+        `${PF} | *** TWEETS HISTOGRAM FRIENDS NULL | NID: ${user.nodeId} ... FIXING ...`
       )
     );
     delete user.tweetHistograms.friends;
@@ -2009,9 +1963,7 @@ async function cursorDataHandler(params) {
     ) {
       debug(
         chalkAlert(
-          `${MODULE_ID_PREFIX} | *** FRIENDS IN TWEETS HISTOGRAM | NID: ${
-            user.nodeId
-          } | ${
+          `${PF} | *** FRIENDS IN TWEETS HISTOGRAM | NID: ${user.nodeId} | ${
             Array.isArray(user.tweetHistograms.friends)
               ? user.tweetHistograms.friends.length
               : "NOT ARRAY"
@@ -2024,15 +1976,13 @@ async function cursorDataHandler(params) {
         user.tweetHistograms.friends.length > 0
       ) {
         console.log(
-          `${MODULE_ID_PREFIX} | *** FRIENDS: ${user.friends.length} | TW HIST FRIENDS: ${user.tweetHistograms.friends.length}`
+          `${PF} | *** FRIENDS: ${user.friends.length} | TW HIST FRIENDS: ${user.tweetHistograms.friends.length}`
         );
         user.friends =
           user.friends === undefined || user.friends.length === 0
             ? _.union([], user.tweetHistograms.friends)
             : _.union(user.friends, user.tweetHistograms.friends);
-        console.log(
-          `${MODULE_ID_PREFIX} | *** FRIENDS MERGED: ${user.friends.length}`
-        );
+        console.log(`${PF} | *** FRIENDS MERGED: ${user.friends.length}`);
       }
 
       delete user.tweetHistograms.friends;
@@ -2063,7 +2013,7 @@ async function cursorDataHandler(params) {
     if (configuration.testMode || statsObj.users.processed.empty % 100 === 0) {
       console.log(
         chalkWarn(
-          MODULE_ID_PREFIX +
+          PF +
             " | --- EMPTY HISTOGRAMS" +
             " | SKIPPING" +
             " | PRCSD/REM/MT/ERR/TOT: " +
@@ -2121,7 +2071,7 @@ async function cursorDataHandler(params) {
     statsObj.users.processed.updatedGlobalHistograms += 1;
     debug(
       chalkLog(
-        `${MODULE_ID_PREFIX} | ->- UPDATE GLOBAL HIST` +
+        `${PF} | ->- UPDATE GLOBAL HIST` +
           ` [${statsObj.users.processed.updatedGlobalHistograms}/${statsObj.users.grandTotal}] ` +
           `@${catUser.screenName}`
       )
@@ -2152,7 +2102,7 @@ async function cursorDataHandler(params) {
     statsObj.setSizes = tcUtils.getOneSets();
     console.log(
       chalkLog(
-        `${MODULE_ID_PREFIX} | SFQ: ${saveFileQueue} | GLOBAL HIST` +
+        `${PF} | SFQ: ${saveFileQueue} | GLOBAL HIST` +
           ` | ${statsObj.users.processed.updatedGlobalHistograms}/${configuration.maxGlobalHistogramUsers} MAX` +
           ` | ONE: ${statsObj.setSizes.one}` +
           ` | GTO: ${statsObj.setSizes.greaterThanOne}` +
@@ -2224,19 +2174,19 @@ async function categoryCursorStream(params) {
   console.log(
     chalkGreen(
       "\n" +
-        MODULE_ID_PREFIX +
+        PF +
         " | =============================================================================================================="
     )
   );
   console.log(
     chalkGreen(
-      MODULE_ID_PREFIX +
+      PF +
         " | CATEGORIZE | CATEGORY: " +
         category +
         ": " +
         statsObj.userCategoryTotal[category] +
         "\n" +
-        MODULE_ID_PREFIX +
+        PF +
         " | TEST MODE: " +
         configuration.testMode +
         " | MAX COUNT: " +
@@ -2257,7 +2207,7 @@ async function categoryCursorStream(params) {
   );
   console.log(
     chalkGreen(
-      MODULE_ID_PREFIX +
+      PF +
         " | ==============================================================================================================\n"
     )
   );
@@ -2268,7 +2218,7 @@ async function categoryCursorStream(params) {
 
   console.log(
     chalkBlue(
-      MODULE_ID_PREFIX +
+      PF +
         " | categoryCursorStream" +
         " | cursorBatchSize: " +
         cursorBatchSize +
@@ -2290,7 +2240,7 @@ async function categoryCursorStream(params) {
         statsObj.status = `END CURSOR ${category}`;
         console.log(
           chalkBlueBold(
-            `${MODULE_ID_PREFIX} | categoryCursorStream | +++ ENDING FETCH USER INTERVAL | NO USER FROM DB CURSOR | CATEGORY: ${category}`
+            `${PF} | categoryCursorStream | +++ ENDING FETCH USER INTERVAL | NO USER FROM DB CURSOR | CATEGORY: ${category}`
           )
         );
         cursor.close();
@@ -2330,7 +2280,7 @@ async function categoryCursorStream(params) {
 
   //       if (!user){
   //         statsObj.status = `END CURSOR ${category}`
-  //         console.log(chalkBlueBold(`${MODULE_ID_PREFIX} | categoryCursorStream | +++ ENDING FETCH USER INTERVAL | NO USER FROM DB CURSOR | CATEGORY: ${category}`))
+  //         console.log(chalkBlueBold(`${PF} | categoryCursorStream | +++ ENDING FETCH USER INTERVAL | NO USER FROM DB CURSOR | CATEGORY: ${category}`))
   //         await cursor.close();
   //         clearInterval(fetchUserInterval)
   //       }
@@ -2342,7 +2292,7 @@ async function categoryCursorStream(params) {
 
   //     }
   //     catch (err) {
-  //       console.error(`${MODULE_ID_PREFIX} | *** ERROR: ${err}`)
+  //       console.error(`${PF} | *** ERROR: ${err}`)
   //       fetchUserReady = true;
   //     }
 
@@ -2366,7 +2316,7 @@ function endSaveFileQueue() {
 
     console.log(
       chalkLog(
-        MODULE_ID_PREFIX +
+        PF +
           " | " +
           getTimeStamp() +
           " | ... WAIT END SAVE FILE QUEUE" +
@@ -2380,15 +2330,13 @@ function endSaveFileQueue() {
 
       debug(
         chalkInfo(
-          `${MODULE_ID_PREFIX} | allCursorsComplete: ${allCursorsComplete()} | saveFileQueue: ${saveFileQueue}`
+          `${PF} | allCursorsComplete: ${allCursorsComplete()} | saveFileQueue: ${saveFileQueue}`
         )
       );
 
       if (saveFileQueue === 0 && allCursorsComplete()) {
         clearInterval(endSaveFileQueueInterval);
-        console.log(
-          chalkBlueBold(MODULE_ID_PREFIX + " | +++ END SAVE FILE QUEUE")
-        );
+        console.log(chalkBlueBold(PF + " | +++ END SAVE FILE QUEUE"));
         resolve();
       }
     }, 10 * ONE_SECOND);
@@ -2400,12 +2348,7 @@ function delay(params) {
     if (params.message) {
       console.log(
         chalkLog(
-          MODULE_ID_PREFIX +
-            " | " +
-            params.message +
-            " | PERIOD: " +
-            params.period +
-            " MS"
+          PF + " | " + params.message + " | PERIOD: " + params.period + " MS"
         )
       );
     }
@@ -2426,9 +2369,7 @@ function wait(params) {
 
     if (params.message && params.verbose) {
       console.log(
-        chalkLog(
-          `${MODULE_ID_PREFIX} | ${params.message} | PERIOD: ${params.period} MS`
-        )
+        chalkLog(`${PF} | ${params.message} | PERIOD: ${params.period} MS`)
       );
     }
 
@@ -2445,7 +2386,7 @@ function wait(params) {
         if (params.verbose) {
           console.log(
             chalkLog(
-              `${MODULE_ID_PREFIX} | XXX WAIT END BACK PRESSURE | SFQ: ${saveFileQueue} | PERIOD: ${params.period} MS | TOTAL WAIT: ${deltaMS} MS`
+              `${PF} | XXX WAIT END BACK PRESSURE | SFQ: ${saveFileQueue} | PERIOD: ${params.period} MS | TOTAL WAIT: ${deltaMS} MS`
             )
           );
         }
@@ -2471,7 +2412,7 @@ async function updateArchiveFileUploadComplete(params) {
 
     console.log(
       chalkLog(
-        MODULE_ID_PREFIX +
+        PF +
           " | ... UPDATE FLAG" +
           " | " +
           params.path +
@@ -2491,10 +2432,7 @@ async function updateArchiveFileUploadComplete(params) {
     return;
   } catch (err) {
     console.log(
-      chalkError(
-        MODULE_ID_PREFIX + " | *** updateArchiveFileUploadComplete ERROR",
-        err
-      )
+      chalkError(PF + " | *** updateArchiveFileUploadComplete ERROR", err)
     );
     throw err;
   }
@@ -2509,7 +2447,7 @@ function archiveFolder(params) {
 
     console.log(
       chalkBlue(
-        MODULE_ID_PREFIX +
+        PF +
           " | ARCHIVE FOLDER" +
           " | SRC: " +
           params.folder +
@@ -2528,7 +2466,7 @@ function archiveFolder(params) {
       const archiveSize = toMegabytes(archive.pointer());
       console.log(
         chalkGreen(
-          MODULE_ID_PREFIX +
+          PF +
             " | +O+ ARCHIVE OUTPUT | CLOSED" +
             " | SRC: " +
             params.folder +
@@ -2546,7 +2484,7 @@ function archiveFolder(params) {
       const archiveSize = toMegabytes(archive.pointer());
       console.log(
         chalkGreen(
-          MODULE_ID_PREFIX +
+          PF +
             " | 000 ARCHIVE OUTPUT | END" +
             " | SRC: " +
             params.folder +
@@ -2561,9 +2499,7 @@ function archiveFolder(params) {
 
     archive.on("warning", function (err) {
       console.log(
-        chalkAlert(
-          MODULE_ID_PREFIX + " | !!! ARCHIVE | WARNING\n" + jsonPrint(err)
-        )
+        chalkAlert(PF + " | !!! ARCHIVE | WARNING\n" + jsonPrint(err))
       );
       // if (err.code !== "ENOENT") {
       // }
@@ -2577,7 +2513,7 @@ function archiveFolder(params) {
       if (verbose) {
         console.log(
           chalkGreen(
-            MODULE_ID_PREFIX +
+            PF +
               " | ->- ARCHIVE" +
               " | PROGRESS: " +
               statsObj.progressMbytes.toFixed(3) +
@@ -2596,7 +2532,7 @@ function archiveFolder(params) {
       const archiveSize = toMegabytes(archive.pointer());
       console.log(
         chalkGreen(
-          MODULE_ID_PREFIX +
+          PF +
             " | XXX ARCHIVE | CLOSED" +
             " | SRC: " +
             params.folder +
@@ -2613,7 +2549,7 @@ function archiveFolder(params) {
       const archiveSize = toMegabytes(archive.pointer());
       console.log(
         chalkGreen(
-          MODULE_ID_PREFIX +
+          PF +
             " | XXX ARCHIVE | FINISHED" +
             " | SRC: " +
             params.folder +
@@ -2629,7 +2565,7 @@ function archiveFolder(params) {
     archive.on("error", function (err) {
       console.log(
         chalkError(
-          MODULE_ID_PREFIX +
+          PF +
             " | *** ARCHIVE | ERROR" +
             " | SRC: " +
             params.folder +
@@ -2670,9 +2606,7 @@ async function initialize(cnf) {
 
   if (process.env.GTS_QUIT_ON_COMPLETE !== undefined) {
     console.log(
-      MODULE_ID_PREFIX +
-        " | ENV GTS_QUIT_ON_COMPLETE: " +
-        process.env.GTS_QUIT_ON_COMPLETE
+      PF + " | ENV GTS_QUIT_ON_COMPLETE: " + process.env.GTS_QUIT_ON_COMPLETE
     );
     if (
       !process.env.GTS_QUIT_ON_COMPLETE ||
@@ -2696,20 +2630,10 @@ async function initialize(cnf) {
   configArgs.forEach(function (arg) {
     if (_.isObject(configuration[arg])) {
       console.log(
-        MODULE_ID_PREFIX +
-          " | _FINAL CONFIG | " +
-          arg +
-          "\n" +
-          jsonPrint(configuration[arg])
+        PF + " | _FINAL CONFIG | " + arg + "\n" + jsonPrint(configuration[arg])
       );
     } else {
-      console.log(
-        MODULE_ID_PREFIX +
-          " | _FINAL CONFIG | " +
-          arg +
-          ": " +
-          configuration[arg]
-      );
+      console.log(PF + " | _FINAL CONFIG | " + arg + ": " + configuration[arg]);
     }
   });
 
@@ -2727,23 +2651,19 @@ async function generateGlobalTrainingTestSet() {
 
   console.log(
     chalkBlueBold(
-      MODULE_ID_PREFIX +
+      PF +
         " | ==================================================================="
     )
   );
   console.log(
-    chalkBlueBold(
-      MODULE_ID_PREFIX + " | GENERATE TRAINING SET | " + getTimeStamp()
-    )
+    chalkBlueBold(PF + " | GENERATE TRAINING SET | " + getTimeStamp())
+  );
+  console.log(
+    chalkBlueBold(PF + " | USER DATA FOLDER: " + configuration.userDataFolder)
   );
   console.log(
     chalkBlueBold(
-      MODULE_ID_PREFIX + " | USER DATA FOLDER: " + configuration.userDataFolder
-    )
-  );
-  console.log(
-    chalkBlueBold(
-      MODULE_ID_PREFIX +
+      PF +
         " | ==================================================================="
     )
   );
@@ -2752,9 +2672,8 @@ async function generateGlobalTrainingTestSet() {
 
   for (const category of ["left", "neutral", "right"]) {
     const query = { category: category, ignored: false };
-    statsObj.userCategoryTotal[
-      category
-    ] = await global.wordAssoDb.User.countDocuments(query);
+    statsObj.userCategoryTotal[category] =
+      await global.wordAssoDb.User.countDocuments(query);
     statsObj.users.grandTotal += statsObj.userCategoryTotal[category];
   }
 
@@ -2767,21 +2686,19 @@ async function generateGlobalTrainingTestSet() {
 
   console.log(
     chalkBlueBold(
-      MODULE_ID_PREFIX +
+      PF +
         " | ==================================================================="
     )
   );
   console.log(
     chalkBlueBold(
-      MODULE_ID_PREFIX +
-        " | CATEGORIZED USERS IN DB: " +
-        statsObj.users.grandTotal
+      PF + " | CATEGORIZED USERS IN DB: " + statsObj.users.grandTotal
     )
   );
-  // console.log(chalkBlueBold(MODULE_ID_PREFIX + " | GLOBAL HISTOGRAM PROBABILITY: " + configuration.userGlobalHistogramProbability.toFixed(3)));
+  // console.log(chalkBlueBold(PF + " | GLOBAL HISTOGRAM PROBABILITY: " + configuration.userGlobalHistogramProbability.toFixed(3)));
   console.log(
     chalkBlueBold(
-      MODULE_ID_PREFIX +
+      PF +
         " | GLOBAL HISTOGRAM TOTAL: " +
         configuration.maxGlobalHistogramUsers +
         " | " +
@@ -2791,7 +2708,7 @@ async function generateGlobalTrainingTestSet() {
   );
   console.log(
     chalkBlueBold(
-      MODULE_ID_PREFIX +
+      PF +
         " | L: " +
         statsObj.userCategoryTotal.left +
         " | N: " +
@@ -2802,7 +2719,7 @@ async function generateGlobalTrainingTestSet() {
   );
   console.log(
     chalkBlueBold(
-      MODULE_ID_PREFIX +
+      PF +
         " | ==================================================================="
     )
   );
@@ -2816,7 +2733,7 @@ async function generateGlobalTrainingTestSet() {
     statsObj.users.processed.remain = statsObj.users.grandTotal;
     console.log(
       chalkAlert(
-        MODULE_ID_PREFIX +
+        PF +
           " | *** TEST MODE *** | CATEGORIZE MAX " +
           statsObj.users.grandTotal +
           " USERS"
@@ -2824,7 +2741,7 @@ async function generateGlobalTrainingTestSet() {
     );
     console.log(
       chalkAlert(
-        MODULE_ID_PREFIX +
+        PF +
           " | *** TEST MODE *** | MAX SAVE FILE QUEUE: " +
           configuration.maxSaveFileQueue
       )
@@ -2866,20 +2783,13 @@ setTimeout(async function () {
 
     if (configuration.saveGlobalHistogramsOnly) {
       console.log(
-        chalkAlert(
-          MODULE_ID_PREFIX +
-            " | !!! SAVE GLOBAL HISTOGRAMS ONLY | NO REDIS FLUSH"
-        )
+        chalkAlert(PF + " | !!! SAVE GLOBAL HISTOGRAMS ONLY | NO REDIS FLUSH")
       );
     } else {
-      console.log(chalkAlert(`${MODULE_ID_PREFIX} | FLUSHING REDIS ALL ...`));
+      console.log(chalkAlert(`${PF} | FLUSHING REDIS ALL ...`));
       const redisResult = await redisClient.flushall();
       // const redisResult = await redisClient.flushdb();
-      console.log(
-        chalkAlert(
-          MODULE_ID_PREFIX + " | REDIS FLUSH ALL RESULT: " + redisResult
-        )
-      );
+      console.log(chalkAlert(PF + " | REDIS FLUSH ALL RESULT: " + redisResult));
     }
 
     tcUtils.setSaveFileMaxParallel(configuration.saveFileMaxParallel);
@@ -2896,7 +2806,7 @@ setTimeout(async function () {
     ) {
       console.log(
         chalkAlert(
-          MODULE_ID_PREFIX +
+          PF +
             " | XXX DELETE TEMP USER DATA FOLDER: " +
             configuration.tempUserDataFolder
         )
@@ -2911,9 +2821,7 @@ setTimeout(async function () {
 
       console.log(
         chalkAlert(
-          MODULE_ID_PREFIX +
-            " | +++ CREATE USER ARCHIVE FOLDER: " +
-            statsObj.runSubFolder
+          PF + " | +++ CREATE USER ARCHIVE FOLDER: " + statsObj.runSubFolder
         )
       );
 
@@ -2931,7 +2839,7 @@ setTimeout(async function () {
 
       console.log(
         chalkInfo(
-          MODULE_ID_PREFIX +
+          PF +
             " | ... SAVING NORMALIZATION FILE" +
             " [ SFQ: " +
             saveFileQueue +
@@ -2943,7 +2851,7 @@ setTimeout(async function () {
 
       console.log(
         chalkLog(
-          MODULE_ID_PREFIX +
+          PF +
             " | NORMALIZATION" +
             " | SCORE min: " +
             statsObj.normalization.score.min +
@@ -2974,9 +2882,7 @@ setTimeout(async function () {
     await endSaveFileQueue();
 
     if (configuration.enableCreateUserArchive) {
-      console.log(
-        chalkLog(MODULE_ID_PREFIX + " | SAVE USER DATA ARCHIVES ...")
-      );
+      console.log(chalkLog(PF + " | SAVE USER DATA ARCHIVES ..."));
 
       statsObj.status = "SAVE USER DATA ARCHIVES";
 
@@ -3009,11 +2915,7 @@ setTimeout(async function () {
           : localHistogramsFolder + "/types/";
     }
 
-    console.log(
-      chalkBlueBold(
-        MODULE_ID_PREFIX + " | ... SAVING HISTOGRAMS | " + rootFolder
-      )
-    );
+    console.log(chalkBlueBold(PF + " | ... SAVING HISTOGRAMS | " + rootFolder));
 
     statsObj.status = "SAVE HISTOGRAMS";
 
@@ -3035,14 +2937,15 @@ setTimeout(async function () {
     });
 
     if (configuration.testMode) {
-      configuration.archiveFileUploadCompleteFlagFile = configuration.archiveFileUploadCompleteFlagFile.replace(
-        /\.json/,
-        "_test.json"
-      );
+      configuration.archiveFileUploadCompleteFlagFile =
+        configuration.archiveFileUploadCompleteFlagFile.replace(
+          /\.json/,
+          "_test.json"
+        );
     }
     console.log(
       chalkInfo(
-        MODULE_ID_PREFIX +
+        PF +
           " | ... SAVING FLAG FILE" +
           " | " +
           configuration.trainingSetsFolder +
@@ -3058,7 +2961,7 @@ setTimeout(async function () {
       verbose: configuration.verbose,
     });
 
-    let slackText = "\n*" + MODULE_ID_PREFIX + " | TRAINING SET*";
+    let slackText = "\n*" + PF + " | TRAINING SET*";
     // slackText = slackText + "\n" + configuration.userArchivePath;
     slackText = slackText + "\nUSERS ARCHIVED: " + statsObj.users.grandTotal;
     slackText = slackText + "\nEMPTY: " + statsObj.users.processed.empty;
@@ -3074,10 +2977,10 @@ setTimeout(async function () {
 
     await endSaveFileQueue();
 
-    console.log(chalkBlueBold(MODULE_ID_PREFIX + " | XXX MAIN END XXX "));
+    console.log(chalkBlueBold(PF + " | XXX MAIN END XXX "));
     await quit("OK");
   } catch (err) {
-    console.log(chalkError(MODULE_ID_PREFIX + " | *** MAIN ERROR: " + err));
+    console.log(chalkError(PF + " | *** MAIN ERROR: " + err));
     await quit("MAIN ERROR: " + err);
   }
 }, 1000);
