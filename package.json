@@ -28,6 +28,7 @@
     "command-line-args": "^5.1.1",
     "debug": "^4.3.1",
     "deepmerge": "^4.2.2",
+    "dot-prop": "^6.0.1",
     "dotenv": "^10.0.0",
     "eventemitter3": "^4.0.7",
     "fsevents": "^2.3.2",
