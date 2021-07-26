@@ -191,9 +191,9 @@
     treeify "^1.1.0"
 
 "@threeceelabs/threeceeutilities@^5.1.5", "@threeceelabs/threeceeutilities@^5.2.5":
-  version "5.2.8"
-  resolved "https://registry.yarnpkg.com/@threeceelabs/threeceeutilities/-/threeceeutilities-5.2.8.tgz#bbf671c48ffd97945fd8e6d75355b57baccd1d29"
-  integrity sha512-ft07Hf5VHzHu2w5LTw2y5RSDRXRaNrFVFd6SuGaPNAc8i2QXpX5T3Nz+2lTnineI99r4X2JjR8Jx6l12cORmqg==
+  version "5.2.9"
+  resolved "https://registry.yarnpkg.com/@threeceelabs/threeceeutilities/-/threeceeutilities-5.2.9.tgz#1f4ee24cb3d150a162793beb403632fc91bf94a5"
+  integrity sha512-YzPV+QxIM/+6Pkw9c5YsZrZ2qCxuNGGN5ZNoZxuQVQxqCCALmVria/zwtMRU+0DFndkRT4EcNxdYWlgNUcRXkg==
   dependencies:
     "@google-cloud/language" "^4.2.6"
     "@googlemaps/google-maps-services-js" "^3.1.16"
@@ -206,6 +206,7 @@
     d3-scale "^4.0.0"
     deep-copy "^1.4.2"
     deepmerge "^4.2.2"
+    dot-prop "^6.0.1"
     dotenv "^10.0.0"
     eventemitter3 "^4.0.7"
     fs-extra "^10.0.0"
