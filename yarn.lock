@@ -144,7 +144,7 @@
   resolved "https://registry.yarnpkg.com/@slack/types/-/types-2.1.0.tgz#3b8d9fc600938ac3b55c39d93d7d4be74b380212"
   integrity sha512-6FSyuKt3dqmXpKxu5cH7vCm2Ekj7WpyaYyznTQ/SpKZKkdLvpkcp0/HbPFTtDI9O1wHGeaPgs6h3AtZmRRDXjA==
 
-"@slack/web-api@^6.2.4":
+"@slack/web-api@^6.3.0":
   version "6.3.0"
   resolved "https://registry.yarnpkg.com/@slack/web-api/-/web-api-6.3.0.tgz#a6e592d2bed49666ac9c31cdc6ab0c04443e935e"
   integrity sha512-EYJ5PuYtSzbrnFCoVE2+JzdM5NTPBlgJYpPGbiVyAved7if4tnbgZpeQT/Vg6E18w5RrFOZScbQaEU78GWmVDA==
@@ -190,7 +190,7 @@
     eventemitter3 "^4.0.7"
     treeify "^1.1.0"
 
-"@threeceelabs/threeceeutilities@^5.1.5", "@threeceelabs/threeceeutilities@^5.2.5":
+"@threeceelabs/threeceeutilities@^5.2.5", "@threeceelabs/threeceeutilities@^5.2.9":
   version "5.2.9"
   resolved "https://registry.yarnpkg.com/@threeceelabs/threeceeutilities/-/threeceeutilities-5.2.9.tgz#1f4ee24cb3d150a162793beb403632fc91bf94a5"
   integrity sha512-YzPV+QxIM/+6Pkw9c5YsZrZ2qCxuNGGN5ZNoZxuQVQxqCCALmVria/zwtMRU+0DFndkRT4EcNxdYWlgNUcRXkg==
@@ -258,7 +258,7 @@
     node-emoji "^1.10.0"
     treeify "^1.1.0"
 
-"@threeceelabs/user-server-controller@^3.0.1":
+"@threeceelabs/user-server-controller@^3.0.2":
   version "3.0.2"
   resolved "https://registry.yarnpkg.com/@threeceelabs/user-server-controller/-/user-server-controller-3.0.2.tgz#3601375ac65ac80fc84e711d7e5ec0f23f91b8d6"
   integrity sha512-GjsPwZmXEDN8nhhuIFvvnvTG9MMzRVfaqlPUyaAPflF94kUxWbJIDvFVjQaRE08zJg55ewlmTrV2mI8q5Hma0Q==
@@ -635,7 +635,7 @@ combined-stream@^1.0.6, combined-stream@~1.0.6:
   dependencies:
     delayed-stream "~1.0.0"
 
-command-line-args@^5.1.1:
+command-line-args@^5.1.3:
   version "5.1.3"
   resolved "https://registry.yarnpkg.com/command-line-args/-/command-line-args-5.1.3.tgz#1e57d2816f28804073bb5e75cd24e02e2aa321e7"
   integrity sha512-a5tF6mjqRSOBswBwdMkKY47JQ464Dkg9Pcwbxwo9wxRhKWZjtBktmBASllk3AMJ7qBuWgsAGtVa7b2/+EsymOQ==
